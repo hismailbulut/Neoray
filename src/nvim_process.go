@@ -71,7 +71,7 @@ func (proc *NvimProcess) introduce() {
 	methods := make(map[string]*nvim.ClientMethod, 0)
 	// Arbitrary string:string map of informal client properties
 	attributes := make(nvim.ClientAttributes, 1)
-	attributes["license"] = "Apache2"
+	attributes["license"] = "GPLv3"
 
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
