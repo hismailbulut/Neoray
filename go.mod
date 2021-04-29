@@ -1,4 +1,4 @@
-module raylib-deneme
+module github.com/hismailbulut/neoray
 
 go 1.16
 
