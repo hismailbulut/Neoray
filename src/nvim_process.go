@@ -22,7 +22,6 @@ func CreateProcess() *NvimProcess {
 		// "-u",
 		// "NORC",
 		// "--noplugin",
-		"bin\\test",
 	}
 	args = append(args, os.Args[1:]...)
 
@@ -71,6 +70,7 @@ func (proc *NvimProcess) introduce() {
 	methods := make(map[string]*nvim.ClientMethod, 0)
 	// Arbitrary string:string map of informal client properties
 	attributes := make(nvim.ClientAttributes, 1)
+	attributes["website"] = ""
 	attributes["license"] = "GPLv3"
 
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
