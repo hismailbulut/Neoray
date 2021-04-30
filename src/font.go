@@ -10,10 +10,12 @@ import (
 )
 
 type Font struct {
-	name   string
-	family string
-	size   float32
-	width  float32
+	size float32
+
+	regular_found     bool
+	italic_found      bool
+	bold_found        bool
+	bold_italic_found bool
 
 	regular     rl.Font
 	italic      rl.Font
@@ -25,8 +27,8 @@ type Font struct {
 
 func (font *Font) Load(fontname string, size float32) {
 
-	if size <= 6 {
-		size = 14
+	if size < 5 {
+		size = 12
 	}
 
 	font.size = size
@@ -94,44 +96,37 @@ func (font *Font) get_matching_fonts(name string, list []*sysfont.Font) ([]sysfo
 
 func (font *Font) load_matching_fonts(font_list []sysfont.Font, ignore_words ...string) bool {
 
-	regular_found := false
-	italic_found := false
-	bold_found := false
-	bold_italic_found := false
-
 	for _, f := range font_list {
 
 		has_italic := font.contains(&f, "Italic")
 		has_bold := font.contains(&f, "Bold")
 
-		has_ignored_words := false
 		for _, w := range ignore_words {
-			has_ignored_words = has_ignored_words || font.contains(&f, w)
-		}
-		if has_ignored_words {
-			continue
+			if font.contains(&f, w) {
+				continue
+			}
 		}
 
-		if has_italic && has_bold && !bold_italic_found {
+		if has_italic && has_bold && !font.bold_italic_found {
 			font.bold_italic = rl.LoadFontEx(f.Filename, int32(font.size), nil, 4096)
-			bold_italic_found = true
+			font.bold_italic_found = true
 			fmt.Println("FONT: Bold Italic:", f.Filename)
-		} else if has_italic && !has_bold && !italic_found {
+		} else if has_italic && !has_bold && !font.italic_found {
 			font.italic = rl.LoadFontEx(f.Filename, int32(font.size), nil, 4096)
-			italic_found = true
+			font.italic_found = true
 			fmt.Println("FONT: Italic:", f.Filename)
-		} else if has_bold && !has_italic && !bold_found {
+		} else if has_bold && !has_italic && !font.bold_found {
 			font.bold = rl.LoadFontEx(f.Filename, int32(font.size), nil, 4096)
-			bold_found = true
+			font.bold_found = true
 			fmt.Println("FONT: Bold:", f.Filename)
-		} else if !has_bold && !has_italic && !regular_found {
+		} else if !has_bold && !has_italic && !font.regular_found {
 			font.regular = rl.LoadFontEx(f.Filename, int32(font.size), nil, 4096)
-			regular_found = true
+			font.regular_found = true
 			fmt.Println("FONT: Regular:", f.Filename)
 		}
 	}
 
-	return regular_found && italic_found && bold_found && bold_italic_found
+	return font.regular_found && font.italic_found && font.bold_found && font.bold_italic_found
 }
 
 func (font *Font) contains(f *sysfont.Font, str string) bool {

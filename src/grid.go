@@ -4,43 +4,62 @@ import (
 	rl "github.com/chunqian/go-raylib/raylib"
 )
 
+type ModeInfo struct {
+	cursor_shape    string
+	cell_percentage int
+	blinkwait       int
+	blinkon         int
+	blinkoff        int
+	attr_id         int
+	attr_id_lm      int
+	short_name      string
+	name            string
+}
+
+type Mode struct {
+	cursor_style_enabled bool
+	mode_infos           map[string]ModeInfo
+	current_mode_name    string
+	current_mode         int
+}
+
 type Cell struct {
 	char      string
 	attrib_id int
 }
 
 type HighlightAttributes struct {
-	foreground rl.Color
-	background rl.Color
-	special    rl.Color
-	reverse    bool
-	italic     bool
-	bold       bool
-	// strikethrough
-	underline bool
-	undercurl bool
-	// blend
+	foreground    rl.Color
+	background    rl.Color
+	special       rl.Color
+	reverse       bool
+	italic        bool
+	bold          bool
+	strikethrough bool
+	underline     bool
+	undercurl     bool
+	blend         int
 }
 
-type GridTable struct {
+type Grid struct {
 	cells        [][]Cell
 	width        int
 	height       int
 	default_fg   rl.Color
 	default_bg   rl.Color
 	default_sp   rl.Color
-	attributes   []HighlightAttributes
+	attributes   map[int]HighlightAttributes
 	changed_rows map[int]bool
 }
 
-func CreateGridTable() GridTable {
-	table := GridTable{
-		attributes: make([]HighlightAttributes, 256),
+func CreateGrid() Grid {
+	table := Grid{
+		attributes: make(map[int]HighlightAttributes),
 	}
 	return table
 }
 
-func (table *GridTable) Resize(width int, height int) {
+func (table *Grid) Resize(width int, height int) {
 	table.width = width
 	table.height = height
 	// row count is height, column count is width
@@ -50,12 +69,12 @@ func (table *GridTable) Resize(width int, height int) {
 	}
 	// initialize and set changed rows
 	table.changed_rows = make(map[int]bool, len(table.cells))
-	for i := 0; i < len(table.cells); i++ {
+	for i := range table.cells {
 		table.changed_rows[i] = true
 	}
 }
 
-func (table *GridTable) ClearCells() {
+func (table *Grid) ClearCells() {
 	for i, row := range table.cells {
 		for _, cell := range row {
 			cell.char = ""
@@ -65,7 +84,7 @@ func (table *GridTable) ClearCells() {
 	}
 }
 
-func (table *GridTable) SetCell(x int, y *int, char string, hl_id int, repeat int) {
+func (table *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 	// If `repeat` is present, the cell should be
 	// repeated `repeat` times (including the first time)
 	if repeat == 0 {
@@ -82,28 +101,7 @@ func (table *GridTable) SetCell(x int, y *int, char string, hl_id int, repeat in
 	table.changed_rows[x] = true
 }
 
-func (table *GridTable) SetHlAttribute(id int, fg, bg, sp uint32, reverse, italic, bold, underline, undercurl bool) {
-	attrib := HighlightAttributes{
-		foreground: convert_rgb24_to_rgba(fg),
-		background: convert_rgb24_to_rgba(bg),
-		special:    convert_rgb24_to_rgba(sp),
-		reverse:    reverse,
-		italic:     italic,
-		bold:       bold,
-		underline:  underline,
-		undercurl:  undercurl,
-	}
-	attr_id := id - 1
-	if int(attr_id) == len(table.attributes) {
-		// new attribute, append
-		table.attributes = append(table.attributes, attrib)
-	} else if int(attr_id) < len(table.attributes) {
-		// set attribute
-		table.attributes[attr_id] = attrib
-	}
-}
-
-func (table *GridTable) Scroll(top, bot, rows, left, right int) {
+func (table *Grid) Scroll(top, bot, rows, left, right int) {
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ { // row
 			copy(table.cells[y-rows][left:right], table.cells[y][left:right])

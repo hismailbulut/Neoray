@@ -1,6 +1,6 @@
 @echo off
 set SOURCEFILES=src\main.go src\window.go src\nvim_process.go src\event_handler.go
-set SOURCEFILES=%SOURCEFILES% src\grid_table.go src\utils.go src\input.go src\cursor.go
+set SOURCEFILES=%SOURCEFILES% src\grid.go src\utils.go src\input.go src\cursor.go
 set SOURCEFILES=%SOURCEFILES% src\canvas.go src\font.go
 set LDFLAGS=
 set GCFLAGS="-N -l"

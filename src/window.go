@@ -8,14 +8,15 @@ type Window struct {
 	width  int
 	height int
 	title  string
-	table  GridTable
+	grid   Grid
 	cursor Cursor
+	mode   Mode
 	canvas Canvas
 	input  Input
 }
 
 func CreateAndShow(width int, height int, title string, font_name string, font_size float32) Window {
-	rl.SetConfigFlags(uint32(rl.FLAG_WINDOW_RESIZABLE)) // | uint32(rl.FLAG_VSYNC_HINT))
+	rl.SetConfigFlags(uint32(rl.FLAG_WINDOW_RESIZABLE) | uint32(rl.FLAG_WINDOW_HIGHDPI) | uint32(rl.FLAG_WINDOW_TRANSPARENT))
 
 	window := Window{
 		width:  width,
@@ -23,7 +24,7 @@ func CreateAndShow(width int, height int, title string, font_name string, font_s
 		title:  title,
 	}
 
-	window.table = CreateGridTable()
+	window.grid = CreateGrid()
 
 	window.canvas = Canvas{
 		cell_width:  font_size/2 + 1,
@@ -31,6 +32,10 @@ func CreateAndShow(width int, height int, title string, font_name string, font_s
 	}
 
 	window.cursor = Cursor{}
+
+	window.mode = Mode{
+		mode_infos: make(map[string]ModeInfo),
+	}
 
 	window.input = Input{
 		options: InputOptions{
@@ -43,7 +48,7 @@ func CreateAndShow(width int, height int, title string, font_name string, font_s
 	rl.SetExitKey(0)
 
 	window.canvas.LoadTexture(int32(window.width), int32(window.height))
-	window.canvas.LoadFont(font_name, font_size)
+	window.canvas.font.Load(font_name, font_size)
 
 	return window
 }
@@ -66,7 +71,7 @@ func (w *Window) Update(proc *NvimProcess) {
 
 func (w *Window) Render() {
 	rl.BeginDrawing()
-	rl.ClearBackground(w.table.default_bg)
+	rl.ClearBackground(w.grid.default_bg)
 
 	rl.DrawTextureRec(
 		w.canvas.GetTexture(),
@@ -76,8 +81,6 @@ func (w *Window) Render() {
 			Height: -float32(w.height)},
 		rl.Vector2Zero(),
 		rl.White)
-
-	w.cursor.Draw(w)
 
 	rl.EndDrawing()
 }
@@ -94,7 +97,7 @@ func (w *Window) SetTitle(title string) {
 }
 
 func (w *Window) Close() {
-	w.canvas.UnloadFont()
 	w.canvas.UnloadTexture()
+	w.canvas.font.Unload()
 	rl.CloseWindow()
 }

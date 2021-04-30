@@ -11,58 +11,42 @@ type Canvas struct {
 	cell_height float32
 }
 
-func (c *Canvas) LoadTexture(width, height int32) {
-	c.texture = rl.LoadRenderTexture(width, height)
+func (canvas *Canvas) LoadTexture(width, height int32) {
+	canvas.texture = rl.LoadRenderTexture(width, height)
 	// rl.GenTextureMipmaps((*rl.Texture2D)(&c.texture.Texture))
 	// rl.SetTextureFilter((rl.Texture2D)(c.texture.Texture), int32(rl.FILTER_TRILINEAR))
 }
 
-func (c *Canvas) LoadFont(font_name string, size float32) {
-	c.font = Font{}
-	c.font.Load(font_name, size)
+func (canvas *Canvas) UnloadTexture() {
+	rl.UnloadRenderTexture(canvas.texture)
 }
 
-func (c *Canvas) UnloadTexture() {
-	rl.UnloadRenderTexture(c.texture)
+func (canvas *Canvas) GetTexture() rl.Texture2D {
+	return rl.Texture2D(canvas.texture.Texture)
 }
 
-func (c *Canvas) UnloadFont() {
-	c.font.Unload()
-}
-
-func (c *Canvas) GetTexture() rl.Texture2D {
-	return rl.Texture2D(c.texture.Texture)
-}
-
-func (c *Canvas) DrawCell(table *GridTable, cell *Cell,
-	pos rl.Vector2, draw_text bool) {
+func (canvas *Canvas) DrawCell(grid *Grid, cell *Cell, mode *Mode, pos rl.Vector2, last_column_in_row bool) {
 
 	rect := rl.Rectangle{
 		X:      pos.X,
 		Y:      pos.Y,
-		Width:  c.cell_width,
-		Height: c.cell_height,
+		Width:  canvas.cell_width,
+		Height: canvas.cell_height,
 	}
 
-	fg := table.default_fg
-	bg := table.default_bg
-	sp := table.default_sp
+	fg := grid.default_fg
+	bg := grid.default_bg
+	sp := grid.default_sp
 
 	italic := false
 	bold := false
 
 	if cell.attrib_id > 0 {
 		// set attribute colors
-		attrib := &table.attributes[cell.attrib_id-1]
-		if attrib.foreground != rl.Black {
-			fg = attrib.foreground
-		}
-		if attrib.background != rl.Black {
-			bg = attrib.background
-		}
-		if attrib.special != rl.Black {
-			sp = attrib.special
-		}
+		attrib := grid.attributes[cell.attrib_id]
+		fg = attrib.foreground
+		bg = attrib.background
+		sp = attrib.special
 		// font
 		italic = attrib.italic
 		bold = attrib.bold
@@ -75,52 +59,50 @@ func (c *Canvas) DrawCell(table *GridTable, cell *Cell,
 		}
 	}
 
+	// background
 	rl.DrawRectangleRec(rect, bg)
-
-	// for debug
-	// rl.DrawRectangleLinesEx(rect, 1, rl.Black)
+	if last_column_in_row {
+		rl.DrawRectangleRec(
+			rl.Rectangle{X: rect.X + rect.Width, Y: rect.Y,
+				Width: rect.Width, Height: rect.Height},
+			bg)
+	}
 
 	char_pos := rl.Vector2{
 		X: rect.X,
 		Y: rect.Y + (rect.Width / 3),
 	}
 
-	if draw_text {
-		// for debug
-		char := cell.char
-		// if char == "" || char == " " {
-		//     char = "."
-		// }
-		rl.DrawTextEx(c.font.GetDrawableFont(italic, bold), char, char_pos, c.font.size, 0, fg)
-	}
+	rl.DrawTextEx(canvas.font.GetDrawableFont(italic, bold),
+		cell.char, char_pos, canvas.font.size, 0, fg)
 }
 
-func (c *Canvas) Draw(table *GridTable) {
-	rl.BeginTextureMode(c.texture)
+func (canvas *Canvas) Draw(grid *Grid, mode *Mode, cursor *Cursor) {
+	rl.BeginTextureMode(canvas.texture)
 
-	for x := 0; x < len(table.cells); x++ {
+	for x := 0; x < len(grid.cells); x++ {
 		// only draw if this row changed
-		if table.changed_rows[x] == true {
+		if grid.changed_rows[x] == true {
 
-			for y := 0; y < len(table.cells[x]); y++ {
+			for y := 0; y < len(grid.cells[x]); y++ {
+				// cell position
 				pos := rl.Vector2{
-					X: c.cell_width * float32(y),
-					Y: c.cell_height * float32(x)}
+					X: canvas.cell_width * float32(y),
+					Y: canvas.cell_height * float32(x)}
 				// draw this cell
-				c.DrawCell(table, &table.cells[x][y], pos, true)
-				// if this is the last column on this row
-				if y == len(table.cells[x])-1 {
-					pos := rl.Vector2{
-						X: c.cell_width * float32(y+1),
-						Y: c.cell_height * float32(x)}
-					// draw last cell background at the end of the column
-					c.DrawCell(table, &table.cells[x][y], pos, false)
-				}
+				canvas.DrawCell(grid,
+					&grid.cells[x][y],
+					mode,
+					pos,
+					y == len(grid.cells[x])-1)
 			}
 
-			table.changed_rows[x] = false
+			grid.changed_rows[x] = false
 		}
 	}
+
+	cursor.Draw(grid, canvas, mode)
+	grid.changed_rows[cursor.X] = true
 
 	rl.EndTextureMode()
 }
