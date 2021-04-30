@@ -29,16 +29,19 @@ type Cell struct {
 }
 
 type HighlightAttributes struct {
-	foreground    rl.Color
-	background    rl.Color
-	special       rl.Color
-	reverse       bool
-	italic        bool
-	bold          bool
-	strikethrough bool
-	underline     bool
-	undercurl     bool
-	blend         int
+	use_default_fg bool
+	use_default_bg bool
+	use_default_sp bool
+	foreground     rl.Color
+	background     rl.Color
+	special        rl.Color
+	reverse        bool
+	italic         bool
+	bold           bool
+	strikethrough  bool
+	underline      bool
+	undercurl      bool
+	blend          int
 }
 
 type Grid struct {
@@ -53,10 +56,9 @@ type Grid struct {
 }
 
 func CreateGrid() Grid {
-	table := Grid{
+	return Grid{
 		attributes: make(map[int]HighlightAttributes),
 	}
-	return table
 }
 
 func (table *Grid) Resize(width int, height int) {

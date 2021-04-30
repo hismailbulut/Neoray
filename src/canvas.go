@@ -14,7 +14,8 @@ type Canvas struct {
 func (canvas *Canvas) LoadTexture(width, height int32) {
 	canvas.texture = rl.LoadRenderTexture(width, height)
 	// rl.GenTextureMipmaps((*rl.Texture2D)(&c.texture.Texture))
-	// rl.SetTextureFilter((rl.Texture2D)(c.texture.Texture), int32(rl.FILTER_TRILINEAR))
+	// rl.SetTextureFilter((rl.Texture2D)(canvas.texture.Texture),
+	//     int32(rl.FILTER_POINT))
 }
 
 func (canvas *Canvas) UnloadTexture() {
@@ -44,9 +45,15 @@ func (canvas *Canvas) DrawCell(grid *Grid, cell *Cell, mode *Mode, pos rl.Vector
 	if cell.attrib_id > 0 {
 		// set attribute colors
 		attrib := grid.attributes[cell.attrib_id]
-		fg = attrib.foreground
-		bg = attrib.background
-		sp = attrib.special
+		if !attrib.use_default_fg {
+			fg = attrib.foreground
+		}
+		if !attrib.use_default_bg {
+			bg = attrib.background
+		}
+		if !attrib.use_default_sp {
+			sp = attrib.special
+		}
 		// font
 		italic = attrib.italic
 		bold = attrib.bold

@@ -70,7 +70,7 @@ func (proc *NvimProcess) introduce() {
 	methods := make(map[string]*nvim.ClientMethod, 0)
 	// Arbitrary string:string map of informal client properties
 	attributes := make(nvim.ClientAttributes, 1)
-	attributes["website"] = ""
+	attributes["website"] = "github.com/hismailbulut/Neoray"
 	attributes["license"] = "GPLv3"
 
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
@@ -86,18 +86,26 @@ func (proc *NvimProcess) ExecuteVimScript(script string) {
 }
 
 func (proc *NvimProcess) StartUI(w *Window) {
+
 	proc.update_stack = make([][][]interface{}, 0)
 	options := make(map[string]interface{})
+
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 	col_count := int(float32(w.width) / w.canvas.cell_width)
 	row_count := int(float32(w.height) / w.canvas.cell_height)
 	proc.handle.AttachUI(col_count, row_count, options)
+
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
 			// proc.update_mutex.Lock()
 			proc.update_stack = append(proc.update_stack, updates)
 			// proc.update_mutex.Unlock()
+		})
+
+	proc.handle.RegisterHandler("UIEnter",
+		func(updates ...[]interface{}) {
+			fmt.Println("UI connected")
 		})
 }
 

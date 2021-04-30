@@ -1,10 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 )
 
-func handle_nvim_updates(proc *NvimProcess, w *Window) {
+func HandleNvimRedrawEvents(proc *NvimProcess, w *Window) {
 	// defer measure_execution_time("handle_nvim_updates")()
 	if len(proc.update_stack) <= 0 {
 		return
@@ -22,6 +23,7 @@ func handle_nvim_updates(proc *NvimProcess, w *Window) {
 			mode_info_set(w, updates[1:])
 			break
 		case "option_set":
+			option_set(w, updates[1:])
 			break
 		case "mode_change":
 			name := reflect.ValueOf(updates[1]).Index(0).Elem().String()
@@ -77,6 +79,46 @@ func handle_nvim_updates(proc *NvimProcess, w *Window) {
 		}
 	}
 	proc.update_stack = proc.update_stack[1:]
+}
+
+func option_set(w *Window, args []interface{}) {
+	t := reflect.TypeOf(int(0))
+	for _, opt := range args {
+		valr := reflect.ValueOf(opt).Index(1).Elem()
+		switch reflect.ValueOf(opt).Index(0).Elem().String() {
+		case "arabicshape":
+			w.options.arabicshape = valr.Bool()
+			break
+		case "ambiwidth":
+			w.options.ambiwidth = valr.String()
+			break
+		case "emoji":
+			w.options.emoji = valr.Bool()
+			break
+		case "guifont":
+			w.options.guifont = valr.String()
+			break
+		case "guifontset":
+			w.options.guifontset = valr.String()
+			break
+		case "guifontwide":
+			w.options.guifontwide = valr.String()
+			break
+		case "linespace":
+			w.options.linespace = int(valr.Convert(t).Int())
+			break
+		case "pumblend":
+			w.options.pumblend = int(valr.Convert(t).Int())
+			break
+		case "showtabline":
+			w.options.showtabline = int(valr.Convert(t).Int())
+			break
+		case "termguicolors":
+			w.options.termguicolors = valr.Bool()
+			break
+		}
+	}
+	fmt.Println("Options Updated:", w.options)
 }
 
 func mode_info_set(w *Window, args []interface{}) {
@@ -153,30 +195,34 @@ func hl_attr_define(w *Window, args []interface{}) {
 			continue
 		}
 		mapIter := reflect.ValueOf(arg).Index(1).Elem().MapRange()
-		hl_attr := HighlightAttributes{}
-		hl_attr.foreground = w.grid.default_fg
-		hl_attr.background = w.grid.default_bg
-		hl_attr.special = w.grid.default_sp
+		hl_attr := HighlightAttributes{
+			use_default_fg: true,
+			use_default_bg: true,
+			use_default_sp: true,
+		}
 		// iterate over map and set attributes
 		for mapIter.Next() {
 			switch mapIter.Key().String() {
 			case "foreground":
 				fg := uint32(mapIter.Value().Elem().Convert(t).Uint())
 				if fg != 0 {
-					hl_attr.foreground = convert_rgb24_to_rgba(fg)
+					hl_attr.use_default_fg = false
 				}
+				hl_attr.foreground = convert_rgb24_to_rgba(fg)
 				break
 			case "background":
 				bg := uint32(mapIter.Value().Elem().Convert(t).Uint())
 				if bg != 0 {
-					hl_attr.background = convert_rgb24_to_rgba(bg)
+					hl_attr.use_default_bg = false
 				}
+				hl_attr.background = convert_rgb24_to_rgba(bg)
 				break
 			case "special":
 				sp := uint32(mapIter.Value().Elem().Convert(t).Uint())
 				if sp != 0 {
-					hl_attr.background = convert_rgb24_to_rgba(sp)
+					hl_attr.use_default_sp = false
 				}
+				hl_attr.special = convert_rgb24_to_rgba(sp)
 				break
 			// All boolean keys default to false,
 			// and will only be sent when they are true.
@@ -237,17 +283,20 @@ func grid_line(w *Window, args []interface{}) {
 
 func grid_cursor_goto(w *Window, args []interface{}) {
 	t := reflect.TypeOf(int(0))
-	w.cursor.X = int(reflect.ValueOf(args).Index(0).Elem().Index(1).Elem().Convert(t).Int())
-	w.cursor.Y = int(reflect.ValueOf(args).Index(0).Elem().Index(2).Elem().Convert(t).Int())
+	r := reflect.ValueOf(args).Index(0).Elem()
+	X := int(r.Index(1).Elem().Convert(t).Int())
+	Y := int(r.Index(2).Elem().Convert(t).Int())
+	w.cursor.SetPosition(X, Y)
 }
 
 func grid_scroll(w *Window, args []interface{}) {
 	t := reflect.TypeOf(int(0))
-	top := reflect.ValueOf(args).Index(0).Elem().Index(1).Elem().Convert(t).Int()
-	bot := reflect.ValueOf(args).Index(0).Elem().Index(2).Elem().Convert(t).Int()
-	left := reflect.ValueOf(args).Index(0).Elem().Index(3).Elem().Convert(t).Int()
-	right := reflect.ValueOf(args).Index(0).Elem().Index(4).Elem().Convert(t).Int()
-	rows := reflect.ValueOf(args).Index(0).Elem().Index(5).Elem().Convert(t).Int()
-	//cols := reflect.ValueOf(args).Index(0).Elem().Index(6).Elem().Convert(t).Int()
+	r := reflect.ValueOf(args).Index(0).Elem()
+	top := r.Index(1).Elem().Convert(t).Int()
+	bot := r.Index(2).Elem().Convert(t).Int()
+	left := r.Index(3).Elem().Convert(t).Int()
+	right := r.Index(4).Elem().Convert(t).Int()
+	rows := r.Index(5).Elem().Convert(t).Int()
+	//cols := r.Index(6).Elem().Convert(t).Int()
 	w.grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
 }

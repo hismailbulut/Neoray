@@ -7,14 +7,7 @@ import (
 	rl "github.com/chunqian/go-raylib/raylib"
 )
 
-type InputOptions struct {
-	hold_delay_begin        int
-	hold_delay_between_keys int
-}
-
 type Input struct {
-	options InputOptions
-
 	last_key                int32
 	last_key_start_time     time.Time
 	last_key_last_send_time time.Time
@@ -22,6 +15,10 @@ type Input struct {
 	ctrl_key  bool
 	alt_key   bool
 	shift_key bool
+
+	// options
+	hold_delay_begin        int
+	hold_delay_between_keys int
 }
 
 var SpecialKeys = map[rl.KeyboardKey]string{
@@ -85,8 +82,8 @@ func (input *Input) get_keycode() string {
 	if input.last_key != 0 {
 		if rl.IsKeyDown(input.last_key) {
 			// check key timing
-			if int(time.Since(input.last_key_start_time).Milliseconds()) > input.options.hold_delay_begin &&
-				int(time.Since(input.last_key_last_send_time).Milliseconds()) > input.options.hold_delay_between_keys {
+			if int(time.Since(input.last_key_start_time).Milliseconds()) > input.hold_delay_begin &&
+				int(time.Since(input.last_key_last_send_time).Milliseconds()) > input.hold_delay_between_keys {
 				// check if this key is special
 				if val, ok := SpecialKeys[rl.KeyboardKey(input.last_key)]; ok == true {
 					keys = append(keys, val)

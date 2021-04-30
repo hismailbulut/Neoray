@@ -7,7 +7,7 @@ import (
 	rl "github.com/chunqian/go-raylib/raylib"
 )
 
-const font_name = "Cousine"
+const font_name = "Go Mono"
 
 func init() {
 	runtime.LockOSThread()

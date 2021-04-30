@@ -5,8 +5,21 @@ import (
 )
 
 type Cursor struct {
-	X int
-	Y int
+	X       int
+	Y       int
+	lastRow int
+	lastCol int
+	animPos rl.Vector2
+}
+
+func (cursor *Cursor) SetPosition(x, y int) {
+	cursor.lastRow = cursor.Y
+	cursor.lastCol = cursor.X
+	cursor.animPos = rl.Vector2{
+		X: float32(cursor.lastRow), Y: float32(cursor.lastCol),
+	}
+	cursor.X = x
+	cursor.Y = y
 }
 
 func (cursor *Cursor) Draw(grid *Grid, canvas *Canvas, mode *Mode) {
@@ -60,18 +73,19 @@ func (cursor *Cursor) Draw(grid *Grid, canvas *Canvas, mode *Mode) {
 		draw_char = true
 		break
 	case "horizontal":
+		height := canvas.cell_height * (float32(mode_info.cell_percentage) / 100)
 		rect = rl.Rectangle{
 			X:      cell_pos.X,
-			Y:      cell_pos.Y,
+			Y:      cell_pos.Y + (canvas.cell_height - height),
 			Width:  canvas.cell_width,
-			Height: canvas.cell_height / 2, //TODO
+			Height: height,
 		}
 		break
 	case "vertical":
 		rect = rl.Rectangle{
 			X:      cell_pos.X,
 			Y:      cell_pos.Y,
-			Width:  canvas.cell_width / 4, //TODO
+			Width:  canvas.cell_width * (float32(mode_info.cell_percentage) / 100),
 			Height: canvas.cell_height,
 		}
 		break

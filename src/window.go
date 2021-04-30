@@ -4,19 +4,33 @@ import (
 	rl "github.com/chunqian/go-raylib/raylib"
 )
 
+type UIOptions struct {
+	arabicshape   bool
+	ambiwidth     string
+	emoji         bool
+	guifont       string
+	guifontset    string
+	guifontwide   string
+	linespace     int
+	pumblend      int
+	showtabline   int
+	termguicolors bool
+}
+
 type Window struct {
-	width  int
-	height int
-	title  string
-	grid   Grid
-	cursor Cursor
-	mode   Mode
-	canvas Canvas
-	input  Input
+	width   int
+	height  int
+	title   string
+	grid    Grid
+	cursor  Cursor
+	mode    Mode
+	canvas  Canvas
+	input   Input
+	options UIOptions
 }
 
 func CreateAndShow(width int, height int, title string, font_name string, font_size float32) Window {
-	rl.SetConfigFlags(uint32(rl.FLAG_WINDOW_RESIZABLE) | uint32(rl.FLAG_WINDOW_HIGHDPI) | uint32(rl.FLAG_WINDOW_TRANSPARENT))
+	rl.SetConfigFlags(uint32(rl.FLAG_WINDOW_RESIZABLE) | uint32(rl.FLAG_WINDOW_HIGHDPI)) // | uint32(rl.FLAG_WINDOW_TRANSPARENT))
 
 	window := Window{
 		width:  width,
@@ -26,23 +40,23 @@ func CreateAndShow(width int, height int, title string, font_name string, font_s
 
 	window.grid = CreateGrid()
 
-	window.canvas = Canvas{
-		cell_width:  font_size/2 + 1,
-		cell_height: font_size + 3,
-	}
-
 	window.cursor = Cursor{}
 
 	window.mode = Mode{
 		mode_infos: make(map[string]ModeInfo),
 	}
 
-	window.input = Input{
-		options: InputOptions{
-			hold_delay_begin:        350,
-			hold_delay_between_keys: 30,
-		},
+	window.canvas = Canvas{
+		cell_width:  font_size / 2,
+		cell_height: font_size + 2,
 	}
+
+	window.input = Input{
+		hold_delay_begin:        400,
+		hold_delay_between_keys: 40,
+	}
+
+	window.options = UIOptions{}
 
 	rl.InitWindow(int32(window.width), int32(window.height), window.title)
 	rl.SetExitKey(0)
@@ -62,7 +76,7 @@ func (w *Window) HandleWindowResizing(proc *NvimProcess) {
 
 func (w *Window) Update(proc *NvimProcess) {
 	w.input.HandleInputEvents(proc)
-	handle_nvim_updates(proc, w)
+	HandleNvimRedrawEvents(proc, w)
 	if rl.IsWindowResized() {
 		w.HandleWindowResizing(proc)
 		proc.ResizeUI(w)
