@@ -29,19 +29,16 @@ type Cell struct {
 }
 
 type HighlightAttributes struct {
-	use_default_fg bool
-	use_default_bg bool
-	use_default_sp bool
-	foreground     rl.Color
-	background     rl.Color
-	special        rl.Color
-	reverse        bool
-	italic         bool
-	bold           bool
-	strikethrough  bool
-	underline      bool
-	undercurl      bool
-	blend          int
+	foreground    rl.Color
+	background    rl.Color
+	special       rl.Color
+	reverse       bool
+	italic        bool
+	bold          bool
+	strikethrough bool
+	underline     bool
+	undercurl     bool
+	blend         int
 }
 
 type Grid struct {

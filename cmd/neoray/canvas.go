@@ -45,13 +45,14 @@ func (canvas *Canvas) DrawCell(grid *Grid, cell *Cell, mode *Mode, pos rl.Vector
 	if cell.attrib_id > 0 {
 		// set attribute colors
 		attrib := grid.attributes[cell.attrib_id]
-		if !attrib.use_default_fg {
+
+		if !is_color_black(attrib.foreground) {
 			fg = attrib.foreground
 		}
-		if !attrib.use_default_bg {
+		if !is_color_black(attrib.background) {
 			bg = attrib.background
 		}
-		if !attrib.use_default_sp {
+		if !is_color_black(attrib.special) {
 			sp = attrib.special
 		}
 		// font
@@ -67,6 +68,7 @@ func (canvas *Canvas) DrawCell(grid *Grid, cell *Cell, mode *Mode, pos rl.Vector
 	}
 
 	// background
+	bg.A = TRANSPARENCY
 	rl.DrawRectangleRec(rect, bg)
 	if last_column_in_row {
 		rl.DrawRectangleRec(

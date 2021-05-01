@@ -81,7 +81,7 @@ func (font *Font) find_and_load(fontname string) {
 		matched_fonts, _ = font.get_matching_fonts(font.system_default_fontname, font_list)
 	}
 
-	if !font.load_matching_fonts(matched_fonts, "Light", "Extra", "Semi", "Medium") {
+	if !font.load_matching_fonts(matched_fonts, "Light", "Extra") {
 		matched_fonts, _ = font.get_matching_fonts(font.system_default_fontname, font_list)
 		font.load_matching_fonts(matched_fonts)
 	}
@@ -130,7 +130,7 @@ func (font *Font) load_matching_fonts(font_list []sysfont.Font, ignore_words ...
 }
 
 func (font *Font) load_font_data(filename string) rl.Font {
-	return rl.LoadFontEx(filename, int32(font.size), nil, 1024)
+	return rl.LoadFontEx(filename, int32(font.size), nil, 2048)
 }
 
 func (font *Font) contains(f *sysfont.Font, str string) bool {

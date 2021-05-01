@@ -29,8 +29,11 @@ type Window struct {
 	options UIOptions
 }
 
-func CreateAndShow(width int, height int, title string, font_name string, font_size float32) Window {
-	rl.SetConfigFlags(uint32(rl.FLAG_WINDOW_RESIZABLE) | uint32(rl.FLAG_WINDOW_HIGHDPI)) // | uint32(rl.FLAG_WINDOW_TRANSPARENT))
+func CreateWindow(width int, height int, title string, font_name string, font_size float32) Window {
+	rl.SetConfigFlags(uint32(rl.FLAG_WINDOW_RESIZABLE) |
+		uint32(rl.FLAG_WINDOW_HIGHDPI) |
+		uint32(rl.FLAG_WINDOW_TRANSPARENT) |
+		uint32(rl.FLAG_MSAA_4X_HINT))
 
 	window := Window{
 		width:  width,
@@ -47,8 +50,8 @@ func CreateAndShow(width int, height int, title string, font_name string, font_s
 	}
 
 	window.canvas = Canvas{
-		cell_width:  font_size / 2,
-		cell_height: font_size + 2,
+		cell_width:  font_size/2 + 1,
+		cell_height: font_size + 3,
 	}
 
 	window.input = Input{

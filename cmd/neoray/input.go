@@ -98,14 +98,16 @@ func (input *Input) get_keycode() string {
 		}
 	}
 
-	for key := range SpecialKeys {
-		if rl.IsKeyPressed(int32(key)) {
-			if val, ok := SpecialKeys[rl.KeyboardKey(key)]; ok == true {
-				keys = append(keys, val)
-				special_key = true
-				input.last_key = int32(key)
-				input.last_key_start_time = time.Now()
-				input.last_key_last_send_time = time.Now()
+	if !special_key {
+		for key := range SpecialKeys {
+			if rl.IsKeyPressed(int32(key)) {
+				if val, ok := SpecialKeys[rl.KeyboardKey(key)]; ok == true {
+					keys = append(keys, val)
+					special_key = true
+					input.last_key = int32(key)
+					input.last_key_start_time = time.Now()
+					input.last_key_last_send_time = time.Now()
+				}
 			}
 		}
 	}
@@ -119,7 +121,7 @@ func (input *Input) get_keycode() string {
 		}
 	} else {
 		for char := rl.GetCharPressed(); char != 0; char = rl.GetCharPressed() {
-			// only send not evaluated keys
+			// only send character keys
 			if _, ok := SpecialKeys[rl.KeyboardKey(char)]; ok == false {
 				keys = append(keys, string(char))
 			}
@@ -134,18 +136,14 @@ func (input *Input) get_keycode() string {
 	if input.shift_key && special_key {
 		// Send shift if key is not character
 		keys = append(keys, "S")
-		// Shift is the first element now
+		// Swap first and last
 		keys[0], keys[len(keys)-1] = keys[len(keys)-1], keys[0]
 		multi_key = true
-	}
-
-	if input.alt_key {
+	} else if input.alt_key {
 		keys = append(keys, "A")
 		keys[0], keys[len(keys)-1] = keys[len(keys)-1], keys[0]
 		multi_key = true
-	}
-
-	if input.ctrl_key {
+	} else if input.ctrl_key {
 		keys = append(keys, "C")
 		keys[0], keys[len(keys)-1] = keys[len(keys)-1], keys[0]
 		multi_key = true

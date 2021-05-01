@@ -7,10 +7,18 @@ import (
 
 func HandleNvimRedrawEvents(proc *NvimProcess, w *Window) {
 	// defer measure_execution_time("handle_nvim_updates")()
+
+	proc.update_mutex.Lock()
 	if len(proc.update_stack) <= 0 {
+		proc.update_mutex.Unlock()
 		return
 	}
-	for _, updates := range proc.update_stack[0] {
+	updates_cpy := make([][]interface{}, len(proc.update_stack[0]))
+	copy(updates_cpy, proc.update_stack[0])
+	proc.update_stack = proc.update_stack[1:]
+	proc.update_mutex.Unlock()
+
+	for _, updates := range updates_cpy {
 		switch updates[0] {
 		// Global events
 		case "set_title":
@@ -78,7 +86,6 @@ func HandleNvimRedrawEvents(proc *NvimProcess, w *Window) {
 			break
 		}
 	}
-	proc.update_stack = proc.update_stack[1:]
 }
 
 func option_set(w *Window, args []interface{}) {
@@ -195,33 +202,20 @@ func hl_attr_define(w *Window, args []interface{}) {
 			continue
 		}
 		mapIter := reflect.ValueOf(arg).Index(1).Elem().MapRange()
-		hl_attr := HighlightAttributes{
-			use_default_fg: true,
-			use_default_bg: true,
-			use_default_sp: true,
-		}
+		hl_attr := HighlightAttributes{}
 		// iterate over map and set attributes
 		for mapIter.Next() {
 			switch mapIter.Key().String() {
 			case "foreground":
 				fg := uint32(mapIter.Value().Elem().Convert(t).Uint())
-				if fg != 0 {
-					hl_attr.use_default_fg = false
-				}
 				hl_attr.foreground = convert_rgb24_to_rgba(fg)
 				break
 			case "background":
 				bg := uint32(mapIter.Value().Elem().Convert(t).Uint())
-				if bg != 0 {
-					hl_attr.use_default_bg = false
-				}
 				hl_attr.background = convert_rgb24_to_rgba(bg)
 				break
 			case "special":
 				sp := uint32(mapIter.Value().Elem().Convert(t).Uint())
-				if sp != 0 {
-					hl_attr.use_default_sp = false
-				}
 				hl_attr.special = convert_rgb24_to_rgba(sp)
 				break
 			// All boolean keys default to false,

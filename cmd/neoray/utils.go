@@ -30,6 +30,10 @@ func convert_rgba_to_rgb24(color rl.Color) uint32 {
 	return rgb24
 }
 
+func is_color_black(color rl.Color) bool {
+	return color.R == 0 && color.G == 0 && color.B == 0
+}
+
 func measure_execution_time(name string) func() {
 	now := time.Now()
 	return func() {
