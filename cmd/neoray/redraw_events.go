@@ -5,39 +5,39 @@ import (
 	"reflect"
 )
 
-func HandleNvimRedrawEvents(proc *NvimProcess, w *Window) {
+func HandleNvimRedrawEvents(editor *Editor) {
 	// defer measure_execution_time("handle_nvim_updates")()
 
-	proc.update_mutex.Lock()
-	if len(proc.update_stack) <= 0 {
-		proc.update_mutex.Unlock()
+	editor.nvim.update_mutex.Lock()
+	if len(editor.nvim.update_stack) <= 0 {
+		editor.nvim.update_mutex.Unlock()
 		return
 	}
-	updates_cpy := make([][]interface{}, len(proc.update_stack[0]))
-	copy(updates_cpy, proc.update_stack[0])
-	proc.update_stack = proc.update_stack[1:]
-	proc.update_mutex.Unlock()
+	updates_cpy := make([][]interface{}, len(editor.nvim.update_stack[0]))
+	copy(updates_cpy, editor.nvim.update_stack[0])
+	editor.nvim.update_stack = editor.nvim.update_stack[1:]
+	editor.nvim.update_mutex.Unlock()
 
 	for _, updates := range updates_cpy {
 		switch updates[0] {
 		// Global events
 		case "set_title":
 			title := reflect.ValueOf(updates[1]).Index(0).Elem().String()
-			w.SetTitle(title)
+			editor.window.SetTitle(title)
 			break
 		case "set_icon":
 			break
 		case "mode_info_set":
-			mode_info_set(w, updates[1:])
+			mode_info_set(&editor.mode, updates[1:])
 			break
 		case "option_set":
-			option_set(w, updates[1:])
+			option_set(&editor.options, updates[1:])
 			break
 		case "mode_change":
 			name := reflect.ValueOf(updates[1]).Index(0).Elem().String()
-			w.mode.current_mode_name = name
+			editor.mode.current_mode_name = name
 			id := reflect.ValueOf(updates[1]).Index(1).Elem().Convert(reflect.TypeOf(int(0))).Int()
-			w.mode.current_mode = int(id)
+			editor.mode.current_mode = int(id)
 			break
 		case "mouse_on":
 			break
@@ -56,81 +56,81 @@ func HandleNvimRedrawEvents(proc *NvimProcess, w *Window) {
 		case "visual_bell":
 			break
 		case "flush":
-			w.canvas.Draw(&w.grid, &w.mode, &w.cursor)
+			fmt.Println("flush")
+			editor.renderer.Draw(&editor.grid, &editor.mode, &editor.cursor)
 			break
 		// Grid Events (line-based)
 		case "grid_resize":
-			grid_resize(w, updates[1:])
+			grid_resize(&editor.grid, updates[1:])
 			break
 		case "default_colors_set":
-			default_colors_set(w, updates[1:])
+			default_colors_set(&editor.grid, updates[1:])
 			break
 		case "hl_attr_define":
-			hl_attr_define(w, updates[1:])
+			hl_attr_define(&editor.grid, updates[1:])
 			break
 		case "hl_group_set":
 			break
 		case "grid_line":
-			grid_line(w, updates[1:])
+			grid_line(&editor.grid, updates[1:])
 			break
 		case "grid_clear":
-			w.grid.ClearCells()
+			editor.grid.ClearCells()
 			break
 		case "grid_destroy":
 			break
 		case "grid_cursor_goto":
-			grid_cursor_goto(w, updates[1:])
+			grid_cursor_goto(&editor.cursor, updates[1:])
 			break
 		case "grid_scroll":
-			grid_scroll(w, updates[1:])
+			grid_scroll(&editor.grid, updates[1:])
 			break
 		}
 	}
 }
 
-func option_set(w *Window, args []interface{}) {
+func option_set(options *UIOptions, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	for _, opt := range args {
 		valr := reflect.ValueOf(opt).Index(1).Elem()
 		switch reflect.ValueOf(opt).Index(0).Elem().String() {
 		case "arabicshape":
-			w.options.arabicshape = valr.Bool()
+			options.arabicshape = valr.Bool()
 			break
 		case "ambiwidth":
-			w.options.ambiwidth = valr.String()
+			options.ambiwidth = valr.String()
 			break
 		case "emoji":
-			w.options.emoji = valr.Bool()
+			options.emoji = valr.Bool()
 			break
 		case "guifont":
-			w.options.guifont = valr.String()
+			options.guifont = valr.String()
 			break
 		case "guifontset":
-			w.options.guifontset = valr.String()
+			options.guifontset = valr.String()
 			break
 		case "guifontwide":
-			w.options.guifontwide = valr.String()
+			options.guifontwide = valr.String()
 			break
 		case "linespace":
-			w.options.linespace = int(valr.Convert(t).Int())
+			options.linespace = int(valr.Convert(t).Int())
 			break
 		case "pumblend":
-			w.options.pumblend = int(valr.Convert(t).Int())
+			options.pumblend = int(valr.Convert(t).Int())
 			break
 		case "showtabline":
-			w.options.showtabline = int(valr.Convert(t).Int())
+			options.showtabline = int(valr.Convert(t).Int())
 			break
 		case "termguicolors":
-			w.options.termguicolors = valr.Bool()
+			options.termguicolors = valr.Bool()
 			break
 		}
 	}
-	fmt.Println("Options Updated:", w.options)
 }
 
-func mode_info_set(w *Window, args []interface{}) {
+func mode_info_set(mode *Mode, args []interface{}) {
 	r := reflect.ValueOf(args).Index(0).Elem()
-	w.mode.cursor_style_enabled = r.Index(0).Elem().Bool()
+	mode.cursor_style_enabled = r.Index(0).Elem().Bool()
 	t := reflect.TypeOf(int(0))
 	for _, infos := range r.Index(1).Interface().([]interface{}) {
 		mapIter := reflect.ValueOf(infos).MapRange()
@@ -166,30 +166,30 @@ func mode_info_set(w *Window, args []interface{}) {
 				break
 			}
 		}
-		w.mode.mode_infos[info.name] = info
+		mode.mode_infos[info.name] = info
 	}
 }
 
-func grid_resize(w *Window, args []interface{}) {
+func grid_resize(grid *Grid, args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(int(0))
 	width := r.Index(1).Elem().Convert(t).Int()
 	height := r.Index(2).Elem().Convert(t).Int()
-	w.grid.Resize(int(width), int(height))
+	grid.Resize(int(width), int(height))
 }
 
-func default_colors_set(w *Window, args []interface{}) {
+func default_colors_set(grid *Grid, args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(uint(0))
 	fg := r.Index(0).Elem().Convert(t).Uint()
 	bg := r.Index(1).Elem().Convert(t).Uint()
 	sp := r.Index(2).Elem().Convert(t).Uint()
-	w.grid.default_fg = convert_rgb24_to_rgba(uint32(fg))
-	w.grid.default_bg = convert_rgb24_to_rgba(uint32(bg))
-	w.grid.default_sp = convert_rgb24_to_rgba(uint32(sp))
+	grid.default_fg = convert_rgb24_to_rgba(uint32(fg))
+	grid.default_bg = convert_rgb24_to_rgba(uint32(bg))
+	grid.default_sp = convert_rgb24_to_rgba(uint32(sp))
 }
 
-func hl_attr_define(w *Window, args []interface{}) {
+func hl_attr_define(grid *Grid, args []interface{}) {
 	// there may be more than one attribute
 	t := reflect.TypeOf(uint(0))
 	for _, arg := range args {
@@ -243,11 +243,11 @@ func hl_attr_define(w *Window, args []interface{}) {
 				break
 			}
 		}
-		w.grid.attributes[id] = hl_attr
+		grid.attributes[id] = hl_attr
 	}
 }
 
-func grid_line(w *Window, args []interface{}) {
+func grid_line(grid *Grid, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	for _, arg := range args {
 		r := reflect.ValueOf(arg)
@@ -270,20 +270,20 @@ func grid_line(w *Window, args []interface{}) {
 			if len(cell_slice) == 3 {
 				repeat = int(reflect.ValueOf(cell_slice).Index(2).Elem().Convert(t).Int())
 			}
-			w.grid.SetCell(row, &col_start, char, hl_id, repeat)
+			grid.SetCell(row, &col_start, char, hl_id, repeat)
 		}
 	}
 }
 
-func grid_cursor_goto(w *Window, args []interface{}) {
+func grid_cursor_goto(cursor *Cursor, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	X := int(r.Index(1).Elem().Convert(t).Int())
 	Y := int(r.Index(2).Elem().Convert(t).Int())
-	w.cursor.SetPosition(X, Y)
+	cursor.SetPosition(X, Y)
 }
 
-func grid_scroll(w *Window, args []interface{}) {
+func grid_scroll(grid *Grid, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	top := r.Index(1).Elem().Convert(t).Int()
@@ -292,5 +292,5 @@ func grid_scroll(w *Window, args []interface{}) {
 	right := r.Index(4).Elem().Convert(t).Int()
 	rows := r.Index(5).Elem().Convert(t).Int()
 	//cols := r.Index(6).Elem().Convert(t).Int()
-	w.grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
+	grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
 }

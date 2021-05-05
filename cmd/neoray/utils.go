@@ -4,11 +4,21 @@ import (
 	"fmt"
 	"time"
 
-	rl "github.com/chunqian/go-raylib/raylib"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
-func convert_rgb24_to_rgba(color uint32) rl.Color {
-	return rl.Color{
+type vec2 struct {
+	X float32
+	Y float32
+}
+
+type ivec2 struct {
+	X int
+	Y int
+}
+
+func convert_rgb24_to_rgba(color uint32) sdl.Color {
+	return sdl.Color{
 		// 0x000000rr & 0xff = red: 0xrr
 		R: uint8((color >> 16) & 0xff),
 		// 0x0000rrgg & 0xff = green: 0xgg
@@ -19,7 +29,7 @@ func convert_rgb24_to_rgba(color uint32) rl.Color {
 	}
 }
 
-func convert_rgba_to_rgb24(color rl.Color) uint32 {
+func convert_rgba_to_rgb24(color sdl.Color) uint32 {
 	// 0x00000000
 	rgb24 := uint32(color.R)
 	// 0x000000rr
@@ -30,7 +40,7 @@ func convert_rgba_to_rgb24(color rl.Color) uint32 {
 	return rgb24
 }
 
-func is_color_black(color rl.Color) bool {
+func is_color_black(color sdl.Color) bool {
 	return color.R == 0 && color.G == 0 && color.B == 0
 }
 

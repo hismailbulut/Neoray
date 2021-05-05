@@ -39,6 +39,8 @@ func CreateNvimProcess() NvimProcess {
 	proc.requestApiInfo()
 	proc.introduce()
 
+	fmt.Println("Neovim child process created.")
+
 	return proc
 }
 
@@ -88,13 +90,25 @@ func (proc *NvimProcess) ExecuteVimScript(script string) {
 	}
 }
 
-func (proc *NvimProcess) StartUI(w *Window) {
+func (proc *NvimProcess) SendKeyCode(keycode string) {
+	term_code, err := proc.handle.ReplaceTermcodes(keycode, true, true, true)
+	if err != nil {
+		fmt.Println("ReplaceTermcodes:", err)
+		return
+	}
+	err = proc.handle.FeedKeys(term_code, "m", false)
+	if err != nil {
+		fmt.Println("FeedKeys:", err)
+	}
+}
+
+func (proc *NvimProcess) StartUI(editor *Editor) {
 	options := make(map[string]interface{})
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 
-	col_count := int(float32(w.width) / w.canvas.cell_width)
-	row_count := int(float32(w.height) / w.canvas.cell_height)
+	col_count := editor.window.width / editor.renderer.cell_width
+	row_count := editor.window.height / editor.renderer.cell_height
 	proc.handle.AttachUI(col_count, row_count, options)
 
 	proc.handle.RegisterHandler("redraw",
@@ -103,11 +117,13 @@ func (proc *NvimProcess) StartUI(w *Window) {
 			proc.update_stack = append(proc.update_stack, updates)
 			proc.update_mutex.Unlock()
 		})
+
+	fmt.Println("UI Connected.")
 }
 
-func (proc *NvimProcess) ResizeUI(w *Window) {
-	col_count := int(float32(w.width) / w.canvas.cell_width)
-	row_count := int(float32(w.height) / w.canvas.cell_height)
+func (proc *NvimProcess) ResizeUI(editor *Editor) {
+	col_count := editor.window.width / editor.renderer.cell_width
+	row_count := editor.window.height / editor.renderer.cell_height
 	proc.handle.TryResizeUI(col_count, row_count)
 }
 

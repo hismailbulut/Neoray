@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"strings"
 
 	"github.com/adrg/sysfont"
-	rl "github.com/chunqian/go-raylib/raylib"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
 type Font struct {
@@ -17,21 +18,24 @@ type Font struct {
 	bold_found        bool
 	bold_italic_found bool
 
-	regular     rl.Font
-	italic      rl.Font
-	bold        rl.Font
-	bold_italic rl.Font
+	regular     *ttf.Font
+	italic      *ttf.Font
+	bold        *ttf.Font
+	bold_italic *ttf.Font
 
 	system_default_fontname string
 }
 
-func (font *Font) Load(fontname string, size float32) {
+func CreateFont(fontname string, size float32) Font {
+
+	if err := ttf.Init(); err != nil {
+		log.Fatalln(err)
+	}
 
 	if size < 6 {
 		size = 12
 	}
-
-	font.size = size
+	font := Font{size: size}
 
 	switch runtime.GOOS {
 	case "windows":
@@ -50,16 +54,18 @@ func (font *Font) Load(fontname string, size float32) {
 	} else {
 		font.find_and_load(fontname)
 	}
+	return font
 }
 
 func (font *Font) Unload() {
-	rl.UnloadFont(font.regular)
-	rl.UnloadFont(font.bold)
-	rl.UnloadFont(font.italic)
-	rl.UnloadFont(font.bold_italic)
+	font.regular.Close()
+	font.bold.Close()
+	font.italic.Close()
+	font.bold_italic.Close()
+	ttf.Quit()
 }
 
-func (font *Font) GetDrawableFont(italic bool, bold bool) rl.Font {
+func (font *Font) GetDrawableFont(italic bool, bold bool) *ttf.Font {
 	if italic && bold {
 		return font.bold_italic
 	} else if italic && !bold {
@@ -68,6 +74,17 @@ func (font *Font) GetDrawableFont(italic bool, bold bool) rl.Font {
 		return font.bold
 	}
 	return font.regular
+}
+
+func (font *Font) GetCellSize() (int, int) {
+	metrics, err := font.regular.GlyphMetrics('m')
+	if err != nil {
+		fmt.Println(err)
+		return int(font.size), int(font.size / 2)
+	}
+	w := metrics.Advance
+	h := font.regular.Height() + metrics.MinY
+	return w, h
 }
 
 func (font *Font) find_and_load(fontname string) {
@@ -85,7 +102,6 @@ func (font *Font) find_and_load(fontname string) {
 		matched_fonts, _ = font.get_matching_fonts(font.system_default_fontname, font_list)
 		font.load_matching_fonts(matched_fonts)
 	}
-
 }
 
 func (font *Font) get_matching_fonts(name string, list []*sysfont.Font) ([]sysfont.Font, bool) {
@@ -129,8 +145,12 @@ func (font *Font) load_matching_fonts(font_list []sysfont.Font, ignore_words ...
 	return font.regular_found && font.italic_found && font.bold_found && font.bold_italic_found
 }
 
-func (font *Font) load_font_data(filename string) rl.Font {
-	return rl.LoadFontEx(filename, int32(font.size), nil, 2048)
+func (font *Font) load_font_data(filename string) *ttf.Font {
+	font_data, err := ttf.OpenFont(filename, int(font.size))
+	if err != nil {
+		fmt.Println(err)
+	}
+	return font_data
 }
 
 func (font *Font) contains(f *sysfont.Font, str string) bool {

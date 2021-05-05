@@ -1,28 +1,41 @@
 package main
 
-import (
-	rl "github.com/chunqian/go-raylib/raylib"
-)
+import "github.com/veandco/go-sdl2/sdl"
+
+type ModeInfo struct {
+	cursor_shape    string
+	cell_percentage int
+	blinkwait       int
+	blinkon         int
+	blinkoff        int
+	attr_id         int
+	attr_id_lm      int
+	short_name      string
+	name            string
+}
+
+type Mode struct {
+	cursor_style_enabled bool
+	mode_infos           map[string]ModeInfo
+	current_mode_name    string
+	current_mode         int
+}
 
 type Cursor struct {
 	X       int
 	Y       int
 	lastRow int
 	lastCol int
-	animPos rl.Vector2
 }
 
 func (cursor *Cursor) SetPosition(x, y int) {
 	cursor.lastRow = cursor.Y
 	cursor.lastCol = cursor.X
-	cursor.animPos = rl.Vector2{
-		X: float32(cursor.lastRow), Y: float32(cursor.lastCol),
-	}
 	cursor.X = x
 	cursor.Y = y
 }
 
-func (cursor *Cursor) Draw(grid *Grid, canvas *Canvas, mode *Mode) {
+func (cursor *Cursor) Draw(grid *Grid, renderer *Renderer, mode *Mode) {
 
 	cell := &grid.cells[cursor.X][cursor.Y]
 
@@ -31,7 +44,6 @@ func (cursor *Cursor) Draw(grid *Grid, canvas *Canvas, mode *Mode) {
 	// initialize swapped
 	fg := grid.default_bg
 	bg := grid.default_fg
-
 	sp := grid.default_sp
 
 	italic := false
@@ -54,51 +66,46 @@ func (cursor *Cursor) Draw(grid *Grid, canvas *Canvas, mode *Mode) {
 		}
 	}
 
-	cell_pos := rl.Vector2{
-		X: canvas.cell_width * float32(cursor.Y),
-		Y: canvas.cell_height * float32(cursor.X),
+	cell_pos := ivec2{
+		X: renderer.cell_width * cursor.Y,
+		Y: renderer.cell_height * cursor.X,
 	}
 
-	var rect rl.Rectangle
+	var cursor_rect sdl.Rect
 	draw_char := false
 
 	switch mode_info.cursor_shape {
 	case "block":
-		rect = rl.Rectangle{
-			X:      cell_pos.X,
-			Y:      cell_pos.Y,
-			Width:  canvas.cell_width,
-			Height: canvas.cell_height,
+		cursor_rect = sdl.Rect{
+			X: int32(cell_pos.X),
+			Y: int32(cell_pos.Y),
+			W: int32(renderer.cell_width),
+			H: int32(renderer.cell_height),
 		}
 		draw_char = true
 		break
 	case "horizontal":
-		height := canvas.cell_height * (float32(mode_info.cell_percentage) / 100)
-		rect = rl.Rectangle{
-			X:      cell_pos.X,
-			Y:      cell_pos.Y + (canvas.cell_height - height),
-			Width:  canvas.cell_width,
-			Height: height,
+		height := renderer.cell_height / (100 / mode_info.cell_percentage)
+		cursor_rect = sdl.Rect{
+			X: int32(cell_pos.X),
+			Y: int32(cell_pos.Y + (renderer.cell_height - height)),
+			W: int32(renderer.cell_width),
+			H: int32(height),
 		}
 		break
 	case "vertical":
-		rect = rl.Rectangle{
-			X:      cell_pos.X,
-			Y:      cell_pos.Y,
-			Width:  canvas.cell_width * (float32(mode_info.cell_percentage) / 100),
-			Height: canvas.cell_height,
+		cursor_rect = sdl.Rect{
+			X: int32(cell_pos.X),
+			Y: int32(cell_pos.Y),
+			W: int32(renderer.cell_width / (100 / mode_info.cell_percentage)),
+			H: int32(renderer.cell_height),
 		}
 		break
 	}
 
-	rl.DrawRectangleRec(rect, bg)
+	renderer.DrawRectangle(cursor_rect, bg)
 
 	if draw_char {
-		char_pos := rl.Vector2{
-			X: cell_pos.X,
-			Y: cell_pos.Y + (canvas.cell_width / 3),
-		}
-		rl.DrawTextEx(canvas.font.GetDrawableFont(italic, bold),
-			cell.char, char_pos, canvas.font.size, 0, fg)
+		renderer.DrawCharacter(int32(cursor.X), int32(cursor.Y), fg, bg, cell.char, renderer.font.GetDrawableFont(italic, bold))
 	}
 }

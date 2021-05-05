@@ -1,27 +1,8 @@
 package main
 
-import (
-	rl "github.com/chunqian/go-raylib/raylib"
-)
+import "github.com/veandco/go-sdl2/sdl"
 
-type ModeInfo struct {
-	cursor_shape    string
-	cell_percentage int
-	blinkwait       int
-	blinkon         int
-	blinkoff        int
-	attr_id         int
-	attr_id_lm      int
-	short_name      string
-	name            string
-}
-
-type Mode struct {
-	cursor_style_enabled bool
-	mode_infos           map[string]ModeInfo
-	current_mode_name    string
-	current_mode         int
-}
+// TODO: Add multigrid support
 
 type Cell struct {
 	char      string
@@ -29,9 +10,9 @@ type Cell struct {
 }
 
 type HighlightAttributes struct {
-	foreground    rl.Color
-	background    rl.Color
-	special       rl.Color
+	foreground    sdl.Color
+	background    sdl.Color
+	special       sdl.Color
 	reverse       bool
 	italic        bool
 	bold          bool
@@ -45,9 +26,9 @@ type Grid struct {
 	cells        [][]Cell
 	width        int
 	height       int
-	default_fg   rl.Color
-	default_bg   rl.Color
-	default_sp   rl.Color
+	default_fg   sdl.Color
+	default_bg   sdl.Color
+	default_sp   sdl.Color
 	attributes   map[int]HighlightAttributes
 	changed_rows map[int]bool
 }
