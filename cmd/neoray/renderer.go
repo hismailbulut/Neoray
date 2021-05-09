@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/veandco/go-sdl2/sdl"
-	"github.com/veandco/go-sdl2/ttf"
+	// "github.com/veandco/go-sdl2/ttf"
 )
 
 type Renderer struct {
@@ -17,7 +16,7 @@ type Renderer struct {
 }
 
 func CreateRenderer(window *Window, font Font) Renderer {
-	cell_width, cell_height := font.GetCellSize()
+	cell_width, cell_height := font.CalculateCellSize()
 	renderer := Renderer{
 		known_font_textures: make(map[string]*sdl.Texture),
 		font:                font,
@@ -26,7 +25,7 @@ func CreateRenderer(window *Window, font Font) Renderer {
 	}
 	sdl_renderer, err := sdl.CreateRenderer(window.handle, -1, sdl.RENDERER_ACCELERATED)
 	if err != nil {
-		log.Fatalln(err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL renderer:", err)
 	}
 	renderer.handle = sdl_renderer
 	return renderer
@@ -37,7 +36,7 @@ func (renderer *Renderer) DrawRectangle(rect sdl.Rect, color sdl.Color) {
 	renderer.handle.FillRect(&rect)
 }
 
-func (renderer *Renderer) DrawCharacter(x, y int32, fg, bg sdl.Color, char string, font *ttf.Font) {
+func (renderer *Renderer) DrawCharacter(x, y int32, fg, bg sdl.Color, char string, italic, bold bool) {
 	cell_rect := sdl.Rect{
 		X: y * int32(renderer.cell_width),
 		Y: x * int32(renderer.cell_height),
@@ -49,29 +48,31 @@ func (renderer *Renderer) DrawCharacter(x, y int32, fg, bg sdl.Color, char strin
 		return
 	}
 	// Create texture from text surface
-	id := fmt.Sprintf("%s%v%v", char, fg, bg)
+	id := fmt.Sprintf("%s%v%v%t%t", char, fg, bg, italic, bold)
 	var text_texture *sdl.Texture
 	if val, ok := renderer.known_font_textures[id]; ok == true {
 		text_texture = val
 	} else {
 		// Create surface and draw font to it
-		text_surface, err := font.RenderUTF8Shaded(char, fg, bg)
+		font_handle := renderer.font.GetDrawableFont(italic, bold)
+		text_surface, err := font_handle.RenderUTF8Shaded(char, fg, bg)
 		if err != nil {
-			fmt.Println(err)
+			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
 			return
 		}
 		defer text_surface.Free()
 		text_texture, err = renderer.handle.CreateTextureFromSurface(text_surface)
 		if err != nil {
-			fmt.Println(err)
+			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
 			return
 		}
+		text_texture.SetBlendMode(sdl.BLENDMODE_NONE)
 		renderer.known_font_textures[id] = text_texture
 	}
 	// Copy texture to main framebuffer
 	err := renderer.handle.Copy(text_texture, nil, &cell_rect)
 	if err != nil {
-		fmt.Println(err)
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
 	}
 }
 
@@ -112,16 +113,15 @@ func (renderer *Renderer) DrawCell(grid *Grid, x, y int32) {
 	// NOTE: temporary, use blend level
 	bg.A = BG_TRANSPARENCY
 	// character
-	renderer.DrawCharacter(x, y, fg, bg, cell.char,
-		renderer.font.GetDrawableFont(italic, bold))
+	renderer.DrawCharacter(x, y, fg, bg, cell.char, italic, bold)
 
 	if int(y) == len(grid.cells[x])-1 {
-		renderer.DrawCharacter(x, y+1, fg, bg, " ", renderer.font.regular)
+		renderer.DrawCharacter(x, y+1, fg, bg, " ", false, false)
 	}
 }
 
 func (renderer *Renderer) Draw(grid *Grid, mode *Mode, cursor *Cursor) {
-	defer measure_execution_time("Renderer.Draw")()
+	// defer measure_execution_time("Renderer.Draw")()
 
 	for x := 0; x < len(grid.cells); x++ {
 		// only draw if this row changed
@@ -132,6 +132,7 @@ func (renderer *Renderer) Draw(grid *Grid, mode *Mode, cursor *Cursor) {
 			grid.changed_rows[x] = false
 		}
 	}
+
 	cursor.Draw(grid, renderer, mode)
 	grid.changed_rows[cursor.X] = true
 
