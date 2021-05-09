@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"sync"
 
@@ -26,20 +24,22 @@ func CreateNvimProcess() NvimProcess {
 		// "NORC",
 		// "--noplugin",
 	}
+
+	// TODO: preprocess args
 	args = append(args, os.Args[1:]...)
 
 	nv, err := nvim.NewChildProcess(
 		nvim.ChildProcessServe(true),
 		nvim.ChildProcessArgs(args...))
 	if err != nil {
-		log.Fatalln(err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, err)
 	}
 
 	proc.handle = nv
 	proc.requestApiInfo()
 	proc.introduce()
 
-	fmt.Println("Neovim child process created.")
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process created.")
 
 	return proc
 }
@@ -47,7 +47,7 @@ func CreateNvimProcess() NvimProcess {
 func (proc *NvimProcess) requestApiInfo() {
 	_, err := proc.handle.APIInfo()
 	if err != nil {
-		fmt.Println("ERROR: Failed to get api information.", err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
 		return
 	}
 	// for _, info := range apiInfo[1:] {
@@ -80,25 +80,23 @@ func (proc *NvimProcess) introduce() {
 
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
-		fmt.Println(err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
 	}
 }
 
 func (proc *NvimProcess) ExecuteVimScript(script string) {
 	if err := proc.handle.Command(script); err != nil {
-		fmt.Println("VimScript Error:", err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute vimscript:", err)
 	}
 }
 
 func (proc *NvimProcess) SendKeyCode(keycode string) {
-	term_code, err := proc.handle.ReplaceTermcodes(keycode, true, true, true)
+	written, err := proc.handle.Input(keycode)
 	if err != nil {
-		fmt.Println("ReplaceTermcodes:", err)
-		return
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send input keys:", err)
 	}
-	err = proc.handle.FeedKeys(term_code, "m", false)
-	if err != nil {
-		fmt.Println("FeedKeys:", err)
+	if written != len(keycode) {
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send some keys.")
 	}
 }
 
@@ -114,11 +112,21 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
 			proc.update_mutex.Lock()
+			redraw_events_prehandler(&updates)
 			proc.update_stack = append(proc.update_stack, updates)
 			proc.update_mutex.Unlock()
 		})
 
-	fmt.Println("UI Connected.")
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected.")
+
+	go func() {
+		if err := proc.handle.Serve(); err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process exited with errors:", err)
+			return
+		}
+		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process closed.")
+		editor.quit_requested_chan <- true
+	}()
 }
 
 func (proc *NvimProcess) ResizeUI(editor *Editor) {
