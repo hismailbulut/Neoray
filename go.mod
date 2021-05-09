@@ -8,4 +8,5 @@ require (
 	github.com/adrg/xdg v0.3.3 // indirect
 	github.com/neovim/go-client v1.1.7
 	github.com/veandco/go-sdl2 v0.4.6
+	golang.org/x/image v0.0.0-20210504121937-7319ad40d33e
 )
