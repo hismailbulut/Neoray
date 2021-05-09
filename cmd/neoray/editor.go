@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -31,39 +30,35 @@ type Editor struct {
 	// UIOptions is a struct, holds some user ui options like guifont.
 	options UIOptions
 	// Quit requested is a boolean, if it is true the program will be shutdown at begin of the next loop
-	quit_requested bool
+	quit_requested      bool
+	quit_requested_chan chan bool
 }
 
-const (
-	NEORAY_NAME          = "Neoray"
-	NEORAY_VERSION_MAJOR = 0
-	NEORAY_VERSION_MINOR = 0
-	NEORAY_VERSION_PATCH = 1
-	NEORAY_WEBPAGE       = "github.com/hismailbulut/Neoray"
-	NEORAY_LICENSE       = "GPLv3"
-)
-
-const TARGET_TPS = 60
-
 // temporary
-const FONT_NAME = "Consolas"
+// NOTE: This options must get from user settings.
+const TARGET_TPS = 60
+const WINDOW_WIDTH = 800
+const WINDOW_HEIGHT = 600
+const FONT_NAME = "Ubuntu Mono"
 const FONT_SIZE = 17
-const BG_TRANSPARENCY = 255
+const BG_TRANSPARENCY = 245
 
 func (editor *Editor) Initialize() {
-	// pprof
+	// pprof for debugging
+	// NOTE: disable on release build
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		err := http.ListenAndServe("localhost:6060", nil)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create pprof server.")
+		}
 	}()
 
-	// We will first initialize neovim process, this function is
-	// concurrent. We can set and initialize our program when waiting neovim.
 	editor.nvim = CreateNvimProcess()
 
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS); err != nil {
-		log.Fatalln(err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
 	}
-	editor.window = CreateWindow(1024, 768, NEORAY_NAME)
+	editor.window = CreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, NEORAY_NAME)
 
 	editor.grid = CreateGrid()
 
@@ -78,15 +73,22 @@ func (editor *Editor) Initialize() {
 
 	editor.options = UIOptions{}
 
-	// We initialized everything we need, now this is the time for
-	// connecting UI
+	// We initialized everything, we can connect UI now.
 	editor.nvim.StartUI(editor)
+
+	editor.quit_requested_chan = make(chan bool)
 }
 
 func (editor *Editor) MainLoop() {
 	ticker := time.NewTicker(time.Millisecond * (1000 / TARGET_TPS))
 	defer ticker.Stop()
 	for !editor.quit_requested {
+		select {
+		case <-editor.quit_requested_chan:
+			editor.quit_requested = true
+			continue
+		default:
+		}
 		HandleSDLEvents(editor)
 		editor.window.Update(editor)
 		<-ticker.C
