@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -37,14 +35,6 @@ var SpecialKeys = map[sdl.Keycode]string{
 	sdl.K_F12:       "F12",
 }
 
-var ModKeys = map[sdl.Keycode]string{
-	sdl.K_LCTRL:  "C",
-	sdl.K_RCTRL:  "C",
-	sdl.K_LALT:   "A",
-	sdl.K_LSHIFT: "S",
-	sdl.K_RSHIFT: "S",
-}
-
 func HandleSDLEvents(editor *Editor) {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
@@ -53,13 +43,13 @@ func HandleSDLEvents(editor *Editor) {
 		case *sdl.DropEvent:
 		case *sdl.ClipboardEvent:
 		case *sdl.KeyboardEvent, *sdl.TextInputEvent:
-			handle_input_event(editor, event)
+			handle_input_event(&editor.nvim, event)
 		}
 	}
 }
 
-func handle_input_event(editor *Editor, event sdl.Event) {
-	keys := make([]string, 0)
+func handle_input_event(nvim *NvimProcess, event sdl.Event) {
+	var keys []string
 	modifier_key := false
 	special_key := false
 	character_key := false
@@ -67,27 +57,47 @@ func handle_input_event(editor *Editor, event sdl.Event) {
 	// preprocess input keys and characters
 	switch t := event.(type) {
 	case *sdl.KeyboardEvent:
+
 		if t.State == sdl.RELEASED {
-			break
+			return
 		}
-		// switch t.Keysym.Mod {
-		// case sdl.KMOD_CTRL:
-		//     keys = append(keys, "C")
-		// case sdl.KMOD_LALT:
-		//     keys = append(keys, "A")
-		// case sdl.KMOD_SHIFT:
-		//     keys = append(keys, "S")
-		// }
-		if val, ok := ModKeys[t.Keysym.Sym]; ok == true {
-			keys = append(keys, val)
+
+		keys = make([]string, 0)
+
+		get_char_with_modifier := false
+		mod := t.Keysym.Mod
+		if has_flag_u16(mod, sdl.KMOD_CTRL) {
+			keys = append(keys, "C")
 			modifier_key = true
-		} else if val, ok := SpecialKeys[t.Keysym.Sym]; ok == true {
+			get_char_with_modifier = true
+		} else if has_flag_u16(mod, sdl.KMOD_LALT) {
+			keys = append(keys, "A")
+			modifier_key = true
+			get_char_with_modifier = true
+		} else if has_flag_u16(mod, sdl.KMOD_SHIFT) {
+			keys = append(keys, "S")
+			modifier_key = true
+		} else if has_flag_u16(mod, sdl.KMOD_GUI) {
+			keys = append(keys, "D")
+			modifier_key = true
+			get_char_with_modifier = true
+		}
+
+		if val, ok := SpecialKeys[t.Keysym.Sym]; ok == true {
 			keys = append(keys, val)
 			special_key = true
+		} else if get_char_with_modifier && t.Keysym.Sym < 10000 {
+			key := string(t.Keysym.Sym)
+			if !is_digit(rune(key[0])) {
+				keys = append(keys, string(t.Keysym.Sym))
+				character_key = true
+			}
 		}
+
 	case *sdl.TextInputEvent:
-		if t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
+		if !character_key && t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
 			keys = append(keys, t.GetText())
+			log_debug_msg("Char:", t.GetText())
 			character_key = true
 		}
 	}
@@ -96,7 +106,7 @@ func handle_input_event(editor *Editor, event sdl.Event) {
 	keycode := ""
 	if len(keys) == 0 || (modifier_key && !special_key && !character_key) {
 		return
-	} else if len(keys) == 1 && !modifier_key && !special_key && character_key {
+	} else if len(keys) == 1 && character_key {
 		keycode = keys[0]
 	} else {
 		keycode += "<"
@@ -107,9 +117,9 @@ func handle_input_event(editor *Editor, event sdl.Event) {
 			}
 		}
 		keycode += ">"
+		log_debug_msg("Key:", keycode)
 	}
 
-	fmt.Println("Keycode:", keycode)
 	// send keycode to neovim
-	editor.nvim.SendKeyCode(keycode)
+	nvim.SendKeyCode(keycode)
 }
