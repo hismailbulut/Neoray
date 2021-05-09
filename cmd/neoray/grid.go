@@ -2,8 +2,6 @@ package main
 
 import "github.com/veandco/go-sdl2/sdl"
 
-// TODO: Add multigrid support
-
 type Cell struct {
 	char      string
 	attrib_id int
