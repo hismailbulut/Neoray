@@ -1,9 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"reflect"
 )
+
+// this function is directly called from nvim process in other goroutine
+// we are handling some thread safe events here
+// NOTE: Reserved
+func redraw_events_prehandler(updates *[][]interface{}) {
+	for _, update := range *updates {
+		switch update[0] {
+		default:
+		}
+	}
+}
 
 func HandleNvimRedrawEvents(editor *Editor) {
 	// defer measure_execution_time("handle_nvim_updates")()
@@ -44,8 +54,10 @@ func HandleNvimRedrawEvents(editor *Editor) {
 		case "mouse_off":
 			break
 		case "busy_start":
+			log_debug_msg("Busy started.", updates)
 			break
 		case "busy_stop":
+			log_debug_msg("Busy stopped.", updates)
 			break
 		case "suspend":
 			break
@@ -56,7 +68,6 @@ func HandleNvimRedrawEvents(editor *Editor) {
 		case "visual_bell":
 			break
 		case "flush":
-			fmt.Println("flush")
 			editor.renderer.Draw(&editor.grid, &editor.mode, &editor.cursor)
 			break
 		// Grid Events (line-based)
@@ -257,7 +268,7 @@ func grid_line(grid *Grid, args []interface{}) {
 		cells := r.Index(3).Elem().Interface().([]interface{})
 		hl_id := 0 // if hl_id is not present, we will use the last one
 		for _, cell := range cells {
-			// cell is a slice, can has 1 to 3 elements
+			// cell is a slice, may have 1 to 3 elements
 			// first one is character
 			// second one is highlight attribute id -optional
 			// third one is repeat count -optional
