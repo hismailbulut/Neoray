@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -41,7 +39,7 @@ func CreateWindow(width int, height int, title string) Window {
 		sdl.WINDOW_RESIZABLE)
 
 	if err != nil {
-		log.Fatalln(err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL window:", err)
 	}
 	window.handle = sdl_window
 
