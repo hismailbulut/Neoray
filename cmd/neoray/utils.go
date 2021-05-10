@@ -102,6 +102,11 @@ type ivec2 struct {
 	Y int
 }
 
+var (
+	COLOR_WHITE       = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	COLOR_TRANSPARENT = sdl.Color{R: 0, G: 0, B: 0, A: 0}
+)
+
 func convert_rgb24_to_rgba(color uint32) sdl.Color {
 	return sdl.Color{
 		// 0x000000rr & 0xff = red: 0xrr

@@ -6,10 +6,7 @@ import (
 
 	"github.com/adrg/sysfont"
 	"github.com/veandco/go-sdl2/ttf"
-	"golang.org/x/image/font/opentype"
 )
-
-const MAX_CHARS = 4096
 
 type Font struct {
 	size float32
@@ -18,6 +15,8 @@ type Font struct {
 	italic_found      bool
 	bold_found        bool
 	bold_italic_found bool
+
+	regular_path string
 
 	regular     *ttf.Font
 	italic      *ttf.Font
@@ -56,7 +55,6 @@ func CreateFont(fontname string, size float32) Font {
 		font.find_and_load(fontname)
 	}
 
-	// italic text
 	print_font_information(font.regular)
 
 	return font
@@ -170,6 +168,7 @@ func (font *Font) load_matching_fonts(font_list []sysfont.Font) bool {
 	//regular
 	if !font.regular_found && len(others) > 0 {
 		regular_font_file_name := find_smaller_length_font_name(others)
+		font.regular_path = regular_font_file_name
 		font.regular = font.load_font_data(regular_font_file_name)
 		if font.regular != nil {
 			font.regular_found = true
@@ -181,12 +180,12 @@ func (font *Font) load_matching_fonts(font_list []sysfont.Font) bool {
 }
 
 func (font *Font) load_font_data(filename string) *ttf.Font {
-	font_data, err := ttf.OpenFont(filename, int(font.size))
+	sdl_font_data, err := ttf.OpenFont(filename, int(font.size))
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to open font file:", err)
 		return nil
 	}
-	return font_data
+	return sdl_font_data
 }
 
 func find_smaller_length_font_name(font_list []sysfont.Font) string {

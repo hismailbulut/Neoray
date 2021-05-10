@@ -31,16 +31,15 @@ func CreateWindow(width int, height int, title string) Window {
 		title:  title,
 	}
 
-	sdl_window, err := sdl.CreateWindow(
-		title,
-		sdl.WINDOWPOS_CENTERED,
-		sdl.WINDOWPOS_CENTERED,
-		int32(width), int32(height),
-		sdl.WINDOW_RESIZABLE)
-
+	sdl_window, _, err := sdl.CreateWindowAndRenderer(
+		int32(width), int32(height), sdl.WINDOW_RESIZABLE|sdl.WINDOW_ALLOW_HIGHDPI)
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL window:", err)
 	}
+
+	sdl_window.SetPosition(sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED)
+	sdl_window.SetTitle(title)
+
 	window.handle = sdl_window
 
 	return window

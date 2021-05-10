@@ -65,16 +65,14 @@ func (table *Grid) ClearCells() {
 func (table *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 	// If `repeat` is present, the cell should be
 	// repeated `repeat` times (including the first time)
-	if repeat == 0 {
+	cell_count := 1
+	if repeat > 0 {
+		cell_count = repeat
+	}
+	for i := 0; i < cell_count; i++ {
 		table.cells[x][*y].char = char
 		table.cells[x][*y].attrib_id = hl_id
 		*y++
-	} else {
-		for i := 0; i < repeat; i++ {
-			table.cells[x][*y].char = char
-			table.cells[x][*y].attrib_id = hl_id
-			*y++
-		}
 	}
 	table.changed_rows[x] = true
 }
