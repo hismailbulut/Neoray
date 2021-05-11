@@ -39,7 +39,7 @@ type Editor struct {
 const TARGET_TPS = 60
 const WINDOW_WIDTH = 800
 const WINDOW_HEIGHT = 600
-const FONT_NAME = "Cousine"
+const FONT_NAME = "Ubuntu Mono"
 const FONT_SIZE = 17
 const BG_TRANSPARENCY = 245
 

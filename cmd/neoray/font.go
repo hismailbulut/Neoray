@@ -185,6 +185,7 @@ func (font *Font) load_font_data(filename string) *ttf.Font {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to open font file:", err)
 		return nil
 	}
+	sdl_font_data.SetKerning(false)
 	return sdl_font_data
 }
 

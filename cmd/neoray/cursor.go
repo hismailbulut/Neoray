@@ -106,6 +106,6 @@ func (cursor *Cursor) Draw(grid *Grid, renderer *Renderer, mode *Mode) {
 	renderer.DrawRectangle(cursor_rect, bg, false)
 
 	if draw_char {
-		renderer.DrawCharacter(int32(cursor.X), int32(cursor.Y), fg, bg, cell.char, italic, bold)
+		renderer.DrawCell(int32(cursor.X), int32(cursor.Y), fg, bg, cell.char, italic, bold)
 	}
 }

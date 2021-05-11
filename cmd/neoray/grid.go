@@ -21,14 +21,17 @@ type HighlightAttributes struct {
 }
 
 type Grid struct {
-	cells        [][]Cell
-	width        int
-	height       int
-	default_fg   sdl.Color
-	default_bg   sdl.Color
-	default_sp   sdl.Color
-	attributes   map[int]HighlightAttributes
-	changed_rows map[int]bool
+	cells      [][]Cell
+	width      int
+	height     int
+	default_fg sdl.Color
+	default_bg sdl.Color
+	default_sp sdl.Color
+	attributes map[int]HighlightAttributes
+
+	scrolled      bool
+	scroll_source sdl.Rect
+	scroll_dest   sdl.Rect
 }
 
 func CreateGrid() Grid {
@@ -45,20 +48,14 @@ func (table *Grid) Resize(width int, height int) {
 	for i := range table.cells {
 		table.cells[i] = make([]Cell, width) // columns
 	}
-	// initialize and set changed rows
-	table.changed_rows = make(map[int]bool, len(table.cells))
-	for i := range table.cells {
-		table.changed_rows[i] = true
-	}
 }
 
 func (table *Grid) ClearCells() {
-	for i, row := range table.cells {
+	for _, row := range table.cells {
 		for _, cell := range row {
 			cell.char = ""
 			cell.attrib_id = 0
 		}
-		table.changed_rows[i] = true
 	}
 }
 
@@ -70,25 +67,35 @@ func (table *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		table.cells[x][*y].char = char
-		table.cells[x][*y].attrib_id = hl_id
+		cell := &table.cells[x][*y]
+		cell.char = char
+		cell.attrib_id = hl_id
 		*y++
 	}
-	table.changed_rows[x] = true
 }
 
 func (table *Grid) Scroll(top, bot, rows, left, right int) {
+	table.scrolled = true
+	table.scroll_source = sdl.Rect{
+		X: int32(left),
+		Y: int32(top),
+		W: int32(right - left),
+		H: int32(bot - top),
+	}
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ { // row
 			copy(table.cells[y-rows][left:right], table.cells[y][left:right])
-			table.changed_rows[y-rows] = true
 		}
 	} else { // Scroll up, move down
 		// rows is negative
-		rows = -rows
-		for y := (bot - rows) - 1; y >= top; y-- { // row
-			copy(table.cells[y+rows][left:right], table.cells[y][left:right])
-			table.changed_rows[y+rows] = true
+		for y := (bot + rows) - 1; y >= top; y-- { // row
+			copy(table.cells[y-rows][left:right], table.cells[y][left:right])
 		}
+	}
+	table.scroll_dest = sdl.Rect{
+		X: int32(left),
+		Y: int32(top - rows),
+		W: table.scroll_source.W,
+		H: table.scroll_source.H,
 	}
 }
