@@ -10,14 +10,14 @@ import (
 )
 
 // Utils
-type vec2 struct {
-	X float32
-	Y float32
+type f32vec2 struct {
+	X, Y float32
 }
-
 type ivec2 struct {
-	X int
-	Y int
+	X, Y int
+}
+type i32vec2 struct {
+	X, Y int32
 }
 
 var (
@@ -47,6 +47,22 @@ func convert_rgba_to_rgb24(color sdl.Color) uint32 {
 	rgb24 = (rgb24 << 8) | uint32(color.B)
 	// 0x00rrggbb
 	return rgb24
+}
+
+type oglColor struct {
+	R float32
+	G float32
+	B float32
+	A float32
+}
+
+func u8color_to_fcolor(sdlcolor sdl.Color) oglColor {
+	return oglColor{
+		R: float32(sdlcolor.R) / 256,
+		G: float32(sdlcolor.G) / 256,
+		B: float32(sdlcolor.B) / 256,
+		A: float32(sdlcolor.A) / 256,
+	}
 }
 
 func is_color_black(color sdl.Color) bool {

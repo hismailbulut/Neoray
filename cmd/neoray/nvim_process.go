@@ -107,6 +107,7 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 
 	col_count := editor.window.width / editor.renderer.cell_width
 	row_count := editor.window.height / editor.renderer.cell_height
+	log_debug_msg("Created Cols:", col_count, "Rows:", row_count)
 	proc.handle.AttachUI(col_count, row_count, options)
 
 	proc.handle.RegisterHandler("redraw",
@@ -132,6 +133,7 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 func (proc *NvimProcess) ResizeUI(editor *Editor) {
 	col_count := editor.window.width / editor.renderer.cell_width
 	row_count := editor.window.height / editor.renderer.cell_height
+	log_debug_msg("Cols:", col_count, "Rows:", row_count)
 	proc.handle.TryResizeUI(col_count, row_count)
 }
 

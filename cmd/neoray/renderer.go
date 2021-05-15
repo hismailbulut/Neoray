@@ -12,22 +12,41 @@ var (
 )
 
 type FontAtlasCharacter struct {
-	pos        ivec2
-	texture_id int
+	pos      ivec2
+	atlas_id int
+}
+
+type FontAtlasPair struct {
+	surface *sdl.Surface
+	texture Texture
 }
 
 type FontAtlas struct {
-	textures   []*sdl.Texture
+	pairs      []FontAtlasPair
 	pos        ivec2
 	characters map[string]FontAtlasCharacter
 }
 
+// RAPI_DrawSubTextureColor(atlas.texture, &atlas_char_pos, &cell_rect, fg)
+// RAPI_FillRect(rect, color)
+type CellDrawInfo struct {
+	draw_font bool
+	// For font drawings
+	atlas     Texture
+	atlas_src sdl.Rect
+	fg_dest   sdl.Rect
+	fg_color  sdl.Color
+	// for background (always send)
+	bg_dest  sdl.Rect
+	bg_color sdl.Color
+}
+
 type Renderer struct {
-	handle      *sdl.Renderer
 	font        Font
 	font_atlas  FontAtlas
 	cell_width  int
 	cell_height int
+	cell_infos  [][]CellDrawInfo
 }
 
 func CreateRenderer(window *Window, font Font) Renderer {
@@ -35,38 +54,44 @@ func CreateRenderer(window *Window, font Font) Renderer {
 	renderer := Renderer{
 		font: font,
 		font_atlas: FontAtlas{
-			textures:   make([]*sdl.Texture, 0),
+			pairs:      make([]FontAtlasPair, 0),
 			characters: make(map[string]FontAtlasCharacter),
 		},
 		cell_width:  cell_width,
 		cell_height: cell_height,
 	}
-	sdl_renderer, err := window.handle.GetRenderer()
-	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL renderer:", err)
-	}
-	renderer.handle = sdl_renderer
-	if !renderer.handle.RenderTargetSupported() {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Neoray needs render target support.")
-	}
+
+	RAPI_Init(window)
+	RAPI_CreateViewport(window.width, window.height)
+
 	return renderer
+}
+
+func (renderer *Renderer) Resize(row_count, col_count int) {
+	// renderer.cell_infos = make([][]CellDrawInfo, row_count)
+	// for i := range renderer.cell_infos {
+	//     renderer.cell_infos[i] = make([]CellDrawInfo, col_count)
+	// }
 }
 
 // Returns the last empty texture id and position, and advances position.
 // If texture is full than new texture will be created.
 func (renderer *Renderer) GetEmptyAtlasPosition() (int, ivec2) {
 	atlas := &renderer.font_atlas
-	if len(atlas.textures) == 0 || (atlas.pos.X == 0 && atlas.pos.Y == 0) {
-		// Create new atlas texture from surface
-		texture, err := renderer.handle.CreateTexture(
-			sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_TARGET, FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
+	if len(atlas.pairs) == 0 || (atlas.pos.X == 0 && atlas.pos.Y == 0) {
+		// create new atlas texture
+		surface, err := sdl.CreateRGBSurfaceWithFormat(
+			0, FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE, 32, sdl.PIXELFORMAT_RGBA8888)
 		if err != nil {
-			log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Font atlas texture creation failed:", err)
+			log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Font atlas surface creation failed:", err)
 		}
-		// texture.SetBlendMode(sdl.BLENDMODE_BLEND)
+		// generate opengl texture
+		texture := RAPI_CreateTextureFromSurface(surface)
+		pair := FontAtlasPair{surface: surface, texture: texture}
 		// append to textures list
-		atlas.textures = append(renderer.font_atlas.textures, texture)
+		atlas.pairs = append(renderer.font_atlas.pairs, pair)
 	}
+	// calculate position
 	pos := atlas.pos
 	atlas.pos.X += renderer.cell_width
 	if atlas.pos.X+renderer.cell_width > int(FONT_ATLAS_DEFAULT_SIZE) {
@@ -79,42 +104,44 @@ func (renderer *Renderer) GetEmptyAtlasPosition() (int, ivec2) {
 		atlas.pos = ivec2{}
 	}
 	// Return last texture and pos
-	return len(atlas.textures) - 1, pos
+	return len(atlas.pairs) - 1, pos
 }
 
-func (renderer *Renderer) GetCharacterTextureAndPosition(char string, italic, bold bool) (*sdl.Texture, sdl.Rect) {
-	var texture *sdl.Texture
+func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) (FontAtlasPair, sdl.Rect, error) {
+	var atlas FontAtlasPair
 	var position sdl.Rect
 	// generate specific id for this character
 	id := fmt.Sprintf("%s%t%t", char, italic, bold)
 	if val, ok := renderer.font_atlas.characters[id]; ok == true {
 		// use stored texture
-		texture = renderer.font_atlas.textures[val.texture_id]
+		atlas = renderer.font_atlas.pairs[val.atlas_id]
 		position = sdl.Rect{
 			X: int32(val.pos.X),
 			Y: int32(val.pos.Y),
 			W: int32(renderer.cell_width),
 			H: int32(renderer.cell_height),
 		}
+		// For Debug
+		// if len(renderer.font_atlas.characters) > 25 {
+		//     if err := atlas.surface.SaveBMP("surface.bmp"); err != nil {
+		//         log_debug_msg(err)
+		//     }
+		//     log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "BMP Saved.")
+		// }
 	} else {
 		// Create this text
 		font_handle := renderer.font.GetDrawableFont(italic, bold)
 		text_surface, err := font_handle.RenderUTF8Blended(char, COLOR_WHITE)
 		if err != nil {
 			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
-			return nil, sdl.Rect{}
+			return FontAtlasPair{}, sdl.Rect{}, err
 		}
 		defer text_surface.Free()
-		// create texture from text surface
-		text_texture, err := renderer.handle.CreateTextureFromSurface(text_surface)
-		if err != nil {
-			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
-			return nil, sdl.Rect{}
-		}
+		// get new position and current atlas texture
 		atlas_texture_id, text_pos := renderer.GetEmptyAtlasPosition()
-		atlas_texture := renderer.font_atlas.textures[atlas_texture_id]
+		atlas = renderer.font_atlas.pairs[atlas_texture_id]
 		// calculate destination rectangle
-		dest_rect := sdl.Rect{
+		position = sdl.Rect{
 			X: int32(text_pos.X),
 			Y: int32(text_pos.Y),
 			W: int32(renderer.cell_width),
@@ -122,24 +149,23 @@ func (renderer *Renderer) GetCharacterTextureAndPosition(char string, italic, bo
 		}
 		// make height as same percent with width
 		if text_surface.W > int32(renderer.cell_width) {
-			dest_rect.H = int32(math.Ceil(float64(text_surface.H) / (float64(text_surface.W) / float64(dest_rect.W))))
+			position.H = int32(math.Ceil(float64(text_surface.H) / (float64(text_surface.W) / float64(position.W))))
 		}
 		// Draw text to empty position of atlas texture
-		renderer.handle.SetRenderTarget(atlas_texture)
-		renderer.handle.Copy(text_texture, nil, &dest_rect)
-		renderer.handle.SetRenderTarget(nil)
-		// Append this id to known character map
+		// TODO: Draw directly to texture
+		text_surface.Blit(nil, atlas.surface, &position)
+		// Update opengl texture
+		atlas.texture.UpdateFromSurface(atlas.surface)
+		// append this id to known character map
 		renderer.font_atlas.characters[id] = FontAtlasCharacter{text_pos, atlas_texture_id}
-		// Set variables for return
-		texture = atlas_texture
-		position = dest_rect
 	}
-	return texture, position
+	return atlas, position, nil
 }
 
-func (renderer *Renderer) DrawRectangle(rect sdl.Rect, color sdl.Color, batch bool) {
-	renderer.handle.SetDrawColor(color.R, color.G, color.B, color.A)
-	renderer.handle.FillRect(&rect)
+func (renderer *Renderer) DrawRectangle(x, y int32, rect sdl.Rect, color sdl.Color) {
+	// renderer.cell_infos[x][y].bg_dest = rect
+	// renderer.cell_infos[x][y].bg_color = color
+	RAPI_FillRect(rect, color)
 }
 
 func (renderer *Renderer) DrawCell(x, y int32, fg, bg sdl.Color, char string, italic, bold bool) {
@@ -149,23 +175,27 @@ func (renderer *Renderer) DrawCell(x, y int32, fg, bg sdl.Color, char string, it
 		W: int32(renderer.cell_width),
 		H: int32(renderer.cell_height),
 	}
-	// Draw Background
-	renderer.DrawRectangle(cell_rect, bg, true)
+	// draw Background
+	renderer.DrawRectangle(x, y, cell_rect, bg)
 	if len(char) == 0 || char == " " {
+		// renderer.cell_infos[x][y].draw_font = false
 		return
 	}
-	// Get character from atlas
-	text_texture, position_rect := renderer.GetCharacterTextureAndPosition(char, italic, bold)
-	if text_texture == nil {
+	// get character atlas texture and position
+	atlas, atlas_char_pos, err := renderer.GetCharacterAtlasPosition(char, italic, bold)
+	if err != nil {
 		return
 	}
-	// Set text color
-	text_texture.SetColorMod(fg.R, fg.G, fg.B)
-	// Copy texture to main framebuffer
-	renderer.handle.Copy(text_texture, &position_rect, &cell_rect)
+	// draw
+	// renderer.cell_infos[x][y].draw_font = true
+	// renderer.cell_infos[x][y].atlas = atlas.texture
+	// renderer.cell_infos[x][y].atlas_src = atlas_char_pos
+	// renderer.cell_infos[x][y].fg_dest = cell_rect
+	// renderer.cell_infos[x][y].fg_color = fg
+	RAPI_DrawSubTextureColor(atlas.texture, &atlas_char_pos, &cell_rect, fg)
 }
 
-func (renderer *Renderer) DrawCellWithAttrib(grid *Grid, x, y int32) {
+func (renderer *Renderer) PrepareCellToDraw(grid *Grid, x, y int32) {
 	fg := grid.default_fg
 	bg := grid.default_bg
 	sp := grid.default_sp
@@ -203,33 +233,53 @@ func (renderer *Renderer) DrawCellWithAttrib(grid *Grid, x, y int32) {
 	renderer.DrawCell(x, y, fg, bg, cell.char, italic, bold)
 }
 
-func (renderer *Renderer) Draw(grid *Grid, mode *Mode, cursor *Cursor) {
-	for x, row := range grid.cells {
+func (renderer *Renderer) Draw(editor *Editor) {
+	RAPI_ClearScreen(editor.grid.default_bg)
+
+	for x, row := range editor.grid.cells {
 		for y := range row {
-			renderer.DrawCellWithAttrib(grid, int32(x), int32(y))
+			renderer.PrepareCellToDraw(&editor.grid, int32(x), int32(y))
 		}
 	}
-	cursor.Draw(grid, renderer, mode)
-	// DEBUG Draw Last Font Atlas
-	if len(renderer.font_atlas.textures) > 0 {
-		last_texture := renderer.font_atlas.textures[len(renderer.font_atlas.textures)-1]
-		last_texture_pos := sdl.Rect{
-			X: int32((grid.width * renderer.cell_width) - int(FONT_ATLAS_DEFAULT_SIZE)),
+
+	// Prepare cursor for drawings
+	editor.cursor.Draw(&editor.grid, &editor.renderer, &editor.mode)
+
+	// Send buffer to render subsystem
+	// for _, row := range renderer.cell_infos {
+	//     for _, cell := range row {
+	//         RAPI_FillRect(cell.bg_dest, cell.bg_color)
+	//         if cell.draw_font {
+	//             RAPI_DrawSubTextureColor(
+	//                 cell.atlas, &cell.atlas_src, &cell.fg_dest, cell.fg_color)
+	//         }
+	//     }
+	// }
+
+	// DEBUG: prepare last font atlas for drawing
+	if len(renderer.font_atlas.pairs) > 0 {
+		atlas := renderer.font_atlas.pairs[len(renderer.font_atlas.pairs)-1]
+		atlas_pos := sdl.Rect{
+			X: int32((editor.grid.width * renderer.cell_width) - int(FONT_ATLAS_DEFAULT_SIZE)),
 			Y: 0,
 			W: FONT_ATLAS_DEFAULT_SIZE,
 			H: FONT_ATLAS_DEFAULT_SIZE,
 		}
-		last_texture.SetColorMod(255, 255, 255)
-		renderer.handle.Copy(last_texture, nil, &last_texture_pos)
+		RAPI_DrawTexture(atlas.texture, &atlas_pos)
 	}
-	//
-	renderer.handle.Present()
+
+	// Draw
+	RAPI_Render()
+
+	// Swap window surface
+	editor.window.handle.GLSwap()
 }
 
 func (renderer *Renderer) Close() {
-	for _, texture := range renderer.font_atlas.textures {
-		texture.Destroy()
+	for _, atlas := range renderer.font_atlas.pairs {
+		atlas.surface.Free()
+		atlas.texture.Delete()
 	}
 	renderer.font.Unload()
-	renderer.handle.Destroy()
+	RAPI_Close()
 }

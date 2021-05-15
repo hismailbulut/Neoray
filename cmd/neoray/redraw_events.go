@@ -68,11 +68,11 @@ func HandleNvimRedrawEvents(editor *Editor) {
 		case "visual_bell":
 			break
 		case "flush":
-			editor.renderer.Draw(&editor.grid, &editor.mode, &editor.cursor)
+			editor.renderer.Draw(editor)
 			break
 		// Grid Events (line-based)
 		case "grid_resize":
-			grid_resize(&editor.grid, updates[1:])
+			grid_resize(editor, updates[1:])
 			break
 		case "default_colors_set":
 			default_colors_set(&editor.grid, updates[1:])
@@ -181,12 +181,13 @@ func mode_info_set(mode *Mode, args []interface{}) {
 	}
 }
 
-func grid_resize(grid *Grid, args []interface{}) {
+func grid_resize(editor *Editor, args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(int(0))
 	width := r.Index(1).Elem().Convert(t).Int()
 	height := r.Index(2).Elem().Convert(t).Int()
-	grid.Resize(int(width), int(height))
+	editor.grid.Resize(int(width), int(height))
+	editor.renderer.Resize(int(height), int(width))
 }
 
 func default_colors_set(grid *Grid, args []interface{}) {

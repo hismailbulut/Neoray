@@ -28,10 +28,6 @@ type Grid struct {
 	default_bg sdl.Color
 	default_sp sdl.Color
 	attributes map[int]HighlightAttributes
-
-	scrolled      bool
-	scroll_source sdl.Rect
-	scroll_dest   sdl.Rect
 }
 
 func CreateGrid() Grid {
@@ -68,20 +64,15 @@ func (table *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 	}
 	for i := 0; i < cell_count; i++ {
 		cell := &table.cells[x][*y]
-		cell.char = char
-		cell.attrib_id = hl_id
+		if cell.char != char || cell.attrib_id != hl_id {
+			cell.char = char
+			cell.attrib_id = hl_id
+		}
 		*y++
 	}
 }
 
 func (table *Grid) Scroll(top, bot, rows, left, right int) {
-	table.scrolled = true
-	table.scroll_source = sdl.Rect{
-		X: int32(left),
-		Y: int32(top),
-		W: int32(right - left),
-		H: int32(bot - top),
-	}
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ { // row
 			copy(table.cells[y-rows][left:right], table.cells[y][left:right])
@@ -91,11 +82,5 @@ func (table *Grid) Scroll(top, bot, rows, left, right int) {
 		for y := (bot + rows) - 1; y >= top; y-- { // row
 			copy(table.cells[y-rows][left:right], table.cells[y][left:right])
 		}
-	}
-	table.scroll_dest = sdl.Rect{
-		X: int32(left),
-		Y: int32(top - rows),
-		W: table.scroll_source.W,
-		H: table.scroll_source.H,
 	}
 }

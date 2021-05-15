@@ -39,9 +39,19 @@ type Editor struct {
 const TARGET_TPS = 60
 const WINDOW_WIDTH = 800
 const WINDOW_HEIGHT = 600
-const FONT_NAME = "Ubuntu Mono"
+
+// My best fonts:
+// 1- Consolas           11
+// 2- UbuntuMono NF      12
+// 3- GoMono NF          10.5
+// 4- Cousine NF         11
+// 5- Hack NF            10.5
+// 6- JetBrains Mono     10
+// 7- Cascadia Mono      10.5
+// 8- Cascadia Code      11
+const FONT_NAME = "Consolas"
 const FONT_SIZE = 17
-const BG_TRANSPARENCY = 245
+const BG_TRANSPARENCY = 255
 
 func (editor *Editor) Initialize() {
 	// pprof for debugging
