@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -47,13 +49,16 @@ func (window *Window) HandleWindowResizing(editor *Editor) {
 		window.width = int(w)
 		window.height = int(h)
 		editor.nvim.ResizeUI(editor)
-		RAPI_CreateViewport(int(w), int(h))
+		editor.renderer.Resize(int(w), int(h))
 	}
 }
 
 func (window *Window) Update(editor *Editor) {
 	window.HandleWindowResizing(editor)
 	HandleNvimRedrawEvents(editor)
+	// DEBUG
+	fps_string := fmt.Sprintf("FPS: %d", frames_per_second)
+	window.SetTitle(fps_string)
 }
 
 func (window *Window) SetSize(newWidth int, newHeight int, editor *Editor) {

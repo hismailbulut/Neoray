@@ -49,9 +49,11 @@ const WINDOW_HEIGHT = 600
 // 6- JetBrains Mono     10
 // 7- Cascadia Mono      10.5
 // 8- Cascadia Code      11
-const FONT_NAME = "Consolas"
-const FONT_SIZE = 17
+const FONT_NAME = "Ubuntu Mono"
+const FONT_SIZE = 18
 const BG_TRANSPARENCY = 255
+
+var frames_per_second = 0
 
 func (editor *Editor) Initialize() {
 	// pprof for debugging
@@ -92,6 +94,8 @@ func (editor *Editor) Initialize() {
 func (editor *Editor) MainLoop() {
 	ticker := time.NewTicker(time.Millisecond * (1000 / TARGET_TPS))
 	defer ticker.Stop()
+	fpsTimer := time.Now()
+	fps := 0
 	for !editor.quit_requested {
 		select {
 		case <-editor.quit_requested_chan:
@@ -101,6 +105,12 @@ func (editor *Editor) MainLoop() {
 		}
 		HandleSDLEvents(editor)
 		editor.window.Update(editor)
+		fps++
+		if time.Since(fpsTimer) > time.Second {
+			frames_per_second = fps
+			fps = 0
+			fpsTimer = time.Now()
+		}
 		<-ticker.C
 	}
 }

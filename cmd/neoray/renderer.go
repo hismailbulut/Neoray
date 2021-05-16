@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	FONT_ATLAS_DEFAULT_SIZE int = 512
+	FONT_ATLAS_DEFAULT_SIZE int = 256
 )
 
 type FontAtlas struct {
@@ -17,10 +17,13 @@ type FontAtlas struct {
 }
 
 type Renderer struct {
-	font        Font
-	font_atlas  FontAtlas
-	cell_width  int
-	cell_height int
+	font          Font
+	font_atlas    FontAtlas
+	cell_width    int
+	cell_height   int
+	window_width  int
+	window_height int
+	// vertex_data   []Vertex
 }
 
 func CreateRenderer(window *Window, font Font) Renderer {
@@ -34,12 +37,23 @@ func CreateRenderer(window *Window, font Font) Renderer {
 		cell_height: cell_height,
 	}
 
-	RAPI_Init(window)
-	RAPI_CreateViewport(window.width, window.height)
+	RGL_Init(window)
+	RGL_CreateViewport(window.width, window.height)
 
-	renderer.font_atlas.texture = RAPI_CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
+	renderer.font_atlas.texture = RGL_CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
+	RGL_SetAtlasTexture(&renderer.font_atlas.texture)
+
+	renderer.Resize(window.width, window.height)
 
 	return renderer
+}
+
+func (renderer *Renderer) Resize(w, h int) {
+	// 6 vertices for every cell
+	// renderer.vertex_data = make([]Vertex, w*h*6)
+	renderer.window_width = w
+	renderer.window_height = h
+	RGL_CreateViewport(w, h)
 }
 
 func (renderer *Renderer) GetEmptyAtlasPosition() ivec2 {
@@ -81,18 +95,18 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 			return sdl.Rect{}, err
 		}
 		defer text_surface.Free()
-		// get new position and current atlas texture
+		// Get empty atlas position
 		text_pos := renderer.GetEmptyAtlasPosition()
-		// calculate destination rectangle
 		position = sdl.Rect{
 			X: int32(text_pos.X),
 			Y: int32(text_pos.Y),
 			W: int32(renderer.cell_width),
 			H: int32(renderer.cell_height),
 		}
-		// make height as same percent with width
-		if text_surface.W > int32(renderer.cell_width) {
-			// position.H = int32(math.Ceil(float64(text_surface.H) / (float64(text_surface.W) / float64(position.W))))
+		if text_surface.W > int32(renderer.cell_width) || text_surface.H > int32(renderer.cell_height) {
+			// TODO: scale surface or scale texture
+			position.W = text_surface.W
+			position.H = text_surface.H
 		}
 		// Draw text to empty position of atlas texture
 		renderer.font_atlas.texture.UpdatePartFromSurface(text_surface, &position)
@@ -103,7 +117,7 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 }
 
 func (renderer *Renderer) DrawRectangle(rect sdl.Rect, color sdl.Color) {
-	RAPI_FillRect(rect, color)
+	RGL_FillRect(rect, color)
 }
 
 func (renderer *Renderer) DrawCell(x, y int32, fg, bg sdl.Color, char string, italic, bold bool) {
@@ -118,16 +132,16 @@ func (renderer *Renderer) DrawCell(x, y int32, fg, bg sdl.Color, char string, it
 	if len(char) == 0 || char == " " {
 		return
 	}
-	// get character atlas texture and position
+	// get character position in atlas texture
 	atlas_char_pos, err := renderer.GetCharacterAtlasPosition(char, italic, bold)
 	if err != nil {
 		return
 	}
 	// draw
-	RAPI_DrawSubTextureColor(renderer.font_atlas.texture, &atlas_char_pos, &cell_rect, fg)
+	RGL_DrawSubTextureColor(renderer.font_atlas.texture, &atlas_char_pos, &cell_rect, fg)
 }
 
-func (renderer *Renderer) PrepareCellToDraw(grid *Grid, x, y int32) {
+func (renderer *Renderer) DrawCellWithAttrib(grid *Grid, x, y int32) {
 	fg := grid.default_fg
 	bg := grid.default_bg
 	sp := grid.default_sp
@@ -166,28 +180,28 @@ func (renderer *Renderer) PrepareCellToDraw(grid *Grid, x, y int32) {
 }
 
 func (renderer *Renderer) Draw(editor *Editor) {
-	RAPI_ClearScreen(editor.grid.default_bg)
+	RGL_ClearScreen(editor.grid.default_bg)
 
 	for x, row := range editor.grid.cells {
 		for y := range row {
-			renderer.PrepareCellToDraw(&editor.grid, int32(x), int32(y))
+			renderer.DrawCellWithAttrib(&editor.grid, int32(x), int32(y))
 		}
 	}
 
-	// Prepare cursor for drawings
+	// Draw cursor
 	editor.cursor.Draw(&editor.grid, &editor.renderer, &editor.mode)
 
-	// DEBUG: prepare last font atlas for drawing
+	// DEBUG: draw font atlas to top right
 	atlas_pos := sdl.Rect{
 		X: int32((editor.grid.width * renderer.cell_width) - int(FONT_ATLAS_DEFAULT_SIZE)),
 		Y: 0,
 		W: int32(FONT_ATLAS_DEFAULT_SIZE),
 		H: int32(FONT_ATLAS_DEFAULT_SIZE),
 	}
-	RAPI_DrawTexture(renderer.font_atlas.texture, &atlas_pos)
+	RGL_DrawTexture(renderer.font_atlas.texture, &atlas_pos)
 
-	// Draw
-	RAPI_Render(renderer.font_atlas.texture)
+	// Render changes
+	RGL_Render(renderer.font_atlas.texture)
 
 	// Swap window surface
 	editor.window.handle.GLSwap()
@@ -196,5 +210,5 @@ func (renderer *Renderer) Draw(editor *Editor) {
 func (renderer *Renderer) Close() {
 	renderer.font_atlas.texture.Delete()
 	renderer.font.Unload()
-	RAPI_Close()
+	RGL_Close()
 }

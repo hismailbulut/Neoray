@@ -21,6 +21,7 @@ type Mode struct {
 	current_mode         int
 }
 
+// TODO: Cursor animation
 type Cursor struct {
 	X       int
 	Y       int
@@ -36,7 +37,6 @@ func (cursor *Cursor) SetPosition(x, y int) {
 }
 
 func (cursor *Cursor) Draw(grid *Grid, renderer *Renderer, mode *Mode) {
-
 	cell := &grid.cells[cursor.X][cursor.Y]
 
 	mode_info := mode.mode_infos[mode.current_mode_name]
