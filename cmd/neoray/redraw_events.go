@@ -72,7 +72,7 @@ func HandleNvimRedrawEvents(editor *Editor) {
 			break
 		// Grid Events (line-based)
 		case "grid_resize":
-			grid_resize(editor, updates[1:])
+			grid_resize(&editor.grid, updates[1:])
 			break
 		case "default_colors_set":
 			default_colors_set(&editor.grid, updates[1:])
@@ -181,13 +181,12 @@ func mode_info_set(mode *Mode, args []interface{}) {
 	}
 }
 
-func grid_resize(editor *Editor, args []interface{}) {
+func grid_resize(grid *Grid, args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(int(0))
 	width := r.Index(1).Elem().Convert(t).Int()
 	height := r.Index(2).Elem().Convert(t).Int()
-	editor.grid.Resize(int(width), int(height))
-	editor.renderer.Resize(int(height), int(width))
+	grid.Resize(int(width), int(height))
 }
 
 func default_colors_set(grid *Grid, args []interface{}) {

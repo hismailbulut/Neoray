@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"runtime"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 )
 
 func init() {
+	runtime.LockOSThread()
 	log.SetFlags(0)
 }
 

@@ -146,9 +146,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		debug.PrintStack()
 		log.Fatalln(log_string)
 	} else if err {
-		fmt.Printf("\n")
 		log.Println(log_string)
-		fmt.Printf("\n")
 	} else {
 		log.Println(log_string)
 	}
