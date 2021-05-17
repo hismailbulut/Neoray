@@ -9,7 +9,6 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// Utils
 type f32vec2 struct {
 	X, Y float32
 }
@@ -77,6 +76,28 @@ func is_digit(char rune) bool {
 	return char >= '0' && char <= '9'
 }
 
+func TriangulateRect(rect *sdl.Rect) [6]i32vec2 {
+	return [6]i32vec2{
+		{rect.X, rect.Y},                   //0
+		{rect.X, rect.Y + rect.H},          //1
+		{rect.X + rect.W, rect.Y + rect.H}, //2
+		{rect.X + rect.W, rect.Y + rect.H}, //2
+		{rect.X + rect.W, rect.Y},          //3
+		{rect.X, rect.Y},                   //0
+	}
+}
+
+func TriangulateFRect(rect *sdl.FRect) [6]f32vec2 {
+	return [6]f32vec2{
+		{rect.X, rect.Y},                   //0
+		{rect.X, rect.Y + rect.H},          //1
+		{rect.X + rect.W, rect.Y + rect.H}, //2
+		{rect.X + rect.W, rect.Y + rect.H}, //2
+		{rect.X + rect.W, rect.Y},          //3
+		{rect.X, rect.Y},                   //0
+	}
+}
+
 func measure_execution_time(name string) func() {
 	now := time.Now()
 	return func() {
@@ -84,6 +105,12 @@ func measure_execution_time(name string) func() {
 		if elapsed > time.Millisecond*10 {
 			log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "Function", name, "takes", elapsed)
 		}
+	}
+}
+
+func assert(cond bool, message string) {
+	if cond == false {
+		panic("Assertion Failed:" + message)
 	}
 }
 
