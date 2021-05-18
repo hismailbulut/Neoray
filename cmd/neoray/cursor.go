@@ -103,9 +103,10 @@ func (cursor *Cursor) Draw(grid *Grid, renderer *Renderer, mode *Mode) {
 		break
 	}
 
-	renderer.SetCursorRect(cursor_rect, bg)
-
 	if draw_char {
+		renderer.SetCursorRect(cursor_rect, sdl.Color{R: 0, G: 0, B: 0, A: 0})
 		renderer.DrawCell(cursor.X, cursor.Y, fg, bg, cell.char, italic, bold)
+	} else {
+		renderer.SetCursorRect(cursor_rect, bg)
 	}
 }
