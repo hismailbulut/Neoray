@@ -27,7 +27,6 @@ type Font struct {
 }
 
 func CreateFont(fontname string, size float32) Font {
-
 	if err := ttf.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL_TTF:", err)
 	}
@@ -55,7 +54,7 @@ func CreateFont(fontname string, size float32) Font {
 		font.find_and_load(fontname)
 	}
 
-	print_font_information(font.regular)
+	// print_font_information(font.regular)
 
 	return font
 }
@@ -68,12 +67,12 @@ func (font *Font) Unload() {
 	ttf.Quit()
 }
 
-func (font *Font) GetDrawableFont(italic bool, bold bool) *ttf.Font {
+func (font *Font) GetSuitableFont(italic bool, bold bool) *ttf.Font {
 	if italic && bold {
 		return font.bold_italic
-	} else if italic && !bold {
+	} else if italic {
 		return font.italic
-	} else if bold && !italic {
+	} else if bold {
 		return font.bold
 	}
 	return font.regular
@@ -82,7 +81,7 @@ func (font *Font) GetDrawableFont(italic bool, bold bool) *ttf.Font {
 func (font *Font) CalculateCellSize() (int, int) {
 	metrics, err := font.regular.GlyphMetrics('m')
 	if err != nil {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to calculate cell size:", err)
 		return int(font.size), int(font.size / 2)
 	}
 	w := metrics.Advance
@@ -208,21 +207,12 @@ func font_name_contains(f *sysfont.Font, str string) bool {
 }
 
 func print_font_information(font *ttf.Font) {
-	log_debug_msg("Family Name:", font.FaceFamilyName())
-	log_debug_msg("Total Faces:", font.Faces())
+	log_debug_msg("FaceFamilyName:", font.FaceFamilyName())
+	log_debug_msg("TotalFaces:", font.Faces())
 	log_debug_msg("Ascent:", font.Ascent())
 	log_debug_msg("Descent:", font.Descent())
 	log_debug_msg("Height:", font.Height())
 	log_debug_msg("FaceIsFixedWidth:", font.FaceIsFixedWidth())
 	log_debug_msg("Outline:", font.GetOutline())
 	log_debug_msg("LineSkip:", font.LineSkip())
-	metrics, err := font.GlyphMetrics('M')
-	if log_err_if_not_nil(err) {
-		return
-	}
-	log_debug_msg("Metrics Advance:", metrics.Advance)
-	log_debug_msg("Metrics MaxX:", metrics.MaxX)
-	log_debug_msg("Metrics MinX:", metrics.MinX)
-	log_debug_msg("Metrics MaxY:", metrics.MaxY)
-	log_debug_msg("Metrics MinY:", metrics.MinY)
 }

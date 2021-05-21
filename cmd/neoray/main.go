@@ -19,7 +19,9 @@ func init() {
 
 func main() {
 	editor := Editor{}
+
 	editor.Initialize()
 	defer editor.Shutdown()
+
 	editor.MainLoop()
 }

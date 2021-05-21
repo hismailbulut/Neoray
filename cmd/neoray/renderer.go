@@ -64,18 +64,19 @@ func (renderer *Renderer) Resize(w, h int) {
 }
 
 func (renderer *Renderer) CreateVertexData() {
-	// Create vertex data NOTE:
+	// Stride is the size of cells multiplied by 6 because
+	// every cell has 2 triangles and every triangle has 6 vertices.
+	renderer.vertex_data_stride = renderer.col_count * renderer.row_count * 6
 	// First area is for background drawing
 	// Second area is for text drawing
 	// Last 6 vertex is for cursor
-	renderer.vertex_data_stride = renderer.col_count * renderer.row_count * 6
 	renderer.vertex_data_size = (2 * renderer.vertex_data_stride) + 6
 	renderer.vertex_data = make([]Vertex, renderer.vertex_data_size, renderer.vertex_data_size)
 	for y := 0; y < renderer.row_count; y++ {
 		for x := 0; x < renderer.col_count; x++ {
 			// prepare first area
 			cell_rect := renderer.GetCellRect(y, x)
-			positions := TriangulateRect(&cell_rect)
+			positions := triangulate_rect(&cell_rect)
 			begin1 := renderer.GetCellVertexPosition(y, x)
 			for i, pos := range positions {
 				renderer.vertex_data[begin1+i].X = float32(pos.X)
@@ -102,8 +103,8 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 		H: int32(FONT_ATLAS_DEFAULT_SIZE),
 	}
 	vertex := Vertex{useTexture: 1, R: 1, G: 1, B: 1, A: 1}
-	positions := TriangulateRect(&atlas_pos)
-	texture_positions := TriangulateFRect(&sdl.FRect{X: 0, Y: 0, W: 1, H: 1})
+	positions := triangulate_rect(&atlas_pos)
+	texture_positions := triangulate_frect(&sdl.FRect{X: 0, Y: 0, W: 1, H: 1})
 	for i := 0; i < 6; i++ {
 		vertex.X = float32(positions[i].X)
 		vertex.Y = float32(positions[i].Y)
@@ -113,7 +114,7 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 	}
 }
 
-func (renderer *Renderer) SetCellBackground(x, y int, color sdl.Color) {
+func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
 	c := u8color_to_fcolor(color)
 	begin := renderer.GetCellVertexPosition(x, y)
 	for i := 0; i < 6; i++ {
@@ -125,10 +126,9 @@ func (renderer *Renderer) SetCellBackground(x, y int, color sdl.Color) {
 }
 
 func (renderer *Renderer) SetCellTextData(x, y int, src sdl.Rect, dest sdl.Rect, color sdl.Color) {
-	area := renderer.font_atlas.texture.GetInternalArea(&src)
-	// Color and texture id is same for this vertices
+	area := renderer.font_atlas.texture.GetRectGLCoordinates(&src)
 	c := u8color_to_fcolor(color)
-	texture_coords := TriangulateFRect(&area)
+	texture_coords := triangulate_frect(&area)
 	begin := renderer.vertex_data_stride + renderer.GetCellVertexPosition(x, y)
 	for i := 0; i < 6; i++ {
 		renderer.vertex_data[begin+i].TexX = texture_coords[i].X
@@ -140,20 +140,21 @@ func (renderer *Renderer) SetCellTextData(x, y int, src sdl.Rect, dest sdl.Rect,
 	}
 }
 
-func (renderer *Renderer) ClearCellTextData() {
-	for i := renderer.vertex_data_stride; i < 2*renderer.vertex_data_stride; i++ {
-		renderer.vertex_data[i].TexX = 0
-		renderer.vertex_data[i].TexY = 0
-		renderer.vertex_data[i].R = 0
-		renderer.vertex_data[i].G = 0
-		renderer.vertex_data[i].B = 0
-		renderer.vertex_data[i].A = 0
+func (renderer *Renderer) ClearCellTextData(x, y int) {
+	begin := renderer.vertex_data_stride + renderer.GetCellVertexPosition(x, y)
+	for i := 0; i < 6; i++ {
+		renderer.vertex_data[begin+i].TexX = 0
+		renderer.vertex_data[begin+i].TexY = 0
+		renderer.vertex_data[begin+i].R = 0
+		renderer.vertex_data[begin+i].G = 0
+		renderer.vertex_data[begin+i].B = 0
+		renderer.vertex_data[begin+i].A = 0
 	}
 }
 
-func (renderer *Renderer) SetCursorRect(rect sdl.Rect, color sdl.Color) {
+func (renderer *Renderer) SetCursorRectData(rect sdl.Rect, color sdl.Color) {
 	c := u8color_to_fcolor(color)
-	positions := TriangulateRect(&rect)
+	positions := triangulate_rect(&rect)
 	begin := renderer.vertex_data_stride * 2
 	for i := 0; i < 6; i++ {
 		renderer.vertex_data[begin+i].X = float32(positions[i].X)
@@ -178,8 +179,9 @@ func (renderer *Renderer) GetCellVertexPosition(x, y int) int {
 	return (x*renderer.col_count + y) * 6
 }
 
-func (renderer *Renderer) AdvanceAtlasPosition(width int) {
+func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
 	atlas := &renderer.font_atlas
+	pos := atlas.pos
 	atlas.pos.X += width
 	if atlas.pos.X+width > int(FONT_ATLAS_DEFAULT_SIZE) {
 		atlas.pos.X = 0
@@ -187,9 +189,10 @@ func (renderer *Renderer) AdvanceAtlasPosition(width int) {
 	}
 	if atlas.pos.Y+renderer.cell_height > int(FONT_ATLAS_DEFAULT_SIZE) {
 		// Fully filled
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Font atlas is full.")
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
 		atlas.pos = ivec2{}
 	}
+	return pos
 }
 
 func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) (sdl.Rect, error) {
@@ -200,40 +203,44 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 		// use stored texture
 		position = pos
 	} else {
-		// Create this text
-		font_handle := renderer.font.GetDrawableFont(italic, bold)
+		// Get suitable font
+		font_handle := renderer.font.GetSuitableFont(italic, bold)
+		// Get text glyph metrics
+		// metrics, err := font_handle.GlyphMetrics(rune(char[0]))
+		// if err != nil {
+		//     log_message(LOG_LEVEL_WARN, LOG_TYPE_RENDERER, "Failed to get glyph metrics of char '", char, "':", err)
+		//     return sdl.Rect{}, err
+		// }
+		// log_debug_msg("Char:", char, "Metrics:", metrics)
+		// Render text to surface
 		text_surface, err := font_handle.RenderUTF8Blended(char, COLOR_WHITE)
 		if err != nil {
-			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, err)
+			log_message(LOG_LEVEL_WARN, LOG_TYPE_RENDERER, "Failed to render text:", err)
 			return sdl.Rect{}, err
 		}
 		defer text_surface.Free()
-		// Get empty atlas position
-		text_pos := renderer.font_atlas.pos
+		// Get empty atlas position for this char
+		text_pos := renderer.GetEmptyAtlasPosition(int(text_surface.W))
 		position = sdl.Rect{
 			X: int32(text_pos.X),
 			Y: int32(text_pos.Y),
-			W: int32(renderer.cell_width),
-			H: int32(renderer.cell_height),
-		}
-		if text_surface.W > int32(renderer.cell_width) || text_surface.H > int32(renderer.cell_height) {
-			// TODO: scale surface or texture
-			position.W = text_surface.W
-			position.H = text_surface.H
+			W: text_surface.W,
+			H: text_surface.H,
 		}
 		// Draw text to empty position of atlas texture
 		renderer.font_atlas.texture.UpdatePartFromSurface(text_surface, &position)
+		// Add this font to character list for further use
 		renderer.font_atlas.characters[id] = position
-		// Advance atlas position
-		renderer.AdvanceAtlasPosition(int(position.W))
 	}
 	return position, nil
 }
 
-func (renderer *Renderer) DrawCell(x, y int, fg, bg sdl.Color, char string, italic, bold bool) {
+func (renderer *Renderer) DrawCellCharColor(x, y int, char string, fg, bg sdl.Color, italic, bold bool) {
 	// draw Background
-	renderer.SetCellBackground(x, y, bg)
+	renderer.SetCellBackgroundData(x, y, bg)
 	if len(char) == 0 || char == " " {
+		// this is an empty cell, clear the text vertex data
+		renderer.ClearCellTextData(x, y)
 		return
 	}
 	// get character position in atlas texture
@@ -245,13 +252,7 @@ func (renderer *Renderer) DrawCell(x, y int, fg, bg sdl.Color, char string, ital
 	renderer.SetCellTextData(x, y, atlas_char_pos, renderer.GetCellRect(x, y), fg)
 }
 
-func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell,
-	attrib HighlightAttributes, default_fg, default_bg, default_sp sdl.Color) {
-	fg := default_fg
-	bg := default_bg
-	sp := default_sp
-	italic := false
-	bold := false
+func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute, fg, bg, sp sdl.Color) {
 	// attrib id 0 is default palette
 	// set attribute colors
 	if !is_color_black(attrib.foreground) {
@@ -263,9 +264,6 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell,
 	if !is_color_black(attrib.special) {
 		sp = attrib.special
 	}
-	// font
-	italic = attrib.italic
-	bold = attrib.bold
 	// reverse foreground and background
 	if attrib.reverse {
 		fg, bg = bg, fg
@@ -275,36 +273,37 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell,
 		fg = sp
 	}
 	// Draw cell
-	renderer.DrawCell(x, y, fg, bg, cell.char, italic, bold)
+	renderer.DrawCellCharColor(x, y, cell.char, fg, bg, attrib.italic, attrib.bold)
+}
+
+func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
+	if cell.attrib_id > 0 {
+		renderer.DrawCellWithAttrib(x, y, cell, grid.attributes[cell.attrib_id],
+			grid.default_fg, grid.default_bg, grid.default_sp)
+	} else {
+		renderer.DrawCellCharColor(x, y, cell.char, grid.default_fg, grid.default_bg, false, false)
+	}
 }
 
 func (renderer *Renderer) Draw(editor *Editor) {
 	defer measure_execution_time("Render.Draw")()
-
 	RGL_ClearScreen(editor.grid.default_bg)
 
 	for x, row := range editor.grid.cells {
-		for y, cell := range row {
-			// NOTE: Cell attribute id 0 is default attribute
-			if cell.attrib_id > 0 {
-				renderer.DrawCellWithAttrib(
-					x, y, cell, editor.grid.attributes[cell.attrib_id],
-					editor.grid.default_fg, editor.grid.default_bg, editor.grid.default_sp)
-			} else {
-				renderer.DrawCell(
-					x, y, editor.grid.default_fg, editor.grid.default_bg, cell.char, false, false)
+		if editor.grid.changed_rows[x] == true {
+			for y, cell := range row {
+				renderer.DrawCell(x, y, cell, &editor.grid)
 			}
+			editor.grid.changed_rows[x] = false
 		}
 	}
 
 	// Draw cursor
-	editor.cursor.Draw(&editor.grid, &editor.renderer, &editor.mode)
+	editor.cursor.Draw(editor)
 	// Render changes
-	RGL_Render(renderer.font_atlas.texture, renderer.vertex_data)
+	RGL_Render(renderer.vertex_data)
 	// Swap window surface
 	editor.window.handle.GLSwap()
-	// Clear cell text data because we dont want to draw a text to must empty cell
-	renderer.ClearCellTextData()
 }
 
 func (renderer *Renderer) Close() {

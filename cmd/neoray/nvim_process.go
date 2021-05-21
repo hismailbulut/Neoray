@@ -107,18 +107,16 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 
 	col_count := editor.window.width / editor.renderer.cell_width
 	row_count := editor.window.height / editor.renderer.cell_height
-	log_debug_msg("Created Cols:", col_count, "Rows:", row_count)
 	proc.handle.AttachUI(col_count, row_count, options)
 
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
 			proc.update_mutex.Lock()
-			redraw_events_prehandler(&updates)
 			proc.update_stack = append(proc.update_stack, updates)
 			proc.update_mutex.Unlock()
 		})
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected.")
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", row_count, "Columns:", col_count)
 
 	go func() {
 		if err := proc.handle.Serve(); err != nil {
@@ -133,7 +131,7 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 func (proc *NvimProcess) ResizeUI(editor *Editor) {
 	col_count := editor.window.width / editor.renderer.cell_width
 	row_count := editor.window.height / editor.renderer.cell_height
-	log_debug_msg("Cols:", col_count, "Rows:", row_count)
+	log_debug_msg("UI Resized. Rows:", row_count, "Columns:", col_count)
 	proc.handle.TryResizeUI(col_count, row_count)
 }
 

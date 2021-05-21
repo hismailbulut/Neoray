@@ -29,11 +29,12 @@ func RGL_Init(window *Window) {
 	// Initialize opengl
 	context, err := window.handle.GLCreateContext()
 	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize render context:", err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize render context:", err)
 	}
+
 	rgl_context = context
 	if err = gl.Init(); err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize opengl:", err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
 	}
 
 	// Init shaders
@@ -75,7 +76,9 @@ func RGL_Init(window *Window) {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	gl.Enable(gl.TEXTURE_2D)
 
-	RGL_CheckError("Init")
+	RGL_CheckError("RGL_Init")
+
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl: ", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
 func RGL_CreateViewport(w, h int) {
@@ -96,9 +99,7 @@ func RGL_CreateViewport(w, h int) {
 		float32(-(top + bottom) / tmb),
 		float32(-(far + near) / fmn), 1}
 	// upload projection matrix
-	gl.UniformMatrix4fv(
-		rgl_projection_uniform,
-		1, true, &projection_matrix[0])
+	gl.UniformMatrix4fv(rgl_projection_uniform, 1, true, &projection_matrix[0])
 }
 
 func RGL_SetAtlasTexture(atlas *Texture) {
@@ -113,7 +114,7 @@ func RGL_ClearScreen(color sdl.Color) {
 	gl.ClearColor(c.R, c.G, c.B, c.A)
 }
 
-func RGL_Render(atlas Texture, vertex_data []Vertex) {
+func RGL_Render(vertex_data []Vertex) {
 	// Upload vertex data
 	gl.BufferData(gl.ARRAY_BUFFER, len(vertex_data)*VertexStructSize, gl.Ptr(vertex_data), gl.STREAM_DRAW)
 	RGL_CheckError("RGL_Render.BufferData")
@@ -155,6 +156,7 @@ uniform sampler2D atlas;
 
 void main() {
 	vec4 color;
+	vec4 tbgColor = vec4(0.5, 0, 0, 1);
 	if (useTexture > 0.5) {
 		color = texture(atlas, textureCoord);
 		color *= vertexColor;
@@ -179,7 +181,7 @@ func RGL_InitShaders() {
 		gl.GetProgramiv(rgl_shader_program, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetProgramInfoLog(rgl_shader_program, logLength, nil, gl.Str(log))
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY,
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER,
 			"Failed to link shader program:", log)
 	}
 	gl.DeleteShader(vertexShader)
@@ -199,7 +201,7 @@ func RGL_CompileShader(source string, shader_type uint32) uint32 {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY,
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER,
 			"Shader compilation failed:", source, log)
 	}
 	return shader
@@ -207,7 +209,7 @@ func RGL_CompileShader(source string, shader_type uint32) uint32 {
 
 func RGL_CheckError(callerName string) {
 	if err := gl.GetError(); err != gl.NO_ERROR {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, callerName, ": Opengl Error:", err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", err, "on", callerName)
 	}
 }
 

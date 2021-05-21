@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -33,6 +34,10 @@ func CreateWindow(width int, height int, title string) Window {
 		title:  title,
 	}
 
+	sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
+	sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
+	sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 3)
+
 	sdl_window, err := sdl.CreateWindow(title, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
 		int32(width), int32(height), sdl.WINDOW_RESIZABLE|sdl.WINDOW_OPENGL)
 	if err != nil {
@@ -57,8 +62,13 @@ func (window *Window) Update(editor *Editor) {
 	window.HandleWindowResizing(editor)
 	HandleNvimRedrawEvents(editor)
 	// DEBUG
-	fps_string := fmt.Sprintf("FPS: %d", frames_per_second)
-	window.SetTitle(fps_string)
+	fps_string := fmt.Sprintf(" | FPS: %d", frames_per_second)
+	idx := strings.LastIndex(window.title, " | ")
+	if idx == -1 {
+		window.SetTitle(window.title + fps_string)
+	} else {
+		window.SetTitle(window.title[0:idx] + fps_string)
+	}
 }
 
 func (window *Window) SetSize(newWidth int, newHeight int, editor *Editor) {

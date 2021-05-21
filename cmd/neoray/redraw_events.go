@@ -4,100 +4,90 @@ import (
 	"reflect"
 )
 
-// this function is directly called from nvim process in other goroutine
-// we are handling some thread safe events here
-// NOTE: Reserved
-func redraw_events_prehandler(updates *[][]interface{}) {
-	for _, update := range *updates {
-		switch update[0] {
-		default:
-		}
-	}
-}
-
 func HandleNvimRedrawEvents(editor *Editor) {
-	// defer measure_execution_time("handle_nvim_updates")()
+	defer measure_execution_time("HandleNvimRedrawEvents")()
 
 	editor.nvim.update_mutex.Lock()
+	defer editor.nvim.update_mutex.Unlock()
+
 	if len(editor.nvim.update_stack) <= 0 {
-		editor.nvim.update_mutex.Unlock()
 		return
 	}
-	updates_cpy := make([][]interface{}, len(editor.nvim.update_stack[0]))
-	copy(updates_cpy, editor.nvim.update_stack[0])
-	editor.nvim.update_stack = editor.nvim.update_stack[1:]
-	editor.nvim.update_mutex.Unlock()
 
-	for _, updates := range updates_cpy {
-		switch updates[0] {
-		// Global events
-		case "set_title":
-			title := reflect.ValueOf(updates[1]).Index(0).Elem().String()
-			editor.window.SetTitle(title)
-			break
-		case "set_icon":
-			break
-		case "mode_info_set":
-			mode_info_set(&editor.mode, updates[1:])
-			break
-		case "option_set":
-			option_set(&editor.options, updates[1:])
-			break
-		case "mode_change":
-			name := reflect.ValueOf(updates[1]).Index(0).Elem().String()
-			editor.mode.current_mode_name = name
-			id := reflect.ValueOf(updates[1]).Index(1).Elem().Convert(reflect.TypeOf(int(0))).Int()
-			editor.mode.current_mode = int(id)
-			break
-		case "mouse_on":
-			break
-		case "mouse_off":
-			break
-		case "busy_start":
-			log_debug_msg("Busy started.", updates)
-			break
-		case "busy_stop":
-			log_debug_msg("Busy stopped.", updates)
-			break
-		case "suspend":
-			break
-		case "update_menu":
-			break
-		case "bell":
-			break
-		case "visual_bell":
-			break
-		case "flush":
-			editor.renderer.Draw(editor)
-			break
-		// Grid Events (line-based)
-		case "grid_resize":
-			grid_resize(&editor.grid, updates[1:])
-			break
-		case "default_colors_set":
-			default_colors_set(&editor.grid, updates[1:])
-			break
-		case "hl_attr_define":
-			hl_attr_define(&editor.grid, updates[1:])
-			break
-		case "hl_group_set":
-			break
-		case "grid_line":
-			grid_line(&editor.grid, updates[1:])
-			break
-		case "grid_clear":
-			editor.grid.ClearCells()
-			break
-		case "grid_destroy":
-			break
-		case "grid_cursor_goto":
-			grid_cursor_goto(&editor.cursor, updates[1:])
-			break
-		case "grid_scroll":
-			grid_scroll(&editor.grid, updates[1:])
-			break
+	for _, updates := range editor.nvim.update_stack {
+		for _, update := range updates {
+			switch update[0] {
+			// Global events
+			case "set_title":
+				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
+				editor.window.SetTitle(title)
+				break
+			case "set_icon":
+				break
+			case "mode_info_set":
+				mode_info_set(&editor.mode, update[1:])
+				break
+			case "option_set":
+				option_set(&editor.options, update[1:])
+				break
+			case "mode_change":
+				name := reflect.ValueOf(update[1]).Index(0).Elem().String()
+				editor.mode.current_mode_name = name
+				id := reflect.ValueOf(update[1]).Index(1).Elem().Convert(reflect.TypeOf(int(0))).Int()
+				editor.mode.current_mode = int(id)
+				break
+			case "mouse_on":
+				break
+			case "mouse_off":
+				break
+			case "busy_start":
+				log_debug_msg("Busy started.", update)
+				break
+			case "busy_stop":
+				log_debug_msg("Busy stopped.", update)
+				break
+			case "suspend":
+				break
+			case "update_menu":
+				break
+			case "bell":
+				break
+			case "visual_bell":
+				break
+			case "flush":
+				editor.renderer.Draw(editor)
+				break
+			// Grid Events (line-based)
+			case "grid_resize":
+				grid_resize(&editor.grid, update[1:])
+				break
+			case "default_colors_set":
+				default_colors_set(&editor.grid, update[1:])
+				break
+			case "hl_attr_define":
+				hl_attr_define(&editor.grid, update[1:])
+				break
+			case "hl_group_set":
+				break
+			case "grid_line":
+				grid_line(&editor.grid, update[1:])
+				break
+			case "grid_clear":
+				editor.grid.ClearCells()
+				break
+			case "grid_destroy":
+				break
+			case "grid_cursor_goto":
+				grid_cursor_goto(&editor.cursor, &editor.grid, update[1:])
+				break
+			case "grid_scroll":
+				grid_scroll(&editor.grid, update[1:])
+				break
+			}
 		}
 	}
+	// clear update stack
+	editor.nvim.update_stack = nil
 }
 
 func option_set(options *UIOptions, args []interface{}) {
@@ -213,7 +203,7 @@ func hl_attr_define(grid *Grid, args []interface{}) {
 			continue
 		}
 		mapIter := reflect.ValueOf(arg).Index(1).Elem().MapRange()
-		hl_attr := HighlightAttributes{}
+		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes
 		for mapIter.Next() {
 			switch mapIter.Key().String() {
@@ -255,6 +245,7 @@ func hl_attr_define(grid *Grid, args []interface{}) {
 			}
 		}
 		grid.attributes[id] = hl_attr
+		grid.MakeAllCellsChanged()
 	}
 }
 
@@ -286,12 +277,12 @@ func grid_line(grid *Grid, args []interface{}) {
 	}
 }
 
-func grid_cursor_goto(cursor *Cursor, args []interface{}) {
+func grid_cursor_goto(cursor *Cursor, grid *Grid, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	X := int(r.Index(1).Elem().Convert(t).Int())
 	Y := int(r.Index(2).Elem().Convert(t).Int())
-	cursor.SetPosition(X, Y)
+	cursor.SetPosition(X, Y, grid)
 }
 
 func grid_scroll(grid *Grid, args []interface{}) {

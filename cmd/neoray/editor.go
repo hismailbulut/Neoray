@@ -40,24 +40,24 @@ const TARGET_TPS = 60
 const WINDOW_WIDTH = 800
 const WINDOW_HEIGHT = 600
 
-// My best fonts:
-// 1- Consolas           11
-// 2- UbuntuMono NF      12
-// 3- GoMono NF          10.5
-// 4- Cousine NF         11
-// 5- Hack NF            10.5
-// 6- JetBrains Mono     10
-// 7- Cascadia Mono      10.5
-// 8- Cascadia Code      11
-const FONT_NAME = "Ubuntu Mono"
-const FONT_SIZE = 18
+// Consolas
+// Ubuntu Mono
+// GoMono
+// Cousine
+// Hack
+// JetBrains Mono
+// Caskadyia Cove
+const FONT_NAME = "Go Mono"
+const FONT_SIZE = 15
 const BG_TRANSPARENCY = 255
 
 var frames_per_second = 0
 
 func (editor *Editor) Initialize() {
-	// pprof for debugging
 	// NOTE: disable on release build
+	startupTime := time.Now()
+	init_function_time_tracker()
+	// pprof for debugging
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
@@ -67,7 +67,7 @@ func (editor *Editor) Initialize() {
 
 	editor.nvim = CreateNvimProcess()
 
-	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS); err != nil {
+	if err := sdl.Init(sdl.INIT_EVENTS); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
 	}
 	editor.window = CreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, NEORAY_NAME)
@@ -76,22 +76,22 @@ func (editor *Editor) Initialize() {
 
 	editor.cursor = Cursor{}
 
-	editor.mode = Mode{
-		mode_infos: make(map[string]ModeInfo),
-	}
+	editor.mode = CreateMode()
 
 	editor.renderer = CreateRenderer(
 		&editor.window, CreateFont(FONT_NAME, FONT_SIZE))
 
 	editor.options = UIOptions{}
 
-	// We initialized everything, we can connect UI now.
+	editor.quit_requested_chan = make(chan bool)
+
 	editor.nvim.StartUI(editor)
 
-	editor.quit_requested_chan = make(chan bool)
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
 }
 
 func (editor *Editor) MainLoop() {
+	mainLoopBeginTime := time.Now()
 	ticker := time.NewTicker(time.Millisecond * (1000 / TARGET_TPS))
 	defer ticker.Stop()
 	fpsTimer := time.Now()
@@ -113,6 +113,7 @@ func (editor *Editor) MainLoop() {
 		}
 		<-ticker.C
 	}
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Total execution time:", time.Since(mainLoopBeginTime))
 }
 
 func (editor *Editor) Shutdown() {
@@ -120,4 +121,5 @@ func (editor *Editor) Shutdown() {
 	editor.window.Close()
 	editor.renderer.Close()
 	sdl.Quit()
+	close_function_time_tracker()
 }

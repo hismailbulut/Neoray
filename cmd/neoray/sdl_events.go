@@ -36,6 +36,7 @@ var SpecialKeys = map[sdl.Keycode]string{
 }
 
 func HandleSDLEvents(editor *Editor) {
+	defer measure_execution_time("HandleSDLEvents")()
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
@@ -57,16 +58,16 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 	// preprocess input keys and characters
 	switch t := event.(type) {
 	case *sdl.KeyboardEvent:
-
 		if t.State == sdl.RELEASED {
 			return
 		}
 
 		keys = make([]string, 0)
-
 		get_char_with_modifier := false
 		mod := t.Keysym.Mod
-		if has_flag_u16(mod, sdl.KMOD_CTRL) {
+		if has_flag_u16(mod, sdl.KMOD_RALT) {
+			// Dont do any combinations with right alt
+		} else if has_flag_u16(mod, sdl.KMOD_CTRL) {
 			keys = append(keys, "C")
 			modifier_key = true
 			get_char_with_modifier = true
@@ -88,16 +89,14 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 			special_key = true
 		} else if get_char_with_modifier && t.Keysym.Sym < 10000 {
 			key := string(t.Keysym.Sym)
-			if !is_digit(rune(key[0])) {
-				keys = append(keys, string(t.Keysym.Sym))
-				character_key = true
-			}
+			keys = append(keys, key)
+			character_key = true
 		}
 
 	case *sdl.TextInputEvent:
 		if !character_key && t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
 			keys = append(keys, t.GetText())
-			log_debug_msg("Char:", t.GetText())
+			// log_debug_msg("Char:", t.GetText())
 			character_key = true
 		}
 	}
@@ -117,7 +116,7 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 			}
 		}
 		keycode += ">"
-		log_debug_msg("Key:", keycode)
+		// log_debug_msg("Key:", keycode)
 	}
 
 	// send keycode to neovim

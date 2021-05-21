@@ -21,7 +21,6 @@ type Mode struct {
 	current_mode         int
 }
 
-// TODO: Cursor animation
 type Cursor struct {
 	X       int
 	Y       int
@@ -29,41 +28,35 @@ type Cursor struct {
 	lastCol int
 }
 
-func (cursor *Cursor) SetPosition(x, y int) {
+func CreateMode() Mode {
+	return Mode{
+		mode_infos: make(map[string]ModeInfo),
+	}
+}
+
+func (cursor *Cursor) SetPosition(x, y int, grid *Grid) {
+	grid.changed_rows[cursor.X] = true
 	cursor.lastRow = cursor.Y
 	cursor.lastCol = cursor.X
 	cursor.X = x
 	cursor.Y = y
 }
 
-func (cursor *Cursor) Draw(grid *Grid, renderer *Renderer, mode *Mode) {
-	cell := &grid.cells[cursor.X][cursor.Y]
+func (cursor *Cursor) Draw(editor *Editor) {
+	grid := &editor.grid
+	mode := &editor.mode
+	renderer := &editor.renderer
 
 	mode_info := mode.mode_infos[mode.current_mode_name]
 
 	// initialize swapped
 	fg := grid.default_bg
 	bg := grid.default_fg
-	sp := grid.default_sp
-
-	italic := false
-	bold := false
 
 	if mode_info.attr_id != 0 {
 		attrib := grid.attributes[mode_info.attr_id]
 		fg = attrib.foreground
 		bg = attrib.background
-		sp = attrib.special
-		// font
-		italic = attrib.italic
-		bold = attrib.bold
-		// reverse color if reverse attribute set
-		if attrib.reverse {
-			fg, bg = bg, fg
-		}
-		if attrib.underline || attrib.undercurl {
-			fg = sp
-		}
 	}
 
 	cell_pos := ivec2{
@@ -103,10 +96,22 @@ func (cursor *Cursor) Draw(grid *Grid, renderer *Renderer, mode *Mode) {
 		break
 	}
 
+	cell := grid.cells[cursor.X][cursor.Y]
 	if draw_char {
-		renderer.SetCursorRect(cursor_rect, sdl.Color{R: 0, G: 0, B: 0, A: 0})
-		renderer.DrawCell(cursor.X, cursor.Y, fg, bg, cell.char, italic, bold)
+		// If cursor style is block, hide the cursor and
+		// redraw the cell with cursor color.
+		renderer.SetCursorRectData(cursor_rect, sdl.Color{})
+		italic := false
+		bold := false
+		if cell.attrib_id > 0 {
+			attrib := grid.attributes[cell.attrib_id]
+			italic = attrib.italic
+			bold = attrib.bold
+		}
+		renderer.DrawCellCharColor(cursor.X, cursor.Y, cell.char, fg, bg, italic, bold)
 	} else {
-		renderer.SetCursorRect(cursor_rect, bg)
+		// Draw the default cell, the cursor will be drawn to its front
+		renderer.DrawCell(cursor.X, cursor.Y, cell, &editor.grid)
+		renderer.SetCursorRectData(cursor_rect, bg)
 	}
 }

@@ -40,7 +40,7 @@ func (texture *Texture) UpdatePartFromSurface(surface *sdl.Surface, dest *sdl.Re
 	RGL_CheckError("UpdatePartFromSurface")
 }
 
-func (texture *Texture) GetInternalArea(rect *sdl.Rect) sdl.FRect {
+func (texture *Texture) GetRectGLCoordinates(rect *sdl.Rect) sdl.FRect {
 	area := sdl.FRect{}
 	area.X = float32(rect.X) / float32(texture.width)
 	area.Y = float32(rect.Y) / float32(texture.height)
