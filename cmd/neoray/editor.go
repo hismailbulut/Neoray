@@ -13,9 +13,8 @@ type Editor struct {
 	nvim NvimProcess
 	// Window, window.go
 	window Window
-	// Grid is a neovim's windows if multigrid option enabled, otherwise full window.
-	// Grid has cells and it's attributes, and all information how cells and fonts will be rendered.
-	// grid.go,
+	// Grid is a neovim window if multigrid option is enabled, otherwise full screen.
+	// Grid has cells and it's attributes, and contains all information how cells and fonts will be rendered.
 	// TODO: support multigrid
 	grid Grid
 	// Cursor represents a neovim cursor and all it's information, cursor.go

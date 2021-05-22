@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
+	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -72,6 +75,12 @@ func has_flag_u16(val, flag uint16) bool {
 	return val&flag != 0
 }
 
+func atomic_copy_f32(dst, src *float32) {
+	dst_ptr := unsafe.Pointer(dst)
+	src_ptr := unsafe.Pointer(src)
+	atomic.StorePointer(&dst_ptr, atomic.LoadPointer(&src_ptr))
+}
+
 func triangulate_rect(rect *sdl.Rect) [6]i32vec2 {
 	return [6]i32vec2{
 		{rect.X, rect.Y},                   //0
@@ -101,6 +110,7 @@ type FunctionMeasure struct {
 }
 
 var measure_averages map[string]FunctionMeasure
+var measure_averages_mutex sync.Mutex
 
 func init_function_time_tracker() {
 	measure_averages = make(map[string]FunctionMeasure)
@@ -110,6 +120,8 @@ func measure_execution_time(name string) func() {
 	now := time.Now()
 	return func() {
 		elapsed := time.Since(now)
+		measure_averages_mutex.Lock()
+		defer measure_averages_mutex.Unlock()
 		if val, ok := measure_averages[name]; ok == true {
 			val.totalCall++
 			val.totalTime += elapsed

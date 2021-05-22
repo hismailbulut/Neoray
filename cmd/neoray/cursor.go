@@ -36,6 +36,7 @@ func CreateMode() Mode {
 
 func (cursor *Cursor) SetPosition(x, y int, grid *Grid) {
 	grid.changed_rows[cursor.X] = true
+	grid.cells[cursor.X][cursor.Y].changed = true
 	cursor.lastRow = cursor.Y
 	cursor.lastCol = cursor.X
 	cursor.X = x
@@ -100,6 +101,8 @@ func (cursor *Cursor) Draw(editor *Editor) {
 	if draw_char {
 		// If cursor style is block, hide the cursor and
 		// redraw the cell with cursor color.
+		// TODO: Dont change cell under the cursor. Change cursor itself,
+		// draw the character on the cursor rectangle.
 		renderer.SetCursorRectData(cursor_rect, sdl.Color{})
 		italic := false
 		bold := false
@@ -108,7 +111,7 @@ func (cursor *Cursor) Draw(editor *Editor) {
 			italic = attrib.italic
 			bold = attrib.bold
 		}
-		renderer.DrawCellCharColor(cursor.X, cursor.Y, cell.char, fg, bg, italic, bold)
+		renderer.DrawCellCustom(cursor.X, cursor.Y, cell.char, fg, bg, italic, bold)
 	} else {
 		// Draw the default cell, the cursor will be drawn to its front
 		renderer.DrawCell(cursor.X, cursor.Y, cell, &editor.grid)

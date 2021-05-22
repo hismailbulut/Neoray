@@ -114,6 +114,35 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 	}
 }
 
+// TODO: Find a way to speed up this function.
+func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
+	defer measure_execution_time("Renderer.CopyRowData")()
+	// Move background data first
+	dst_begin := renderer.GetCellVertexPosition(dst, left)
+	// dst_end := renderer.GetCellVertexPosition(dst, right)
+	src_begin := renderer.GetCellVertexPosition(src, left)
+	src_end := renderer.GetCellVertexPosition(src, right)
+	for i := 0; i < src_end-src_begin; i++ {
+		renderer.vertex_data[dst_begin+i].R = renderer.vertex_data[src_begin+i].R
+		renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
+		renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
+		renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
+	}
+	// Move foreground data
+	dst_begin += renderer.vertex_data_stride
+	// dst_end += renderer.vertex_data_stride
+	src_begin += renderer.vertex_data_stride
+	src_end += renderer.vertex_data_stride
+	for i := 0; i < src_end-src_begin; i++ {
+		renderer.vertex_data[dst_begin+i].TexX = renderer.vertex_data[src_begin+i].TexX
+		renderer.vertex_data[dst_begin+i].TexY = renderer.vertex_data[src_begin+i].TexY
+		renderer.vertex_data[dst_begin+i].R = renderer.vertex_data[src_begin+i].R
+		renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
+		renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
+		renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
+	}
+}
+
 func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
 	c := u8color_to_fcolor(color)
 	begin := renderer.GetCellVertexPosition(x, y)
@@ -208,7 +237,7 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 		// Get text glyph metrics
 		// metrics, err := font_handle.GlyphMetrics(rune(char[0]))
 		// if err != nil {
-		//     log_message(LOG_LEVEL_WARN, LOG_TYPE_RENDERER, "Failed to get glyph metrics of char '", char, "':", err)
+		//     log_message(LOG_LEVEL_WARN, LOG_TYPE_RENDERER, "Failed to get glyph metrics of", char, ":", err)
 		//     return sdl.Rect{}, err
 		// }
 		// log_debug_msg("Char:", char, "Metrics:", metrics)
@@ -235,7 +264,7 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 	return position, nil
 }
 
-func (renderer *Renderer) DrawCellCharColor(x, y int, char string, fg, bg sdl.Color, italic, bold bool) {
+func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color, italic, bold bool) {
 	// draw Background
 	renderer.SetCellBackgroundData(x, y, bg)
 	if len(char) == 0 || char == " " {
@@ -273,7 +302,7 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 		fg = sp
 	}
 	// Draw cell
-	renderer.DrawCellCharColor(x, y, cell.char, fg, bg, attrib.italic, attrib.bold)
+	renderer.DrawCellCustom(x, y, cell.char, fg, bg, attrib.italic, attrib.bold)
 }
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
@@ -281,22 +310,31 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
 		renderer.DrawCellWithAttrib(x, y, cell, grid.attributes[cell.attrib_id],
 			grid.default_fg, grid.default_bg, grid.default_sp)
 	} else {
-		renderer.DrawCellCharColor(x, y, cell.char, grid.default_fg, grid.default_bg, false, false)
+		renderer.DrawCellCustom(x, y, cell.char, grid.default_fg, grid.default_bg, false, false)
 	}
 }
 
+// TODO: Cursor cells are not redrawing after scroll.
 func (renderer *Renderer) Draw(editor *Editor) {
 	defer measure_execution_time("Render.Draw")()
 	RGL_ClearScreen(editor.grid.default_bg)
 
+	redrawed_rows := 0
+	redrawed_cells := 0
 	for x, row := range editor.grid.cells {
 		if editor.grid.changed_rows[x] == true {
 			for y, cell := range row {
-				renderer.DrawCell(x, y, cell, &editor.grid)
+				if cell.changed {
+					renderer.DrawCell(x, y, cell, &editor.grid)
+					editor.grid.cells[x][y].changed = false
+					redrawed_cells++
+				}
 			}
 			editor.grid.changed_rows[x] = false
+			redrawed_rows++
 		}
 	}
+	log_debug_msg("Redrawed Cells:", redrawed_cells, "Rows:", redrawed_rows)
 
 	// Draw cursor
 	editor.cursor.Draw(editor)

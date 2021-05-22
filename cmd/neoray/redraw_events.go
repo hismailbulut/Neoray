@@ -81,7 +81,7 @@ func HandleNvimRedrawEvents(editor *Editor) {
 				grid_cursor_goto(&editor.cursor, &editor.grid, update[1:])
 				break
 			case "grid_scroll":
-				grid_scroll(&editor.grid, update[1:])
+				grid_scroll(&editor.grid, &editor.renderer, update[1:])
 				break
 			}
 		}
@@ -285,7 +285,7 @@ func grid_cursor_goto(cursor *Cursor, grid *Grid, args []interface{}) {
 	cursor.SetPosition(X, Y, grid)
 }
 
-func grid_scroll(grid *Grid, args []interface{}) {
+func grid_scroll(grid *Grid, renderer *Renderer, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	top := r.Index(1).Elem().Convert(t).Int()
@@ -294,5 +294,5 @@ func grid_scroll(grid *Grid, args []interface{}) {
 	right := r.Index(4).Elem().Convert(t).Int()
 	rows := r.Index(5).Elem().Convert(t).Int()
 	//cols := r.Index(6).Elem().Convert(t).Int()
-	grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
+	grid.Scroll(int(top), int(bot), int(rows), int(left), int(right), renderer)
 }
