@@ -8,6 +8,22 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+// These are the global variables of neoray. They are same in everywhere.
+// Some of them are initialized at runtime. Therefore we must be carefull when we
+// use them. If you add more here just write some information about it.
+var (
+	// Initialized in CreateRenderer
+	GLOB_CellWidth    = 0
+	GLOB_CellHeight   = 0
+	GLOB_RowCount     = 0
+	GLOB_ColumnCount  = 0
+	GLOB_WindowWidth  = 800
+	GLOB_WindowHeight = 600
+	// MainLoop is setting these
+	GLOB_FramesPerSecond         = 0
+	GLOB_DeltaTime       float32 = 0.16
+)
+
 type Editor struct {
 	// Neovim child process, nvim_process.go
 	nvim NvimProcess
@@ -33,12 +49,6 @@ type Editor struct {
 	quit_requested_chan chan bool
 }
 
-// temporary
-// NOTE: This options must get from user settings.
-const TARGET_TPS = 60
-const WINDOW_WIDTH = 800
-const WINDOW_HEIGHT = 600
-
 // Consolas
 // Ubuntu Mono
 // GoMono
@@ -47,10 +57,8 @@ const WINDOW_HEIGHT = 600
 // JetBrains Mono
 // Caskadyia Cove
 const FONT_NAME = "Go Mono"
-const FONT_SIZE = 15
-const BG_TRANSPARENCY = 255
-
-var frames_per_second = 0
+const FONT_SIZE = 14
+const TARGET_TPS = 60
 
 func (editor *Editor) Initialize() {
 	// NOTE: disable on release build
@@ -69,7 +77,8 @@ func (editor *Editor) Initialize() {
 	if err := sdl.Init(sdl.INIT_EVENTS); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
 	}
-	editor.window = CreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, NEORAY_NAME)
+
+	editor.window = CreateWindow(GLOB_WindowWidth, GLOB_WindowHeight, NEORAY_NAME)
 
 	editor.grid = CreateGrid()
 
@@ -106,7 +115,8 @@ func (editor *Editor) MainLoop() {
 		editor.window.Update(editor)
 		fps++
 		if time.Since(fpsTimer) > time.Second {
-			frames_per_second = fps
+			GLOB_FramesPerSecond = fps
+			GLOB_DeltaTime = float32(fps) / 1000
 			fps = 0
 			fpsTimer = time.Now()
 		}

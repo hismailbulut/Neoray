@@ -1,6 +1,8 @@
 package main
 
-import "github.com/veandco/go-sdl2/sdl"
+import (
+	"github.com/veandco/go-sdl2/sdl"
+)
 
 type ModeInfo struct {
 	cursor_shape    string
@@ -21,11 +23,19 @@ type Mode struct {
 	current_mode         int
 }
 
+type CursorDrawInfo struct {
+	x, y      int
+	fg, bg    sdl.Color
+	rect      sdl.Rect
+	draw_char bool
+}
+
+// TODO: Cursor animation.
 type Cursor struct {
-	X       int
-	Y       int
-	lastRow int
-	lastCol int
+	X            int
+	Y            int
+	anim         Animation
+	needs_redraw bool
 }
 
 func CreateMode() Mode {
@@ -34,56 +44,41 @@ func CreateMode() Mode {
 	}
 }
 
-func (cursor *Cursor) SetPosition(x, y int, grid *Grid) {
-	grid.changed_rows[cursor.X] = true
-	grid.cells[cursor.X][cursor.Y].changed = true
-	cursor.lastRow = cursor.Y
-	cursor.lastCol = cursor.X
-	cursor.X = x
-	cursor.Y = y
+func (cursor *Cursor) Update(editor *Editor) {
+	if cursor.needs_redraw {
+		editor.renderer.DrawCursor(editor)
+	}
 }
 
-func (cursor *Cursor) Draw(editor *Editor) {
-	grid := &editor.grid
-	mode := &editor.mode
-	renderer := &editor.renderer
+func (cursor *Cursor) SetPosition(x, y int) {
+	cursor.anim = CreateAnimation(
+		f32vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
+		f32vec2{X: float32(x), Y: float32(y)},
+		0.5)
+	cursor.X = x
+	cursor.Y = y
+	cursor.needs_redraw = true
+}
 
-	mode_info := mode.mode_infos[mode.current_mode_name]
-
-	// initialize swapped
-	fg := grid.default_bg
-	bg := grid.default_fg
-
-	if mode_info.attr_id != 0 {
-		attrib := grid.attributes[mode_info.attr_id]
-		fg = attrib.foreground
-		bg = attrib.background
-	}
-
-	cell_pos := ivec2{
-		X: renderer.cell_width * cursor.Y,
-		Y: renderer.cell_height * cursor.X,
-	}
-
+func (cursor *Cursor) GetPositionRectangle(cell_pos ivec2, info ModeInfo) (sdl.Rect, bool) {
 	var cursor_rect sdl.Rect
-	draw_char := false
-
-	switch mode_info.cursor_shape {
+	var draw_char bool
+	switch info.cursor_shape {
 	case "block":
 		cursor_rect = sdl.Rect{
 			X: int32(cell_pos.X),
 			Y: int32(cell_pos.Y),
-			W: int32(renderer.cell_width),
-			H: int32(renderer.cell_height),
+			W: int32(GLOB_CellWidth),
+			H: int32(GLOB_CellHeight),
 		}
 		draw_char = true
 		break
 	case "horizontal":
-		height := renderer.cell_height / (100 / mode_info.cell_percentage)
+		height := GLOB_CellHeight / (100 / info.cell_percentage)
 		cursor_rect = sdl.Rect{
 			X: int32(cell_pos.X),
-			Y: int32(cell_pos.Y + (renderer.cell_height - height)),
-			W: int32(renderer.cell_width),
+			Y: int32(cell_pos.Y + (GLOB_CellHeight - height)),
+			W: int32(GLOB_CellWidth),
 			H: int32(height),
 		}
 		break
@@ -91,30 +86,52 @@ func (cursor *Cursor) Draw(editor *Editor) {
 		cursor_rect = sdl.Rect{
 			X: int32(cell_pos.X),
 			Y: int32(cell_pos.Y),
-			W: int32(renderer.cell_width / (100 / mode_info.cell_percentage)),
-			H: int32(renderer.cell_height),
+			W: int32(GLOB_CellWidth / (100 / info.cell_percentage)),
+			H: int32(GLOB_CellHeight),
 		}
 		break
 	}
+	return cursor_rect, draw_char
+}
 
-	cell := grid.cells[cursor.X][cursor.Y]
-	if draw_char {
-		// If cursor style is block, hide the cursor and
-		// redraw the cell with cursor color.
-		// TODO: Dont change cell under the cursor. Change cursor itself,
-		// draw the character on the cursor rectangle.
-		renderer.SetCursorRectData(cursor_rect, sdl.Color{})
-		italic := false
-		bold := false
-		if cell.attrib_id > 0 {
-			attrib := grid.attributes[cell.attrib_id]
-			italic = attrib.italic
-			bold = attrib.bold
-		}
-		renderer.DrawCellCustom(cursor.X, cursor.Y, cell.char, fg, bg, italic, bold)
-	} else {
-		// Draw the default cell, the cursor will be drawn to its front
-		renderer.DrawCell(cursor.X, cursor.Y, cell, &editor.grid)
-		renderer.SetCursorRectData(cursor_rect, bg)
+func (cursor *Cursor) GetColors(info ModeInfo, grid *Grid) (sdl.Color, sdl.Color) {
+	// initialize swapped
+	fg := grid.default_bg
+	bg := grid.default_fg
+	if info.attr_id != 0 {
+		attrib := grid.attributes[info.attr_id]
+		fg = attrib.foreground
+		bg = attrib.background
+	}
+	return fg, bg
+}
+
+func (cursor *Cursor) GetAnimatedPosition() ivec2 {
+	aPos, finished := cursor.anim.GetCurrentStep(GLOB_DeltaTime)
+	pos := ivec2{
+		X: int(float32(GLOB_CellWidth) * aPos.Y),
+		Y: int(float32(GLOB_CellHeight) * aPos.X),
+	}
+	cursor.needs_redraw = !finished
+	return pos
+}
+
+func (cursor *Cursor) GetDrawInfo(mode *Mode, grid *Grid) CursorDrawInfo {
+	mode_info := mode.mode_infos[mode.current_mode_name]
+
+	fg, bg := cursor.GetColors(mode_info, grid)
+
+	cell_pos := cursor.GetAnimatedPosition()
+
+	cursor_rect, draw_char :=
+		cursor.GetPositionRectangle(cell_pos, mode_info)
+
+	return CursorDrawInfo{
+		x:         cursor.X,
+		y:         cursor.Y,
+		fg:        fg,
+		bg:        bg,
+		rect:      cursor_rect,
+		draw_char: draw_char,
 	}
 }

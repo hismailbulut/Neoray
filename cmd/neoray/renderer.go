@@ -19,61 +19,48 @@ type FontAtlas struct {
 type Renderer struct {
 	font               Font
 	font_atlas         FontAtlas
-	cell_width         int
-	cell_height        int
-	window_width       int
-	window_height      int
-	row_count          int
-	col_count          int
 	vertex_data        []Vertex
 	vertex_data_size   int
 	vertex_data_stride int
 }
 
 func CreateRenderer(window *Window, font Font) Renderer {
-	cell_width, cell_height := font.CalculateCellSize()
 	renderer := Renderer{
 		font: font,
 		font_atlas: FontAtlas{
 			characters: make(map[string]sdl.Rect),
 		},
-		cell_width:  cell_width,
-		cell_height: cell_height,
 	}
 
-	RGL_Init(window)
-	RGL_CreateViewport(window.width, window.height)
+	GLOB_CellWidth, GLOB_CellHeight = font.CalculateCellSize()
 
+	GLOB_ColumnCount = GLOB_WindowWidth / GLOB_CellWidth
+	GLOB_RowCount = GLOB_WindowHeight / GLOB_CellHeight
+
+	RGL_Init(window)
 	renderer.font_atlas.texture = CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
 	RGL_SetAtlasTexture(&renderer.font_atlas.texture)
-
-	renderer.Resize(window.width, window.height)
+	renderer.Resize()
 
 	return renderer
 }
 
-func (renderer *Renderer) Resize(w, h int) {
-	renderer.window_width = w
-	renderer.window_height = h
-	col_count := renderer.window_width / renderer.cell_width
-	row_count := renderer.window_height / renderer.cell_height
-	renderer.col_count = col_count
-	renderer.row_count = row_count
+func (renderer *Renderer) Resize() {
 	renderer.CreateVertexData()
-	RGL_CreateViewport(w, h)
+	RGL_CreateViewport(GLOB_WindowWidth, GLOB_WindowHeight)
 }
 
 func (renderer *Renderer) CreateVertexData() {
 	// Stride is the size of cells multiplied by 6 because
 	// every cell has 2 triangles and every triangle has 6 vertices.
-	renderer.vertex_data_stride = renderer.col_count * renderer.row_count * 6
+	renderer.vertex_data_stride = GLOB_ColumnCount * GLOB_RowCount * 6
 	// First area is for background drawing
 	// Second area is for text drawing
-	// Last 6 vertex is for cursor
-	renderer.vertex_data_size = (2 * renderer.vertex_data_stride) + 6
+	// Last 12 vertex is for cursor
+	renderer.vertex_data_size = 2*renderer.vertex_data_stride + 12
 	renderer.vertex_data = make([]Vertex, renderer.vertex_data_size, renderer.vertex_data_size)
-	for y := 0; y < renderer.row_count; y++ {
-		for x := 0; x < renderer.col_count; x++ {
+	for y := 0; y < GLOB_RowCount; y++ {
+		for x := 0; x < GLOB_ColumnCount; x++ {
 			// prepare first area
 			cell_rect := renderer.GetCellRect(y, x)
 			positions := triangulate_rect(&cell_rect)
@@ -97,7 +84,7 @@ func (renderer *Renderer) CreateVertexData() {
 
 func (renderer *Renderer) DebugDrawFontAtlas() {
 	atlas_pos := sdl.Rect{
-		X: int32(renderer.window_width - int(FONT_ATLAS_DEFAULT_SIZE)),
+		X: int32(GLOB_WindowWidth - int(FONT_ATLAS_DEFAULT_SIZE)),
 		Y: 0,
 		W: int32(FONT_ATLAS_DEFAULT_SIZE),
 		H: int32(FONT_ATLAS_DEFAULT_SIZE),
@@ -115,6 +102,9 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 }
 
 // TODO: Find a way to speed up this function.
+// This function directly copies one row data to another.
+// And used for accelerating scroll operations.
+// But still slow.
 func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 	defer measure_execution_time("Renderer.CopyRowData")()
 	// Move background data first
@@ -154,7 +144,7 @@ func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
 	}
 }
 
-func (renderer *Renderer) SetCellTextData(x, y int, src sdl.Rect, dest sdl.Rect, color sdl.Color) {
+func (renderer *Renderer) SetCellForegroundData(x, y int, src sdl.Rect, dest sdl.Rect, color sdl.Color) {
 	area := renderer.font_atlas.texture.GetRectGLCoordinates(&src)
 	c := u8color_to_fcolor(color)
 	texture_coords := triangulate_frect(&area)
@@ -169,7 +159,7 @@ func (renderer *Renderer) SetCellTextData(x, y int, src sdl.Rect, dest sdl.Rect,
 	}
 }
 
-func (renderer *Renderer) ClearCellTextData(x, y int) {
+func (renderer *Renderer) ClearCellForegroundData(x, y int) {
 	begin := renderer.vertex_data_stride + renderer.GetCellVertexPosition(x, y)
 	for i := 0; i < 6; i++ {
 		renderer.vertex_data[begin+i].TexX = 0
@@ -181,31 +171,48 @@ func (renderer *Renderer) ClearCellTextData(x, y int) {
 	}
 }
 
-func (renderer *Renderer) SetCursorRectData(rect sdl.Rect, color sdl.Color) {
-	c := u8color_to_fcolor(color)
-	positions := triangulate_rect(&rect)
-	begin := renderer.vertex_data_stride * 2
+func (renderer *Renderer) SetCursorData(pos sdl.Rect, atlas_pos sdl.Rect, fg, bg sdl.Color) {
+	// Set background data first
+	bgc := u8color_to_fcolor(bg)
+	positions := triangulate_rect(&pos)
+	begin := 2 * renderer.vertex_data_stride
 	for i := 0; i < 6; i++ {
 		renderer.vertex_data[begin+i].X = float32(positions[i].X)
 		renderer.vertex_data[begin+i].Y = float32(positions[i].Y)
-		renderer.vertex_data[begin+i].R = c.R
-		renderer.vertex_data[begin+i].G = c.G
-		renderer.vertex_data[begin+i].B = c.B
-		renderer.vertex_data[begin+i].A = c.A
+		renderer.vertex_data[begin+i].R = bgc.R
+		renderer.vertex_data[begin+i].G = bgc.G
+		renderer.vertex_data[begin+i].B = bgc.B
+		renderer.vertex_data[begin+i].A = bgc.A
+	}
+	// Set foreground data
+	begin += 6
+	atlas_pos_gl := renderer.font_atlas.texture.GetRectGLCoordinates(&atlas_pos)
+	texture_positions := triangulate_frect(&atlas_pos_gl)
+	fgc := u8color_to_fcolor(fg)
+	for i := 0; i < 6; i++ {
+		renderer.vertex_data[begin+i].X = float32(positions[i].X)
+		renderer.vertex_data[begin+i].Y = float32(positions[i].Y)
+		renderer.vertex_data[begin+i].TexX = texture_positions[i].X
+		renderer.vertex_data[begin+i].TexY = texture_positions[i].Y
+		renderer.vertex_data[begin+i].useTexture = 1
+		renderer.vertex_data[begin+i].R = fgc.R
+		renderer.vertex_data[begin+i].G = fgc.G
+		renderer.vertex_data[begin+i].B = fgc.B
+		renderer.vertex_data[begin+i].A = fgc.A
 	}
 }
 
 func (renderer *Renderer) GetCellRect(x, y int) sdl.Rect {
 	return sdl.Rect{
-		X: int32(y * renderer.cell_width),
-		Y: int32(x * renderer.cell_height),
-		W: int32(renderer.cell_width),
-		H: int32(renderer.cell_height),
+		X: int32(y * GLOB_CellWidth),
+		Y: int32(x * GLOB_CellHeight),
+		W: int32(GLOB_CellWidth),
+		H: int32(GLOB_CellHeight),
 	}
 }
 
 func (renderer *Renderer) GetCellVertexPosition(x, y int) int {
-	return (x*renderer.col_count + y) * 6
+	return (x*GLOB_ColumnCount + y) * 6
 }
 
 func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
@@ -214,9 +221,9 @@ func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
 	atlas.pos.X += width
 	if atlas.pos.X+width > int(FONT_ATLAS_DEFAULT_SIZE) {
 		atlas.pos.X = 0
-		atlas.pos.Y += renderer.cell_height
+		atlas.pos.Y += GLOB_CellHeight
 	}
-	if atlas.pos.Y+renderer.cell_height > int(FONT_ATLAS_DEFAULT_SIZE) {
+	if atlas.pos.Y+GLOB_CellHeight > int(FONT_ATLAS_DEFAULT_SIZE) {
 		// Fully filled
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
 		atlas.pos = ivec2{}
@@ -269,7 +276,7 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color
 	renderer.SetCellBackgroundData(x, y, bg)
 	if len(char) == 0 || char == " " {
 		// this is an empty cell, clear the text vertex data
-		renderer.ClearCellTextData(x, y)
+		renderer.ClearCellForegroundData(x, y)
 		return
 	}
 	// get character position in atlas texture
@@ -278,7 +285,7 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color
 		return
 	}
 	// draw
-	renderer.SetCellTextData(x, y, atlas_char_pos, renderer.GetCellRect(x, y), fg)
+	renderer.SetCellForegroundData(x, y, atlas_char_pos, renderer.GetCellRect(x, y), fg)
 }
 
 func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute, fg, bg, sp sdl.Color) {
@@ -305,6 +312,37 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	renderer.DrawCellCustom(x, y, cell.char, fg, bg, attrib.italic, attrib.bold)
 }
 
+func (renderer *Renderer) DrawCursor(editor *Editor) {
+	// NOTE: This function are starting to be calling immediately when the neoray
+	// has started. May be the cells are not initialized when this function called.
+	// We need to check are the cells ready for starting to drawing cursor.
+	if !editor.grid.cells_ready {
+		return
+	}
+	info := editor.cursor.GetDrawInfo(&editor.mode, &editor.grid)
+	cell := editor.grid.cells[info.x][info.y]
+	if info.draw_char && len(cell.char) != 0 && cell.char != " " {
+		// We need to draw cell character to the cursor foreground.
+		// Because cursor is not transparent.
+		italic := false
+		bold := false
+		if cell.attrib_id > 0 {
+			attrib := editor.grid.attributes[cell.attrib_id]
+			italic = attrib.italic
+			bold = attrib.bold
+		}
+		atlas_pos, err := renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
+		if err != nil {
+			return
+		}
+		renderer.SetCursorData(info.rect, atlas_pos, info.fg, info.bg)
+	} else {
+		// No cell drawing needed. Just draw the cursor.
+		renderer.SetCursorData(info.rect, sdl.Rect{}, sdl.Color{}, info.bg)
+	}
+	renderer.Render(editor)
+}
+
 func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
 	if cell.attrib_id > 0 {
 		renderer.DrawCellWithAttrib(x, y, cell, grid.attributes[cell.attrib_id],
@@ -314,33 +352,28 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
 	}
 }
 
-// TODO: Cursor cells are not redrawing after scroll.
 func (renderer *Renderer) Draw(editor *Editor) {
 	defer measure_execution_time("Render.Draw")()
-	RGL_ClearScreen(editor.grid.default_bg)
-
-	redrawed_rows := 0
-	redrawed_cells := 0
 	for x, row := range editor.grid.cells {
 		if editor.grid.changed_rows[x] == true {
 			for y, cell := range row {
 				if cell.changed {
 					renderer.DrawCell(x, y, cell, &editor.grid)
 					editor.grid.cells[x][y].changed = false
-					redrawed_cells++
 				}
 			}
 			editor.grid.changed_rows[x] = false
-			redrawed_rows++
 		}
 	}
-	log_debug_msg("Redrawed Cells:", redrawed_cells, "Rows:", redrawed_rows)
+	// Cursor needs redrawing. You know why.
+	editor.cursor.needs_redraw = true
+	// Render changes and swap sdl window surface
+	renderer.Render(editor)
+}
 
-	// Draw cursor
-	editor.cursor.Draw(editor)
-	// Render changes
+func (renderer *Renderer) Render(editor *Editor) {
+	RGL_ClearScreen(editor.grid.default_bg)
 	RGL_Render(renderer.vertex_data)
-	// Swap window surface
 	editor.window.handle.GLSwap()
 }
 

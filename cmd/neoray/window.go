@@ -22,16 +22,12 @@ type UIOptions struct {
 
 type Window struct {
 	handle *sdl.Window
-	width  int
-	height int
 	title  string
 }
 
 func CreateWindow(width int, height int, title string) Window {
 	window := Window{
-		width:  width,
-		height: height,
-		title:  title,
+		title: title,
 	}
 
 	sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
@@ -50,19 +46,20 @@ func CreateWindow(width int, height int, title string) Window {
 
 func (window *Window) HandleWindowResizing(editor *Editor) {
 	w, h := window.handle.GetSize()
-	if w != int32(window.width) || h != int32(window.height) {
-		window.width = int(w)
-		window.height = int(h)
+	if w != int32(GLOB_WindowWidth) || h != int32(GLOB_WindowHeight) {
+		GLOB_WindowWidth = int(w)
+		GLOB_WindowHeight = int(h)
 		editor.nvim.ResizeUI(editor)
-		editor.renderer.Resize(int(w), int(h))
+		editor.renderer.Resize()
 	}
 }
 
 func (window *Window) Update(editor *Editor) {
 	window.HandleWindowResizing(editor)
 	HandleNvimRedrawEvents(editor)
+	editor.cursor.Update(editor)
 	// DEBUG
-	fps_string := fmt.Sprintf(" | FPS: %d", frames_per_second)
+	fps_string := fmt.Sprintf(" | FPS: %d", GLOB_FramesPerSecond)
 	idx := strings.LastIndex(window.title, " | ")
 	if idx == -1 {
 		window.SetTitle(window.title + fps_string)

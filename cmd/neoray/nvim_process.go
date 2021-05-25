@@ -18,14 +18,14 @@ func CreateNvimProcess() NvimProcess {
 		update_mutex: &sync.Mutex{},
 		update_stack: make([][][]interface{}, 0),
 	}
+
+	// TODO: preprocess args in main function
 	args := []string{
 		"--embed",
 		// "-u",
 		// "NORC",
 		// "--noplugin",
 	}
-
-	// TODO: preprocess args
 	args = append(args, os.Args[1:]...)
 
 	nv, err := nvim.NewChildProcess(
@@ -38,6 +38,11 @@ func CreateNvimProcess() NvimProcess {
 	proc.handle = nv
 	proc.requestApiInfo()
 	proc.introduce()
+
+	// proc.ExecuteVimScript("au UIEnter call rpcnotify(0, \"uienter_success\")")
+	// proc.handle.RegisterHandler("uienter_success", func() {
+	//     log_debug_msg("UI Entered Succesfully.")
+	// })
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process created.")
 
@@ -105,9 +110,7 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 
-	col_count := editor.window.width / editor.renderer.cell_width
-	row_count := editor.window.height / editor.renderer.cell_height
-	proc.handle.AttachUI(col_count, row_count, options)
+	proc.handle.AttachUI(GLOB_ColumnCount, GLOB_RowCount, options)
 
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
@@ -115,8 +118,6 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 			proc.update_stack = append(proc.update_stack, updates)
 			proc.update_mutex.Unlock()
 		})
-
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", row_count, "Columns:", col_count)
 
 	go func() {
 		if err := proc.handle.Serve(); err != nil {
@@ -126,13 +127,15 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process closed.")
 		editor.quit_requested_chan <- true
 	}()
+
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", GLOB_RowCount, "Columns:", GLOB_ColumnCount)
 }
 
 func (proc *NvimProcess) ResizeUI(editor *Editor) {
-	col_count := editor.window.width / editor.renderer.cell_width
-	row_count := editor.window.height / editor.renderer.cell_height
-	log_debug_msg("UI Resized. Rows:", row_count, "Columns:", col_count)
-	proc.handle.TryResizeUI(col_count, row_count)
+	GLOB_ColumnCount = GLOB_WindowWidth / GLOB_CellWidth
+	GLOB_RowCount = GLOB_WindowHeight / GLOB_CellHeight
+	proc.handle.TryResizeUI(GLOB_ColumnCount, GLOB_RowCount)
+	log_debug_msg("UI Resized. Rows:", GLOB_RowCount, "Columns:", GLOB_ColumnCount)
 }
 
 func (proc *NvimProcess) Close() {

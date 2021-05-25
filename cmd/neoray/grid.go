@@ -25,6 +25,7 @@ type HighlightAttribute struct {
 
 type Grid struct {
 	cells        [][]Cell
+	cells_ready  bool
 	width        int
 	height       int
 	default_fg   sdl.Color
@@ -53,6 +54,7 @@ func (grid *Grid) Resize(width int, height int) {
 			grid.cells[i][j].changed = true
 		}
 	}
+	grid.cells_ready = true
 }
 
 func (grid *Grid) ClearCells() {

@@ -8,6 +8,10 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
+var (
+	system_default_fontname string
+)
+
 type Font struct {
 	size float32
 
@@ -22,8 +26,6 @@ type Font struct {
 	italic      *ttf.Font
 	bold        *ttf.Font
 	bold_italic *ttf.Font
-
-	system_default_fontname string
 }
 
 func CreateFont(fontname string, size float32) Font {
@@ -38,18 +40,18 @@ func CreateFont(fontname string, size float32) Font {
 
 	switch runtime.GOOS {
 	case "windows":
-		font.system_default_fontname = "Consolas"
+		system_default_fontname = "Consolas"
 		break
 	case "linux":
-		font.system_default_fontname = "Noto Sans Mono"
+		system_default_fontname = "Noto Sans Mono"
 		break
 	case "darwin":
-		font.system_default_fontname = "Menlo"
+		system_default_fontname = "Menlo"
 		break
 	}
 
 	if fontname == "" {
-		font.find_and_load(font.system_default_fontname)
+		font.find_and_load(system_default_fontname)
 	} else {
 		font.find_and_load(fontname)
 	}
@@ -95,10 +97,10 @@ func (font *Font) find_and_load(fontname string) {
 	matched_fonts, ok := font.get_matching_fonts(fontname, font_list)
 	if !ok {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font", fontname, "not found. Using system default font.")
-		matched_fonts, _ = font.get_matching_fonts(font.system_default_fontname, font_list)
+		matched_fonts, _ = font.get_matching_fonts(system_default_fontname, font_list)
 	}
 	if !font.load_matching_fonts(matched_fonts) {
-		matched_fonts, _ = font.get_matching_fonts(font.system_default_fontname, font_list)
+		matched_fonts, _ = font.get_matching_fonts(system_default_fontname, font_list)
 		font.load_matching_fonts(matched_fonts)
 	}
 }

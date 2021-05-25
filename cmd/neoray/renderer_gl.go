@@ -10,9 +10,18 @@ import (
 const VertexStructSize = 9 * 4
 
 type Vertex struct {
-	X, Y       float32 // layout 0
+	// These are vertex positions. May not be changed for
+	// most of the vertices in runtime.
+	X, Y float32 // layout 0
+	// These are vertex atlas texture positions for given character
+	// and they are changing most of the time.
 	TexX, TexY float32 // layout 1
+	// These are the background color if useTexture is 0,
+	// foreground color if useTexture is 1.
 	R, G, B, A float32 // layout 2
+	// Use texture is used like a boolean value for determining
+	// is this data is for background drawing or foreground drawing.
+	// TODO: Use boolean instead of float
 	useTexture float32 // layout 3
 }
 
@@ -21,6 +30,7 @@ var rgl_context sdl.GLContext
 var rgl_vao uint32
 var rgl_vbo uint32
 var rgl_shader_program uint32
+var rgl_last_buffer_size int
 
 var rgl_atlas_uniform int32
 var rgl_projection_uniform int32
@@ -41,13 +51,8 @@ func RGL_Init(window *Window) {
 	RGL_InitShaders()
 	gl.UseProgram(rgl_shader_program)
 
-	uniform_name := gl.Str("textures\x00")
-	rgl_atlas_uniform =
-		gl.GetUniformLocation(rgl_shader_program, uniform_name)
-
-	uniform_name = gl.Str("projectionMatrix\x00")
-	rgl_projection_uniform =
-		gl.GetUniformLocation(rgl_shader_program, uniform_name)
+	rgl_atlas_uniform = RGL_GetUniformLocation("atlas")
+	rgl_projection_uniform = RGL_GetUniformLocation("projection")
 
 	// Initialize vao and vbo
 	gl.CreateVertexArrays(1, &rgl_vao)
@@ -79,6 +84,15 @@ func RGL_Init(window *Window) {
 	RGL_CheckError("RGL_Init")
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl: ", gl.GoStr(gl.GetString(gl.VERSION)))
+}
+
+func RGL_GetUniformLocation(name string) int32 {
+	uniform_name := gl.Str(name + "\x00")
+	loc := gl.GetUniformLocation(rgl_shader_program, uniform_name)
+	if loc < 0 {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to find uniform", name)
+	}
+	return loc
 }
 
 func RGL_CreateViewport(w, h int) {
@@ -116,8 +130,13 @@ func RGL_ClearScreen(color sdl.Color) {
 
 func RGL_Render(vertex_data []Vertex) {
 	// Upload vertex data
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertex_data)*VertexStructSize, gl.Ptr(vertex_data), gl.STREAM_DRAW)
-	RGL_CheckError("RGL_Render.BufferData")
+	if rgl_last_buffer_size != len(vertex_data) {
+		gl.BufferData(gl.ARRAY_BUFFER, len(vertex_data)*VertexStructSize, gl.Ptr(vertex_data), gl.STATIC_DRAW)
+		RGL_CheckError("RGL_Render.BufferData")
+	} else {
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(vertex_data)*VertexStructSize, gl.Ptr(vertex_data))
+		RGL_CheckError("RGL_Render.BufferSubData")
+	}
 	// Draw
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(vertex_data)))
 	RGL_CheckError("RGL_Render.DrawArrays")
@@ -135,10 +154,10 @@ out vec2 textureCoord;
 out vec4 vertexColor;
 out float useTexture;
 
-uniform mat4 projectionMatrix;
+uniform mat4 projection;
 
 void main() {
-	gl_Position = vec4(pos, 0, 1) * projectionMatrix;
+	gl_Position = vec4(pos, 0, 1) * projection;
 	textureCoord = texCoord;
 	useTexture = useTex;
 	vertexColor = color;
@@ -156,7 +175,6 @@ uniform sampler2D atlas;
 
 void main() {
 	vec4 color;
-	vec4 tbgColor = vec4(0.5, 0, 0, 1);
 	if (useTexture > 0.5) {
 		color = texture(atlas, textureCoord);
 		color *= vertexColor;

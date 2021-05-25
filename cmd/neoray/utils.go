@@ -5,22 +5,10 @@ import (
 	"log"
 	"runtime/debug"
 	"sync"
-	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
-
-type f32vec2 struct {
-	X, Y float32
-}
-type i32vec2 struct {
-	X, Y int32
-}
-type ivec2 struct {
-	X, Y int
-}
 
 var (
 	COLOR_WHITE       = sdl.Color{R: 255, G: 255, B: 255, A: 255}
@@ -71,14 +59,26 @@ func is_color_black(color sdl.Color) bool {
 	return color.R == 0 && color.G == 0 && color.B == 0
 }
 
-func has_flag_u16(val, flag uint16) bool {
-	return val&flag != 0
+// Math
+type f32vec2 struct {
+	X, Y float32
+}
+type i32vec2 struct {
+	X, Y int32
+}
+type ivec2 struct {
+	X, Y int
 }
 
-func atomic_copy_f32(dst, src *float32) {
-	dst_ptr := unsafe.Pointer(dst)
-	src_ptr := unsafe.Pointer(src)
-	atomic.StorePointer(&dst_ptr, atomic.LoadPointer(&src_ptr))
+func lerpf32(v0, v1, t float32) float32 {
+	return v0 + t*(v1-v0)
+}
+
+func iabs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func triangulate_rect(rect *sdl.Rect) [6]i32vec2 {
@@ -140,6 +140,14 @@ func close_function_time_tracker() {
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 			key, "Calls:", val.totalCall, "Time:", val.totalTime, "Average:", val.totalTime/time.Duration(val.totalCall))
 	}
+}
+
+// Other utility functions
+func has_flag_u16(val, flag uint16) bool {
+	return val&flag != 0
+}
+
+func atomic_copy_f32(dst, src *float32) {
 }
 
 // Logger

@@ -78,10 +78,13 @@ func HandleNvimRedrawEvents(editor *Editor) {
 			case "grid_destroy":
 				break
 			case "grid_cursor_goto":
-				grid_cursor_goto(&editor.cursor, &editor.grid, update[1:])
+				grid_cursor_goto(&editor.cursor, update[1:])
 				break
 			case "grid_scroll":
 				grid_scroll(&editor.grid, &editor.renderer, update[1:])
+				break
+			default:
+				log_debug_msg("Unknown update:", update)
 				break
 			}
 		}
@@ -277,12 +280,12 @@ func grid_line(grid *Grid, args []interface{}) {
 	}
 }
 
-func grid_cursor_goto(cursor *Cursor, grid *Grid, args []interface{}) {
+func grid_cursor_goto(cursor *Cursor, args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	X := int(r.Index(1).Elem().Convert(t).Int())
 	Y := int(r.Index(2).Elem().Convert(t).Int())
-	cursor.SetPosition(X, Y, grid)
+	cursor.SetPosition(X, Y)
 }
 
 func grid_scroll(grid *Grid, renderer *Renderer, args []interface{}) {
