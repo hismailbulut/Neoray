@@ -1,8 +1,6 @@
 package main
 
 import (
-	"net/http"
-	_ "net/http/pprof"
 	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -61,16 +59,9 @@ const FONT_SIZE = 14
 const TARGET_TPS = 60
 
 func (editor *Editor) Initialize() {
-	// NOTE: disable on release build
 	startupTime := time.Now()
+
 	init_function_time_tracker()
-	// pprof for debugging
-	go func() {
-		err := http.ListenAndServe("localhost:6060", nil)
-		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create pprof server.")
-		}
-	}()
 
 	editor.nvim = CreateNvimProcess()
 

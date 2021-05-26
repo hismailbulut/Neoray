@@ -313,6 +313,7 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 }
 
 func (renderer *Renderer) DrawCursor(editor *Editor) {
+	defer measure_execution_time("Renderer.DrawCursor")()
 	// NOTE: This function are starting to be calling immediately when the neoray
 	// has started. May be the cells are not initialized when this function called.
 	// We need to check are the cells ready for starting to drawing cursor.
@@ -355,15 +356,15 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
 func (renderer *Renderer) Draw(editor *Editor) {
 	defer measure_execution_time("Render.Draw")()
 	for x, row := range editor.grid.cells {
-		if editor.grid.changed_rows[x] == true {
-			for y, cell := range row {
-				if cell.changed {
-					renderer.DrawCell(x, y, cell, &editor.grid)
-					editor.grid.cells[x][y].changed = false
-				}
+		// if editor.grid.changed_rows[x] == true {
+		for y, cell := range row {
+			if cell.changed {
+				renderer.DrawCell(x, y, cell, &editor.grid)
+				editor.grid.cells[x][y].changed = false
 			}
-			editor.grid.changed_rows[x] = false
 		}
+		//     editor.grid.changed_rows[x] = false
+		// }
 	}
 	// Cursor needs redrawing. You know why.
 	editor.cursor.needs_redraw = true
@@ -372,6 +373,7 @@ func (renderer *Renderer) Draw(editor *Editor) {
 }
 
 func (renderer *Renderer) Render(editor *Editor) {
+	defer measure_execution_time("Renderer.Render")()
 	RGL_ClearScreen(editor.grid.default_bg)
 	RGL_Render(renderer.vertex_data)
 	editor.window.handle.GLSwap()

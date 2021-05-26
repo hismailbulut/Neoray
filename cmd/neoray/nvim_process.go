@@ -105,6 +105,13 @@ func (proc *NvimProcess) SendKeyCode(keycode string) {
 	}
 }
 
+func (proc *NvimProcess) SendButton(button, action, modifier string, grid, row, column int) {
+	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
+	if err != nil {
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send mouse input:", err)
+	}
+}
+
 func (proc *NvimProcess) StartUI(editor *Editor) {
 	options := make(map[string]interface{})
 	options["rgb"] = true

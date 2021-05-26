@@ -35,18 +35,93 @@ var SpecialKeys = map[sdl.Keycode]string{
 	sdl.K_F12:       "F12",
 }
 
+var last_mouse_state uint8
+
 func HandleSDLEvents(editor *Editor) {
 	defer measure_execution_time("HandleSDLEvents")()
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
 			editor.quit_requested = true
+			break
 		case *sdl.DropEvent:
+			break
 		case *sdl.ClipboardEvent:
+			break
+		case *sdl.MouseButtonEvent, *sdl.MouseMotionEvent, *sdl.MouseWheelEvent:
+			handle_mouse_event(&editor.nvim, event)
+			break
 		case *sdl.KeyboardEvent, *sdl.TextInputEvent:
 			handle_input_event(&editor.nvim, event)
+			break
 		}
 	}
+}
+
+func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
+	var button string
+	var action string
+	var modifiers string
+	var grid int
+	var row int
+	var col int
+	switch t := event.(type) {
+	case *sdl.MouseButtonEvent:
+		switch t.Button {
+		case sdl.BUTTON_LEFT:
+			button = "left"
+			break
+		case sdl.BUTTON_RIGHT:
+			button = "right"
+			break
+		case sdl.BUTTON_MIDDLE:
+			button = "middle"
+			break
+		default:
+			return
+		}
+		action = "press"
+		if t.State == sdl.RELEASED {
+			action = "release"
+		}
+		last_mouse_state = t.State
+		row = int(t.Y) / GLOB_CellHeight
+		col = int(t.X) / GLOB_CellWidth
+		break
+	case *sdl.MouseMotionEvent:
+		if last_mouse_state == sdl.PRESSED {
+			switch t.State {
+			case sdl.BUTTON_LEFT:
+				button = "left"
+				break
+			case sdl.BUTTON_RIGHT:
+				button = "right"
+				break
+			case sdl.BUTTON_MIDDLE:
+				button = "middle"
+				break
+			default:
+				return
+			}
+			action = "drag"
+			row = int(t.Y) / GLOB_CellHeight
+			col = int(t.X) / GLOB_CellWidth
+		}
+		break
+	case *sdl.MouseWheelEvent:
+		button = "wheel"
+		action = "up"
+		if t.Y < 0 {
+			action = "down"
+		}
+		row = int(t.Y) / GLOB_CellHeight
+		col = int(t.X) / GLOB_CellWidth
+		break
+	}
+	if button == "" || action == "" {
+		return
+	}
+	nvim.SendButton(button, action, modifiers, grid, row, col)
 }
 
 func handle_input_event(nvim *NvimProcess, event sdl.Event) {
@@ -92,13 +167,14 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 			keys = append(keys, key)
 			character_key = true
 		}
-
+		break
 	case *sdl.TextInputEvent:
-		if !character_key && t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
+		if !character_key { //&& t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
 			keys = append(keys, t.GetText())
 			// log_debug_msg("Char:", t.GetText())
 			character_key = true
 		}
+		break
 	}
 
 	// Prepare keycode to send neovim as neovim style
@@ -106,10 +182,18 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 	if len(keys) == 0 || (modifier_key && !special_key && !character_key) {
 		return
 	} else if len(keys) == 1 && character_key {
+		// This is special for neovim
+		if keys[0] == "<" {
+			keys[0] = "<LT>"
+		}
 		keycode = keys[0]
 	} else {
 		keycode += "<"
 		for i, c := range keys {
+			// This is special for neovim
+			if c == "<" {
+				c = "LT"
+			}
 			keycode += c
 			if i != len(keys)-1 {
 				keycode += "-"

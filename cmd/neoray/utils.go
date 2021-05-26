@@ -147,9 +147,6 @@ func has_flag_u16(val, flag uint16) bool {
 	return val&flag != 0
 }
 
-func atomic_copy_f32(dst, src *float32) {
-}
-
 // Logger
 const MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
 const (

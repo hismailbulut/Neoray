@@ -54,7 +54,7 @@ func (cursor *Cursor) SetPosition(x, y int) {
 	cursor.anim = CreateAnimation(
 		f32vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
 		f32vec2{X: float32(x), Y: float32(y)},
-		0.5)
+		0.3)
 	cursor.X = x
 	cursor.Y = y
 	cursor.needs_redraw = true
@@ -107,12 +107,12 @@ func (cursor *Cursor) GetColors(info ModeInfo, grid *Grid) (sdl.Color, sdl.Color
 }
 
 func (cursor *Cursor) GetAnimatedPosition() ivec2 {
-	aPos, finished := cursor.anim.GetCurrentStep(GLOB_DeltaTime)
+	aPos := cursor.anim.GetCurrentStep()
 	pos := ivec2{
 		X: int(float32(GLOB_CellWidth) * aPos.Y),
 		Y: int(float32(GLOB_CellHeight) * aPos.X),
 	}
-	cursor.needs_redraw = !finished
+	cursor.needs_redraw = !(pos.X == cursor.X && pos.Y == cursor.Y)
 	return pos
 }
 
