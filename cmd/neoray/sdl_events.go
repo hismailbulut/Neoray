@@ -106,6 +106,8 @@ func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
 			action = "drag"
 			row = int(t.Y) / GLOB_CellHeight
 			col = int(t.X) / GLOB_CellWidth
+		} else {
+			return
 		}
 		break
 	case *sdl.MouseWheelEvent:
@@ -118,9 +120,9 @@ func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
 		col = int(t.X) / GLOB_CellWidth
 		break
 	}
-	if button == "" || action == "" {
-		return
-	}
+	// if button == "" || action == "" {
+	//     return
+	// }
 	nvim.SendButton(button, action, modifiers, grid, row, col)
 }
 
