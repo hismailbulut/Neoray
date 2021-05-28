@@ -4,37 +4,37 @@ import (
 	"reflect"
 )
 
-func HandleNvimRedrawEvents(editor *Editor) {
+func HandleNvimRedrawEvents() {
 	defer measure_execution_time("HandleNvimRedrawEvents")()
 
-	editor.nvim.update_mutex.Lock()
-	defer editor.nvim.update_mutex.Unlock()
+	EditorSingleton.nvim.update_mutex.Lock()
+	defer EditorSingleton.nvim.update_mutex.Unlock()
 
-	if len(editor.nvim.update_stack) <= 0 {
+	if len(EditorSingleton.nvim.update_stack) <= 0 {
 		return
 	}
 
-	for _, updates := range editor.nvim.update_stack {
+	for _, updates := range EditorSingleton.nvim.update_stack {
 		for _, update := range updates {
 			switch update[0] {
 			// Global events
 			case "set_title":
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
-				editor.window.SetTitle(title)
+				EditorSingleton.window.SetTitle(title)
 				break
 			case "set_icon":
 				break
 			case "mode_info_set":
-				mode_info_set(&editor.mode, update[1:])
+				mode_info_set(update[1:])
 				break
 			case "option_set":
-				option_set(&editor.options, update[1:])
+				option_set(update[1:])
 				break
 			case "mode_change":
 				name := reflect.ValueOf(update[1]).Index(0).Elem().String()
-				editor.mode.current_mode_name = name
+				EditorSingleton.mode.current_mode_name = name
 				id := reflect.ValueOf(update[1]).Index(1).Elem().Convert(reflect.TypeOf(int(0))).Int()
-				editor.mode.current_mode = int(id)
+				EditorSingleton.mode.current_mode = int(id)
 				break
 			case "mouse_on":
 				break
@@ -55,33 +55,33 @@ func HandleNvimRedrawEvents(editor *Editor) {
 			case "visual_bell":
 				break
 			case "flush":
-				editor.renderer.Draw(editor)
+				EditorSingleton.renderer.DrawAllChangedCells()
 				break
 			// Grid Events (line-based)
 			case "grid_resize":
-				grid_resize(&editor.grid, update[1:])
+				grid_resize(update[1:])
 				break
 			case "default_colors_set":
-				default_colors_set(&editor.grid, update[1:])
+				default_colors_set(update[1:])
 				break
 			case "hl_attr_define":
-				hl_attr_define(&editor.grid, update[1:])
+				hl_attr_define(update[1:])
 				break
 			case "hl_group_set":
 				break
 			case "grid_line":
-				grid_line(&editor.grid, update[1:])
+				grid_line(update[1:])
 				break
 			case "grid_clear":
-				editor.grid.ClearCells()
+				EditorSingleton.grid.ClearCells()
 				break
 			case "grid_destroy":
 				break
 			case "grid_cursor_goto":
-				grid_cursor_goto(&editor.cursor, update[1:])
+				grid_cursor_goto(update[1:])
 				break
 			case "grid_scroll":
-				grid_scroll(&editor.grid, &editor.renderer, update[1:])
+				grid_scroll(update[1:])
 				break
 			default:
 				log_debug_msg("Unknown update:", update)
@@ -90,11 +90,12 @@ func HandleNvimRedrawEvents(editor *Editor) {
 		}
 	}
 	// clear update stack
-	editor.nvim.update_stack = nil
+	EditorSingleton.nvim.update_stack = nil
 }
 
-func option_set(options *UIOptions, args []interface{}) {
+func option_set(args []interface{}) {
 	t := reflect.TypeOf(int(0))
+	options := &EditorSingleton.options
 	for _, opt := range args {
 		valr := reflect.ValueOf(opt).Index(1).Elem()
 		switch reflect.ValueOf(opt).Index(0).Elem().String() {
@@ -132,9 +133,9 @@ func option_set(options *UIOptions, args []interface{}) {
 	}
 }
 
-func mode_info_set(mode *Mode, args []interface{}) {
+func mode_info_set(args []interface{}) {
 	r := reflect.ValueOf(args).Index(0).Elem()
-	mode.cursor_style_enabled = r.Index(0).Elem().Bool()
+	EditorSingleton.mode.cursor_style_enabled = r.Index(0).Elem().Bool()
 	t := reflect.TypeOf(int(0))
 	for _, infos := range r.Index(1).Interface().([]interface{}) {
 		mapIter := reflect.ValueOf(infos).MapRange()
@@ -170,30 +171,30 @@ func mode_info_set(mode *Mode, args []interface{}) {
 				break
 			}
 		}
-		mode.mode_infos[info.name] = info
+		EditorSingleton.mode.mode_infos[info.name] = info
 	}
 }
 
-func grid_resize(grid *Grid, args []interface{}) {
+func grid_resize(args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(int(0))
 	width := r.Index(1).Elem().Convert(t).Int()
 	height := r.Index(2).Elem().Convert(t).Int()
-	grid.Resize(int(width), int(height))
+	EditorSingleton.grid.Resize(int(width), int(height))
 }
 
-func default_colors_set(grid *Grid, args []interface{}) {
+func default_colors_set(args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(uint(0))
 	fg := r.Index(0).Elem().Convert(t).Uint()
 	bg := r.Index(1).Elem().Convert(t).Uint()
 	sp := r.Index(2).Elem().Convert(t).Uint()
-	grid.default_fg = convert_rgb24_to_rgba(uint32(fg))
-	grid.default_bg = convert_rgb24_to_rgba(uint32(bg))
-	grid.default_sp = convert_rgb24_to_rgba(uint32(sp))
+	EditorSingleton.grid.default_fg = convert_rgb24_to_rgba(uint32(fg))
+	EditorSingleton.grid.default_bg = convert_rgb24_to_rgba(uint32(bg))
+	EditorSingleton.grid.default_sp = convert_rgb24_to_rgba(uint32(sp))
 }
 
-func hl_attr_define(grid *Grid, args []interface{}) {
+func hl_attr_define(args []interface{}) {
 	// there may be more than one attribute
 	t := reflect.TypeOf(uint(0))
 	for _, arg := range args {
@@ -247,12 +248,12 @@ func hl_attr_define(grid *Grid, args []interface{}) {
 				break
 			}
 		}
-		grid.attributes[id] = hl_attr
-		grid.MakeAllCellsChanged()
+		EditorSingleton.grid.attributes[id] = hl_attr
+		EditorSingleton.grid.MakeAllCellsChanged()
 	}
 }
 
-func grid_line(grid *Grid, args []interface{}) {
+func grid_line(args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	for _, arg := range args {
 		r := reflect.ValueOf(arg)
@@ -275,20 +276,20 @@ func grid_line(grid *Grid, args []interface{}) {
 			if len(cell_slice) == 3 {
 				repeat = int(reflect.ValueOf(cell_slice).Index(2).Elem().Convert(t).Int())
 			}
-			grid.SetCell(row, &col_start, char, hl_id, repeat)
+			EditorSingleton.grid.SetCell(row, &col_start, char, hl_id, repeat)
 		}
 	}
 }
 
-func grid_cursor_goto(cursor *Cursor, args []interface{}) {
+func grid_cursor_goto(args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	X := int(r.Index(1).Elem().Convert(t).Int())
 	Y := int(r.Index(2).Elem().Convert(t).Int())
-	cursor.SetPosition(X, Y)
+	EditorSingleton.cursor.SetPosition(X, Y)
 }
 
-func grid_scroll(grid *Grid, renderer *Renderer, args []interface{}) {
+func grid_scroll(args []interface{}) {
 	t := reflect.TypeOf(int(0))
 	r := reflect.ValueOf(args).Index(0).Elem()
 	top := r.Index(1).Elem().Convert(t).Int()
@@ -297,5 +298,5 @@ func grid_scroll(grid *Grid, renderer *Renderer, args []interface{}) {
 	right := r.Index(4).Elem().Convert(t).Int()
 	rows := r.Index(5).Elem().Convert(t).Int()
 	//cols := r.Index(6).Elem().Convert(t).Int()
-	grid.Scroll(int(top), int(bot), int(rows), int(left), int(right), renderer)
+	EditorSingleton.grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
 }
