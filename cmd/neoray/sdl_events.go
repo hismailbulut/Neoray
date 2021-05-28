@@ -37,28 +37,28 @@ var SpecialKeys = map[sdl.Keycode]string{
 
 var last_mouse_state uint8
 
-func HandleSDLEvents(editor *Editor) {
+func HandleSDLEvents() {
 	defer measure_execution_time("HandleSDLEvents")()
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
-			editor.quit_requested = true
+			EditorSingleton.quit_requested = true
 			break
 		case *sdl.DropEvent:
 			break
 		case *sdl.ClipboardEvent:
 			break
 		case *sdl.MouseButtonEvent, *sdl.MouseMotionEvent, *sdl.MouseWheelEvent:
-			handle_mouse_event(&editor.nvim, event)
+			handle_mouse_event(event)
 			break
 		case *sdl.KeyboardEvent, *sdl.TextInputEvent:
-			handle_input_event(&editor.nvim, event)
+			handle_input_event(event)
 			break
 		}
 	}
 }
 
-func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
+func handle_mouse_event(event sdl.Event) {
 	var button string
 	var action string
 	var modifiers string
@@ -85,8 +85,8 @@ func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
 			action = "release"
 		}
 		last_mouse_state = t.State
-		row = int(t.Y) / GLOB_CellHeight
-		col = int(t.X) / GLOB_CellWidth
+		row = int(t.Y) / EditorSingleton.cellHeight
+		col = int(t.X) / EditorSingleton.cellWidth
 		break
 	case *sdl.MouseMotionEvent:
 		if last_mouse_state == sdl.PRESSED {
@@ -104,8 +104,8 @@ func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
 				return
 			}
 			action = "drag"
-			row = int(t.Y) / GLOB_CellHeight
-			col = int(t.X) / GLOB_CellWidth
+			row = int(t.Y) / EditorSingleton.cellHeight
+			col = int(t.X) / EditorSingleton.cellWidth
 		} else {
 			return
 		}
@@ -116,17 +116,14 @@ func handle_mouse_event(nvim *NvimProcess, event sdl.Event) {
 		if t.Y < 0 {
 			action = "down"
 		}
-		row = int(t.Y) / GLOB_CellHeight
-		col = int(t.X) / GLOB_CellWidth
+		row = int(t.Y) / EditorSingleton.cellHeight
+		col = int(t.X) / EditorSingleton.cellWidth
 		break
 	}
-	// if button == "" || action == "" {
-	//     return
-	// }
-	nvim.SendButton(button, action, modifiers, grid, row, col)
+	EditorSingleton.nvim.SendButton(button, action, modifiers, grid, row, col)
 }
 
-func handle_input_event(nvim *NvimProcess, event sdl.Event) {
+func handle_input_event(event sdl.Event) {
 	var keys []string
 	modifier_key := false
 	special_key := false
@@ -171,9 +168,8 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 		}
 		break
 	case *sdl.TextInputEvent:
-		if !character_key { //&& t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
+		if !character_key && t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
 			keys = append(keys, t.GetText())
-			// log_debug_msg("Char:", t.GetText())
 			character_key = true
 		}
 		break
@@ -202,9 +198,13 @@ func handle_input_event(nvim *NvimProcess, event sdl.Event) {
 			}
 		}
 		keycode += ">"
-		// log_debug_msg("Key:", keycode)
+	}
+
+	if keycode == "<F11>" {
+		log_debug_msg("SwitchFullscreen")
+		EditorSingleton.window.SwitchFullscreen()
 	}
 
 	// send keycode to neovim
-	nvim.SendKeyCode(keycode)
+	EditorSingleton.nvim.SendKeyCode(keycode)
 }
