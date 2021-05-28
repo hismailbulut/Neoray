@@ -1,5 +1,7 @@
 package main
 
+import "math"
+
 type Animation struct {
 	current  f32vec2
 	target   f32vec2
@@ -17,8 +19,11 @@ func CreateAnimation(from, target f32vec2, lifeTime float32) Animation {
 }
 
 // Returns current position of animation as x and y position
-func (anim *Animation) GetCurrentStep() f32vec2 {
-	anim.current.X += (anim.target.X - anim.current.X) / (anim.lifeTime / GLOB_DeltaTime)
-	anim.current.Y += (anim.target.Y - anim.current.Y) / (anim.lifeTime / GLOB_DeltaTime)
-	return anim.current
+// If animation is finishe, returned bool value will be true
+func (anim *Animation) GetCurrentStep(deltaTime float32) (f32vec2, bool) {
+	anim.current.X += (anim.target.X - anim.current.X) / (anim.lifeTime / deltaTime)
+	anim.current.Y += (anim.target.Y - anim.current.Y) / (anim.lifeTime / deltaTime)
+	finishedX := math.Abs(float64(anim.target.X-anim.current.X)) < 0.1
+	finishedY := math.Abs(float64(anim.target.Y-anim.current.Y)) < 0.1
+	return anim.current, finishedX && finishedY
 }
