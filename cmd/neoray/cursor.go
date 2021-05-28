@@ -4,24 +4,9 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type ModeInfo struct {
-	cursor_shape    string
-	cell_percentage int
-	blinkwait       int
-	blinkon         int
-	blinkoff        int
-	attr_id         int
-	attr_id_lm      int
-	short_name      string
-	name            string
-}
-
-type Mode struct {
-	cursor_style_enabled bool
-	mode_infos           map[string]ModeInfo
-	current_mode_name    string
-	current_mode         int
-}
+const (
+	CursorAnimationLifetime = 0.3
+)
 
 type CursorDrawInfo struct {
 	x, y      int
@@ -38,23 +23,11 @@ type Cursor struct {
 	needs_redraw bool
 }
 
-func CreateMode() Mode {
-	return Mode{
-		mode_infos: make(map[string]ModeInfo),
-	}
-}
-
-func (cursor *Cursor) Update(editor *Editor) {
-	if cursor.needs_redraw {
-		editor.renderer.DrawCursor(editor)
-	}
-}
-
 func (cursor *Cursor) SetPosition(x, y int) {
 	cursor.anim = CreateAnimation(
 		f32vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
 		f32vec2{X: float32(x), Y: float32(y)},
-		0.3)
+		CursorAnimationLifetime)
 	cursor.X = x
 	cursor.Y = y
 	cursor.needs_redraw = true
@@ -68,17 +41,17 @@ func (cursor *Cursor) GetPositionRectangle(cell_pos ivec2, info ModeInfo) (sdl.R
 		cursor_rect = sdl.Rect{
 			X: int32(cell_pos.X),
 			Y: int32(cell_pos.Y),
-			W: int32(GLOB_CellWidth),
-			H: int32(GLOB_CellHeight),
+			W: int32(EditorSingleton.cellWidth),
+			H: int32(EditorSingleton.cellHeight),
 		}
 		draw_char = true
 		break
 	case "horizontal":
-		height := GLOB_CellHeight / (100 / info.cell_percentage)
+		height := EditorSingleton.cellHeight / (100 / info.cell_percentage)
 		cursor_rect = sdl.Rect{
 			X: int32(cell_pos.X),
-			Y: int32(cell_pos.Y + (GLOB_CellHeight - height)),
-			W: int32(GLOB_CellWidth),
+			Y: int32(cell_pos.Y + (EditorSingleton.cellHeight - height)),
+			W: int32(EditorSingleton.cellWidth),
 			H: int32(height),
 		}
 		break
@@ -86,20 +59,20 @@ func (cursor *Cursor) GetPositionRectangle(cell_pos ivec2, info ModeInfo) (sdl.R
 		cursor_rect = sdl.Rect{
 			X: int32(cell_pos.X),
 			Y: int32(cell_pos.Y),
-			W: int32(GLOB_CellWidth / (100 / info.cell_percentage)),
-			H: int32(GLOB_CellHeight),
+			W: int32(EditorSingleton.cellWidth / (100 / info.cell_percentage)),
+			H: int32(EditorSingleton.cellHeight),
 		}
 		break
 	}
 	return cursor_rect, draw_char
 }
 
-func (cursor *Cursor) GetColors(info ModeInfo, grid *Grid) (sdl.Color, sdl.Color) {
+func (cursor *Cursor) GetColors(info ModeInfo) (sdl.Color, sdl.Color) {
 	// initialize swapped
-	fg := grid.default_bg
-	bg := grid.default_fg
+	fg := EditorSingleton.grid.default_bg
+	bg := EditorSingleton.grid.default_fg
 	if info.attr_id != 0 {
-		attrib := grid.attributes[info.attr_id]
+		attrib := EditorSingleton.grid.attributes[info.attr_id]
 		fg = attrib.foreground
 		bg = attrib.background
 	}
@@ -107,19 +80,25 @@ func (cursor *Cursor) GetColors(info ModeInfo, grid *Grid) (sdl.Color, sdl.Color
 }
 
 func (cursor *Cursor) GetAnimatedPosition() ivec2 {
-	aPos := cursor.anim.GetCurrentStep()
-	pos := ivec2{
-		X: int(float32(GLOB_CellWidth) * aPos.Y),
-		Y: int(float32(GLOB_CellHeight) * aPos.X),
+	aPos, finished := cursor.anim.GetCurrentStep(EditorSingleton.deltaTime)
+	if finished {
+		cursor.needs_redraw = false
+		return ivec2{
+			X: EditorSingleton.cellWidth * cursor.Y,
+			Y: EditorSingleton.cellHeight * cursor.X,
+		}
+	} else {
+		return ivec2{
+			X: int(float32(EditorSingleton.cellWidth) * aPos.Y),
+			Y: int(float32(EditorSingleton.cellHeight) * aPos.X),
+		}
 	}
-	cursor.needs_redraw = !(pos.X == cursor.X && pos.Y == cursor.Y)
-	return pos
 }
 
-func (cursor *Cursor) GetDrawInfo(mode *Mode, grid *Grid) CursorDrawInfo {
-	mode_info := mode.mode_infos[mode.current_mode_name]
+func (cursor *Cursor) GetDrawInfo() CursorDrawInfo {
+	mode_info := EditorSingleton.mode.mode_infos[EditorSingleton.mode.current_mode_name]
 
-	fg, bg := cursor.GetColors(mode_info, grid)
+	fg, bg := cursor.GetColors(mode_info)
 
 	cell_pos := cursor.GetAnimatedPosition()
 
@@ -132,6 +111,6 @@ func (cursor *Cursor) GetDrawInfo(mode *Mode, grid *Grid) CursorDrawInfo {
 		fg:        fg,
 		bg:        bg,
 		rect:      cursor_rect,
-		draw_char: draw_char,
+		draw_char: draw_char && !cursor.needs_redraw,
 	}
 }
