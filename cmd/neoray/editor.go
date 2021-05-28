@@ -6,22 +6,6 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// These are the global variables of neoray. They are same in everywhere.
-// Some of them are initialized at runtime. Therefore we must be carefull when we
-// use them. If you add more here just write some information about it.
-var (
-	// Initialized in CreateRenderer
-	GLOB_CellWidth    = 0
-	GLOB_CellHeight   = 0
-	GLOB_RowCount     = 0
-	GLOB_ColumnCount  = 0
-	GLOB_WindowWidth  = 800
-	GLOB_WindowHeight = 600
-	// MainLoop is setting these
-	GLOB_FramesPerSecond         = 0
-	GLOB_DeltaTime       float32 = 0.16
-)
-
 type Editor struct {
 	// Neovim child process, nvim_process.go
 	nvim NvimProcess
@@ -45,6 +29,17 @@ type Editor struct {
 	// Quit requested is a boolean, if it is true the program will be shutdown at begin of the next loop
 	quit_requested      bool
 	quit_requested_chan chan bool
+	// These are the global variables of neoray. They are same in everywhere.
+	// Some of them are initialized at runtime. Therefore we must be carefull when we
+	// use them. If you add more here just write some information about it.
+	// Initialized in CreateRenderer
+	cellWidth   int
+	cellHeight  int
+	rowCount    int
+	columnCount int
+	// MainLoop is setting these
+	framesPerSecond int
+	deltaTime       float32
 }
 
 // Consolas
@@ -69,7 +64,7 @@ func (editor *Editor) Initialize() {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
 	}
 
-	editor.window = CreateWindow(GLOB_WindowWidth, GLOB_WindowHeight, NEORAY_NAME)
+	editor.window = CreateWindow(800, 600, NEORAY_NAME)
 
 	editor.grid = CreateGrid()
 
@@ -77,20 +72,19 @@ func (editor *Editor) Initialize() {
 
 	editor.mode = CreateMode()
 
-	editor.renderer = CreateRenderer(
-		&editor.window, CreateFont(FONT_NAME, FONT_SIZE))
+	editor.renderer = CreateRenderer(CreateFont(FONT_NAME, FONT_SIZE))
 
 	editor.options = UIOptions{}
 
 	editor.quit_requested_chan = make(chan bool)
 
-	editor.nvim.StartUI(editor)
+	editor.nvim.StartUI()
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
 }
 
 func (editor *Editor) MainLoop() {
-	mainLoopBeginTime := time.Now()
+	programBegin := time.Now()
 	ticker := time.NewTicker(time.Millisecond * (1000 / TARGET_TPS))
 	defer ticker.Stop()
 	fpsTimer := time.Now()
@@ -102,18 +96,21 @@ func (editor *Editor) MainLoop() {
 			continue
 		default:
 		}
-		HandleSDLEvents(editor)
-		editor.window.Update(editor)
+		HandleSDLEvents()
+		HandleNvimRedrawEvents()
+		editor.window.Update()
+		editor.renderer.UpdateAnimations()
 		fps++
 		if time.Since(fpsTimer) > time.Second {
-			GLOB_FramesPerSecond = fps
-			GLOB_DeltaTime = float32(fps) / 1000
+			editor.framesPerSecond = fps
+			editor.deltaTime = float32(fps) / 1000
 			fps = 0
 			fpsTimer = time.Now()
 		}
 		<-ticker.C
 	}
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Total execution time:", time.Since(mainLoopBeginTime))
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
+		"Program finished. Total execution time:", time.Since(programBegin))
 }
 
 func (editor *Editor) Shutdown() {
