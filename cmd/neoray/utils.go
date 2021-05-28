@@ -70,10 +70,6 @@ type ivec2 struct {
 	X, Y int
 }
 
-func lerpf32(v0, v1, t float32) float32 {
-	return v0 + t*(v1-v0)
-}
-
 func iabs(v int) int {
 	if v < 0 {
 		return -v
