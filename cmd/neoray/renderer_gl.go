@@ -7,7 +7,7 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-const VertexStructSize = 9 * 4
+const VertexStructSize = 10 * 4
 
 type Vertex struct {
 	// These are vertex positions. May not be changed for
@@ -22,7 +22,8 @@ type Vertex struct {
 	// Use texture is used like a boolean value for determining
 	// is this data is for background drawing or foreground drawing.
 	// TODO: Use boolean instead of float
-	useTexture float32 // layout 3
+	useTexture      float32 // layout 3
+	scroll_vertical float32 // layout 4
 }
 
 // render subsystem global variables
@@ -35,9 +36,9 @@ var rgl_last_buffer_size int
 var rgl_atlas_uniform int32
 var rgl_projection_uniform int32
 
-func RGL_Init(window *Window) {
+func RGL_Init() {
 	// Initialize opengl
-	context, err := window.handle.GLCreateContext()
+	context, err := EditorSingleton.window.handle.GLCreateContext()
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize render context:", err)
 	}
@@ -76,6 +77,10 @@ func RGL_Init(window *Window) {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
 	gl.VertexAttribPointerWithOffset(3, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+
+	offset += 1 * 4
+	gl.EnableVertexAttribArray(4)
+	gl.VertexAttribPointerWithOffset(4, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -149,6 +154,7 @@ layout(location = 0) in vec2 pos;
 layout(location = 1) in vec2 texCoord;
 layout(location = 2) in vec4 color;
 layout(location = 3) in float useTex;
+layout(location = 4) in float scrollVertical;
 
 out vec2 textureCoord;
 out vec4 vertexColor;
@@ -157,7 +163,7 @@ out float useTexture;
 uniform mat4 projection;
 
 void main() {
-	gl_Position = vec4(pos, 0, 1) * projection;
+	gl_Position = vec4(pos + vec2(0, scrollVertical), 0, 1) * projection;
 	textureCoord = texCoord;
 	useTexture = useTex;
 	vertexColor = color;

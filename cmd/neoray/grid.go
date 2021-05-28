@@ -5,9 +5,9 @@ import (
 )
 
 type Cell struct {
-	char      string
-	attrib_id int
-	changed   bool
+	char         string
+	attrib_id    int
+	needs_redraw bool
 }
 
 type HighlightAttribute struct {
@@ -24,21 +24,22 @@ type HighlightAttribute struct {
 }
 
 type Grid struct {
-	cells        [][]Cell
-	cells_ready  bool
-	width        int
-	height       int
-	default_fg   sdl.Color
-	default_bg   sdl.Color
-	default_sp   sdl.Color
-	attributes   map[int]HighlightAttribute
-	changed_rows map[int]bool
+	cells             [][]Cell
+	cells_ready       bool
+	width             int
+	height            int
+	default_fg        sdl.Color
+	default_bg        sdl.Color
+	default_sp        sdl.Color
+	attributes        map[int]HighlightAttribute
+	scroll_anim       Animation
+	cell_change_queue map[ivec2]Cell
 }
 
 func CreateGrid() Grid {
 	return Grid{
-		attributes:   make(map[int]HighlightAttribute),
-		changed_rows: make(map[int]bool),
+		attributes:        make(map[int]HighlightAttribute),
+		cell_change_queue: make(map[ivec2]Cell),
 	}
 }
 
@@ -49,30 +50,28 @@ func (grid *Grid) Resize(width int, height int) {
 	grid.cells = make([][]Cell, height) // rows
 	for i := range grid.cells {
 		grid.cells[i] = make([]Cell, width) // columns
-		grid.changed_rows[i] = true
 		for j := range grid.cells[i] {
-			grid.cells[i][j].changed = true
+			grid.cells[i][j].needs_redraw = true
 		}
 	}
 	grid.cells_ready = true
 }
 
 func (grid *Grid) ClearCells() {
-	for i, row := range grid.cells {
+	defer measure_execution_time("Grid.ClearCells")()
+	for _, row := range grid.cells {
 		for _, cell := range row {
 			cell.char = ""
 			cell.attrib_id = 0
-			cell.changed = true
+			cell.needs_redraw = true
 		}
-		grid.changed_rows[i] = true
 	}
 }
 
 func (grid *Grid) MakeAllCellsChanged() {
 	for i := range grid.cells {
-		grid.changed_rows[i] = true
 		for j := range grid.cells[i] {
-			grid.cells[i][j].changed = true
+			grid.cells[i][j].needs_redraw = true
 		}
 	}
 }
@@ -85,27 +84,56 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		cell := &grid.cells[x][*y]
-		cell.char = char
-		cell.attrib_id = hl_id
-		cell.changed = true
+		// We will queue changes if renderer is busy with animations
+		if EditorSingleton.renderer.scroll_info.needs_redraw {
+			grid.cell_change_queue[ivec2{X: x, Y: *y}] = Cell{
+				char:         char,
+				attrib_id:    hl_id,
+				needs_redraw: true,
+			}
+		} else {
+			cell := &grid.cells[x][*y]
+			cell.char = char
+			cell.attrib_id = hl_id
+			cell.needs_redraw = true
+		}
 		*y++
 	}
-	grid.changed_rows[x] = true
 }
 
-func (grid *Grid) Scroll(top, bot, rows, left, right int, renderer *Renderer) {
-	defer measure_execution_time("Grid.Scroll")()
+func (grid *Grid) ApplyCellChanges() {
+	if len(grid.cell_change_queue) > 0 {
+		for key, val := range grid.cell_change_queue {
+			grid.cells[key.X][key.Y] = val
+			delete(grid.cell_change_queue, key)
+		}
+		// We need to flush renderer because neovim already sends it's flush.
+		EditorSingleton.renderer.DrawAllChangedCells()
+	}
+}
+
+// This is used both grid and renderer functions and every loop is same.
+// I have just done it like that because I'm obsessed with this kind of things.
+// Function is called in every row and does not include left and right borders
+// of scroll area. User should exclude left and right borders in function.
+func (grid *Grid) ScrollIterator(top, bot, rows int,
+	doPerIteration func(dst_row, src_row int)) {
 	if rows > 0 { // Scroll down, move up
-		for y := top + rows; y < bot; y++ { // row
-			copy(grid.cells[y-rows][left:right], grid.cells[y][left:right])
-			renderer.CopyRowData(y-rows, y, left, right)
+		for y := top + rows; y < bot; y++ {
+			doPerIteration(y-rows, y)
 		}
 	} else { // Scroll up, move down
-		// rows is negative
-		for y := (bot + rows) - 1; y >= top; y-- { // row
-			copy(grid.cells[y-rows][left:right], grid.cells[y][left:right])
-			renderer.CopyRowData(y-rows, y, left, right)
+		for y := (bot + rows) - 1; y >= top; y-- {
+			doPerIteration(y-rows, y)
 		}
 	}
+}
+
+func (grid *Grid) Scroll(top, bot, rows, left, right int) {
+	defer measure_execution_time("Grid.Scroll")()
+	EditorSingleton.renderer.BeginScrolling(top, bot, rows, left, right)
+	grid.ScrollIterator(top, bot, rows,
+		func(dst_row, src_row int) {
+			copy(grid.cells[dst_row][left:right], grid.cells[src_row][left:right])
+		})
 }

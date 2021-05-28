@@ -16,15 +16,25 @@ type FontAtlas struct {
 	characters map[string]sdl.Rect
 }
 
+type ScrollInfo struct {
+	top, bot, rows, left, right int
+	needs_redraw                bool
+	render_count_to_finish      int
+	current_render_count        int
+	vertical_scroll_factor      float32
+	current_vertical_scrolled   float32
+}
+
 type Renderer struct {
 	font               Font
 	font_atlas         FontAtlas
 	vertex_data        []Vertex
 	vertex_data_size   int
 	vertex_data_stride int
+	scroll_info        ScrollInfo
 }
 
-func CreateRenderer(window *Window, font Font) Renderer {
+func CreateRenderer(font Font) Renderer {
 	renderer := Renderer{
 		font: font,
 		font_atlas: FontAtlas{
@@ -32,49 +42,50 @@ func CreateRenderer(window *Window, font Font) Renderer {
 		},
 	}
 
-	GLOB_CellWidth, GLOB_CellHeight = font.CalculateCellSize()
+	EditorSingleton.cellWidth, EditorSingleton.cellHeight = font.CalculateCellSize()
 
-	GLOB_ColumnCount = GLOB_WindowWidth / GLOB_CellWidth
-	GLOB_RowCount = GLOB_WindowHeight / GLOB_CellHeight
+	EditorSingleton.columnCount = EditorSingleton.window.width / EditorSingleton.cellWidth
+	EditorSingleton.rowCount = EditorSingleton.window.height / EditorSingleton.cellHeight
 
-	RGL_Init(window)
+	RGL_Init()
+
 	renderer.font_atlas.texture = CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
 	RGL_SetAtlasTexture(&renderer.font_atlas.texture)
-	renderer.Resize()
 
+	renderer.Resize()
 	return renderer
 }
 
 func (renderer *Renderer) Resize() {
 	renderer.CreateVertexData()
-	RGL_CreateViewport(GLOB_WindowWidth, GLOB_WindowHeight)
+	RGL_CreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
 }
 
 func (renderer *Renderer) CreateVertexData() {
 	// Stride is the size of cells multiplied by 6 because
 	// every cell has 2 triangles and every triangle has 6 vertices.
-	renderer.vertex_data_stride = GLOB_ColumnCount * GLOB_RowCount * 6
+	renderer.vertex_data_stride = EditorSingleton.columnCount * EditorSingleton.rowCount * 6
 	// First area is for background drawing
 	// Second area is for text drawing
 	// Last 12 vertex is for cursor
 	renderer.vertex_data_size = 2*renderer.vertex_data_stride + 12
 	renderer.vertex_data = make([]Vertex, renderer.vertex_data_size, renderer.vertex_data_size)
-	for y := 0; y < GLOB_RowCount; y++ {
-		for x := 0; x < GLOB_ColumnCount; x++ {
+	for y := 0; y < EditorSingleton.rowCount; y++ {
+		for x := 0; x < EditorSingleton.columnCount; x++ {
 			// prepare first area
 			cell_rect := renderer.GetCellRect(y, x)
 			positions := triangulate_rect(&cell_rect)
-			begin1 := renderer.GetCellVertexPosition(y, x)
+			begin := renderer.GetCellVertexPosition(y, x)
 			for i, pos := range positions {
-				renderer.vertex_data[begin1+i].X = float32(pos.X)
-				renderer.vertex_data[begin1+i].Y = float32(pos.Y)
+				renderer.vertex_data[begin+i].X = float32(pos.X)
+				renderer.vertex_data[begin+i].Y = float32(pos.Y)
 			}
 			// prepare second area
-			begin2 := renderer.vertex_data_stride + begin1
+			begin += renderer.vertex_data_stride
 			for i, pos := range positions {
-				renderer.vertex_data[begin2+i].X = float32(pos.X)
-				renderer.vertex_data[begin2+i].Y = float32(pos.Y)
-				renderer.vertex_data[begin2+i].useTexture = 1
+				renderer.vertex_data[begin+i].X = float32(pos.X)
+				renderer.vertex_data[begin+i].Y = float32(pos.Y)
+				renderer.vertex_data[begin+i].useTexture = 1
 			}
 		}
 	}
@@ -84,7 +95,7 @@ func (renderer *Renderer) CreateVertexData() {
 
 func (renderer *Renderer) DebugDrawFontAtlas() {
 	atlas_pos := sdl.Rect{
-		X: int32(GLOB_WindowWidth - int(FONT_ATLAS_DEFAULT_SIZE)),
+		X: int32(EditorSingleton.window.width - int(FONT_ATLAS_DEFAULT_SIZE)),
 		Y: 0,
 		W: int32(FONT_ATLAS_DEFAULT_SIZE),
 		H: int32(FONT_ATLAS_DEFAULT_SIZE),
@@ -130,6 +141,106 @@ func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 		renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
 		renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
 		renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
+	}
+}
+
+func (renderer *Renderer) SetRowVerticalScrollFactor(row, left, right int, factor float32) {
+	begin := renderer.GetCellVertexPosition(row, left)
+	end := renderer.GetCellVertexPosition(row, right)
+	for i := begin; i < end; i++ {
+		renderer.vertex_data[i].scroll_vertical = factor
+	}
+	begin += renderer.vertex_data_stride
+	end += renderer.vertex_data_stride
+	for i := begin; i < end; i++ {
+		renderer.vertex_data[i].scroll_vertical = factor
+	}
+}
+
+func (renderer *Renderer) BeginScrolling(top, bot, rows, left, right int) {
+	defer measure_execution_time("Renderer.BeginScrolling")()
+
+	if renderer.scroll_info.needs_redraw {
+		// User is testing our scroll capabilities, we must hurry!
+		renderer.EndScrolling()
+	}
+
+	vertical_scroll_factor := -float32(rows) * EditorSingleton.deltaTime * 20
+	renderer.scroll_info.render_count_to_finish =
+		iabs(int(float32(rows*EditorSingleton.cellHeight) / vertical_scroll_factor))
+
+	EditorSingleton.grid.ScrollIterator(top, bot, rows,
+		func(dst_row, src_row int) {
+			renderer.SetRowVerticalScrollFactor(src_row, left, right, vertical_scroll_factor)
+		})
+
+	renderer.scroll_info.vertical_scroll_factor = vertical_scroll_factor
+	renderer.scroll_info.current_render_count = 0
+	renderer.scroll_info.top = top
+	renderer.scroll_info.bot = bot
+	renderer.scroll_info.rows = rows
+	renderer.scroll_info.left = left
+	renderer.scroll_info.right = right
+	renderer.scroll_info.needs_redraw = true
+}
+
+func (renderer *Renderer) UpdateScrolling() {
+	defer measure_execution_time("Renderer.UpdateScrolling")()
+
+	renderer.scroll_info.current_vertical_scrolled += renderer.scroll_info.vertical_scroll_factor
+
+	rows := renderer.scroll_info.rows
+	top := renderer.scroll_info.top
+	bot := renderer.scroll_info.bot
+	left := renderer.scroll_info.left
+	right := renderer.scroll_info.right
+
+	EditorSingleton.grid.ScrollIterator(top, bot, rows,
+		func(dst_row, src_row int) {
+			renderer.SetRowVerticalScrollFactor(src_row, left, right, renderer.scroll_info.current_vertical_scrolled)
+		})
+}
+
+func (renderer *Renderer) EndScrolling() {
+	defer measure_execution_time("Renderer.EndScrolling")()
+	// Visual effect of scrolling finished, now we can really
+	// scroll our data
+	rows := renderer.scroll_info.rows
+	top := renderer.scroll_info.top
+	bot := renderer.scroll_info.bot
+	left := renderer.scroll_info.left
+	right := renderer.scroll_info.right
+
+	EditorSingleton.grid.ScrollIterator(top, bot, rows,
+		func(dst_row, src_row int) {
+			renderer.SetRowVerticalScrollFactor(src_row, left, right, 0)
+			renderer.CopyRowData(dst_row, src_row, left, right)
+		})
+
+	renderer.scroll_info.current_render_count = 0
+	renderer.scroll_info.current_vertical_scrolled = 0
+	renderer.scroll_info.needs_redraw = false
+	// Renderer is not busy now. We can change cells.
+	EditorSingleton.grid.ApplyCellChanges()
+}
+
+func (renderer *Renderer) UpdateAnimations() {
+	render := false
+	if renderer.scroll_info.needs_redraw {
+		renderer.UpdateScrolling()
+		renderer.scroll_info.current_render_count++
+		if renderer.scroll_info.current_render_count ==
+			renderer.scroll_info.render_count_to_finish {
+			renderer.EndScrolling()
+		}
+		render = true
+	}
+	if EditorSingleton.cursor.needs_redraw {
+		renderer.DrawCursor()
+		render = true
+	}
+	if render {
+		renderer.Render()
 	}
 }
 
@@ -204,15 +315,15 @@ func (renderer *Renderer) SetCursorData(pos sdl.Rect, atlas_pos sdl.Rect, fg, bg
 
 func (renderer *Renderer) GetCellRect(x, y int) sdl.Rect {
 	return sdl.Rect{
-		X: int32(y * GLOB_CellWidth),
-		Y: int32(x * GLOB_CellHeight),
-		W: int32(GLOB_CellWidth),
-		H: int32(GLOB_CellHeight),
+		X: int32(y * EditorSingleton.cellWidth),
+		Y: int32(x * EditorSingleton.cellHeight),
+		W: int32(EditorSingleton.cellWidth),
+		H: int32(EditorSingleton.cellHeight),
 	}
 }
 
 func (renderer *Renderer) GetCellVertexPosition(x, y int) int {
-	return (x*GLOB_ColumnCount + y) * 6
+	return (x*EditorSingleton.columnCount + y) * 6
 }
 
 func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
@@ -221,9 +332,9 @@ func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
 	atlas.pos.X += width
 	if atlas.pos.X+width > int(FONT_ATLAS_DEFAULT_SIZE) {
 		atlas.pos.X = 0
-		atlas.pos.Y += GLOB_CellHeight
+		atlas.pos.Y += EditorSingleton.cellHeight
 	}
-	if atlas.pos.Y+GLOB_CellHeight > int(FONT_ATLAS_DEFAULT_SIZE) {
+	if atlas.pos.Y+EditorSingleton.cellHeight > int(FONT_ATLAS_DEFAULT_SIZE) {
 		// Fully filled
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
 		atlas.pos = ivec2{}
@@ -288,8 +399,11 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color
 	renderer.SetCellForegroundData(x, y, atlas_char_pos, renderer.GetCellRect(x, y), fg)
 }
 
-func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute, fg, bg, sp sdl.Color) {
+func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute) {
 	// attrib id 0 is default palette
+	fg := EditorSingleton.grid.default_fg
+	bg := EditorSingleton.grid.default_bg
+	sp := EditorSingleton.grid.default_sp
 	// set attribute colors
 	if !is_color_black(attrib.foreground) {
 		fg = attrib.foreground
@@ -312,23 +426,23 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	renderer.DrawCellCustom(x, y, cell.char, fg, bg, attrib.italic, attrib.bold)
 }
 
-func (renderer *Renderer) DrawCursor(editor *Editor) {
+func (renderer *Renderer) DrawCursor() {
 	defer measure_execution_time("Renderer.DrawCursor")()
 	// NOTE: This function are starting to be calling immediately when the neoray
 	// has started. May be the cells are not initialized when this function called.
 	// We need to check are the cells ready for starting to drawing cursor.
-	if !editor.grid.cells_ready {
-		return
-	}
-	info := editor.cursor.GetDrawInfo(&editor.mode, &editor.grid)
-	cell := editor.grid.cells[info.x][info.y]
+	// if !EditorSingleton.grid.cells_ready {
+	//     return
+	// }
+	info := EditorSingleton.cursor.GetDrawInfo()
+	cell := EditorSingleton.grid.cells[info.x][info.y]
 	if info.draw_char && len(cell.char) != 0 && cell.char != " " {
 		// We need to draw cell character to the cursor foreground.
 		// Because cursor is not transparent.
 		italic := false
 		bold := false
 		if cell.attrib_id > 0 {
-			attrib := editor.grid.attributes[cell.attrib_id]
+			attrib := EditorSingleton.grid.attributes[cell.attrib_id]
 			italic = attrib.italic
 			bold = attrib.bold
 		}
@@ -341,42 +455,38 @@ func (renderer *Renderer) DrawCursor(editor *Editor) {
 		// No cell drawing needed. Just draw the cursor.
 		renderer.SetCursorData(info.rect, sdl.Rect{}, sdl.Color{}, info.bg)
 	}
-	renderer.Render(editor)
+	// renderer.Render(editor)
 }
 
-func (renderer *Renderer) DrawCell(x, y int, cell Cell, grid *Grid) {
+func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 	if cell.attrib_id > 0 {
-		renderer.DrawCellWithAttrib(x, y, cell, grid.attributes[cell.attrib_id],
-			grid.default_fg, grid.default_bg, grid.default_sp)
+		renderer.DrawCellWithAttrib(x, y, cell, EditorSingleton.grid.attributes[cell.attrib_id])
 	} else {
-		renderer.DrawCellCustom(x, y, cell.char, grid.default_fg, grid.default_bg, false, false)
+		renderer.DrawCellCustom(x, y, cell.char, EditorSingleton.grid.default_fg, EditorSingleton.grid.default_bg, false, false)
 	}
 }
 
-func (renderer *Renderer) Draw(editor *Editor) {
+func (renderer *Renderer) DrawAllChangedCells() {
 	defer measure_execution_time("Render.Draw")()
-	for x, row := range editor.grid.cells {
-		// if editor.grid.changed_rows[x] == true {
+	for x, row := range EditorSingleton.grid.cells {
 		for y, cell := range row {
-			if cell.changed {
-				renderer.DrawCell(x, y, cell, &editor.grid)
-				editor.grid.cells[x][y].changed = false
+			if cell.needs_redraw {
+				renderer.DrawCell(x, y, cell)
+				EditorSingleton.grid.cells[x][y].needs_redraw = false
 			}
 		}
-		//     editor.grid.changed_rows[x] = false
-		// }
 	}
-	// Cursor needs redrawing. You know why.
-	editor.cursor.needs_redraw = true
-	// Render changes and swap sdl window surface
-	renderer.Render(editor)
+	// Cursor needs redrawing.
+	EditorSingleton.cursor.needs_redraw = true
+	// Render changes
+	renderer.Render()
 }
 
-func (renderer *Renderer) Render(editor *Editor) {
+func (renderer *Renderer) Render() {
 	defer measure_execution_time("Renderer.Render")()
-	RGL_ClearScreen(editor.grid.default_bg)
+	RGL_ClearScreen(EditorSingleton.grid.default_bg)
 	RGL_Render(renderer.vertex_data)
-	editor.window.handle.GLSwap()
+	EditorSingleton.window.handle.GLSwap()
 }
 
 func (renderer *Renderer) Close() {
