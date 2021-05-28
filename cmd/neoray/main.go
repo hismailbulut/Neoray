@@ -23,16 +23,22 @@ func init() {
 	log.SetFlags(0)
 }
 
+// EditorSingleton is main instance of the editor and there can be only one
+// editor in this program. EditorSingleton is not threadsafe and can not be
+// accessed at same time from different threads or goroutines.
+var EditorSingleton Editor
+
 func main() {
 	// NOTE: Disable on release build
 	start_pprof()
-	editor := Editor{}
+
+	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
-	editor.Initialize()
+	EditorSingleton.Initialize()
 	// And shutdown will frees resources and closes neovim.
-	defer editor.Shutdown()
+	defer EditorSingleton.Shutdown()
 	// MainLoop is main loop of the neoray.
-	editor.MainLoop()
+	EditorSingleton.MainLoop()
 }
 
 func start_pprof() {
