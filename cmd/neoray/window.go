@@ -1,6 +1,9 @@
 package main
 
 import (
+	// "fmt"
+	// "strings"
+
 	"fmt"
 	"strings"
 
@@ -21,13 +24,19 @@ type UIOptions struct {
 }
 
 type Window struct {
-	handle *sdl.Window
-	title  string
+	handle     *sdl.Window
+	title      string
+	width      int
+	height     int
+	fullscreen bool
 }
 
 func CreateWindow(width int, height int, title string) Window {
 	window := Window{
-		title: title,
+		title:      title,
+		width:      width,
+		height:     height,
+		fullscreen: false,
 	}
 
 	sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
@@ -35,7 +44,7 @@ func CreateWindow(width int, height int, title string) Window {
 	sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 3)
 
 	sdl_window, err := sdl.CreateWindow(title, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
-		int32(width), int32(height), sdl.WINDOW_RESIZABLE|sdl.WINDOW_OPENGL)
+		int32(width), int32(height), sdl.WINDOW_OPENGL|sdl.WINDOW_RESIZABLE)
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL window:", err)
 	}
@@ -44,22 +53,20 @@ func CreateWindow(width int, height int, title string) Window {
 	return window
 }
 
-func (window *Window) HandleWindowResizing(editor *Editor) {
+func (window *Window) HandleWindowResizing() {
 	w, h := window.handle.GetSize()
-	if w != int32(GLOB_WindowWidth) || h != int32(GLOB_WindowHeight) {
-		GLOB_WindowWidth = int(w)
-		GLOB_WindowHeight = int(h)
-		editor.nvim.ResizeUI(editor)
-		editor.renderer.Resize()
+	if w != int32(window.width) || h != int32(window.height) {
+		window.width = int(w)
+		window.height = int(h)
+		EditorSingleton.nvim.ResizeUI()
+		EditorSingleton.renderer.Resize()
 	}
 }
 
-func (window *Window) Update(editor *Editor) {
-	window.HandleWindowResizing(editor)
-	HandleNvimRedrawEvents(editor)
-	editor.cursor.Update(editor)
+func (window *Window) Update() {
+	window.HandleWindowResizing()
 	// DEBUG
-	fps_string := fmt.Sprintf(" | FPS: %d", GLOB_FramesPerSecond)
+	fps_string := fmt.Sprintf(" | FPS: %d", EditorSingleton.framesPerSecond)
 	idx := strings.LastIndex(window.title, " | ")
 	if idx == -1 {
 		window.SetTitle(window.title + fps_string)
@@ -70,12 +77,22 @@ func (window *Window) Update(editor *Editor) {
 
 func (window *Window) SetSize(newWidth int, newHeight int, editor *Editor) {
 	window.handle.SetSize(int32(newWidth), int32(newHeight))
-	window.HandleWindowResizing(editor)
+	window.HandleWindowResizing()
 }
 
 func (window *Window) SetTitle(title string) {
 	window.handle.SetTitle(title)
 	window.title = title
+}
+
+func (window *Window) SwitchFullscreen() {
+	if window.fullscreen {
+		window.handle.SetFullscreen(0)
+		window.fullscreen = false
+	} else {
+		window.handle.SetFullscreen(sdl.WINDOW_FULLSCREEN_DESKTOP)
+		window.fullscreen = true
+	}
 }
 
 func (window *Window) Close() {
