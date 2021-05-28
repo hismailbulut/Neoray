@@ -15,9 +15,13 @@ func CreateTexture(width, height int) Texture {
 	var texture_id uint32
 	gl.GenTextures(1, &texture_id)
 	gl.BindTexture(gl.TEXTURE_2D, texture_id)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	RGL_CheckError("CreateTexture.TexParameteri")
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	RGL_CheckError("CreateTexture.TexImage2D")
 	texture := Texture{
 		id:     texture_id,
 		width:  width,
@@ -32,12 +36,12 @@ func (texture *Texture) Bind() {
 
 func (texture *Texture) UpdateFromSurface(surface *sdl.Surface) {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, surface.W, surface.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, surface.Data())
-	RGL_CheckError("UpdateFromSurface")
+	RGL_CheckError("Texture.UpdateFromSurface")
 }
 
 func (texture *Texture) UpdatePartFromSurface(surface *sdl.Surface, dest *sdl.Rect) {
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0, dest.X, dest.Y, dest.W, dest.H, gl.RGBA, gl.UNSIGNED_BYTE, surface.Data())
-	RGL_CheckError("UpdatePartFromSurface")
+	RGL_CheckError("Texture.UpdatePartFromSurface")
 }
 
 func (texture *Texture) GetRectGLCoordinates(rect *sdl.Rect) sdl.FRect {
