@@ -112,12 +112,12 @@ func (proc *NvimProcess) SendButton(button, action, modifier string, grid, row, 
 	}
 }
 
-func (proc *NvimProcess) StartUI(editor *Editor) {
+func (proc *NvimProcess) StartUI() {
 	options := make(map[string]interface{})
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 
-	proc.handle.AttachUI(GLOB_ColumnCount, GLOB_RowCount, options)
+	proc.handle.AttachUI(EditorSingleton.columnCount, EditorSingleton.rowCount, options)
 
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
@@ -132,17 +132,17 @@ func (proc *NvimProcess) StartUI(editor *Editor) {
 			return
 		}
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process closed.")
-		editor.quit_requested_chan <- true
+		EditorSingleton.quit_requested_chan <- true
 	}()
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", GLOB_RowCount, "Columns:", GLOB_ColumnCount)
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
 }
 
-func (proc *NvimProcess) ResizeUI(editor *Editor) {
-	GLOB_ColumnCount = GLOB_WindowWidth / GLOB_CellWidth
-	GLOB_RowCount = GLOB_WindowHeight / GLOB_CellHeight
-	proc.handle.TryResizeUI(GLOB_ColumnCount, GLOB_RowCount)
-	log_debug_msg("UI Resized. Rows:", GLOB_RowCount, "Columns:", GLOB_ColumnCount)
+func (proc *NvimProcess) ResizeUI() {
+	EditorSingleton.columnCount = EditorSingleton.window.width / EditorSingleton.cellWidth
+	EditorSingleton.rowCount = EditorSingleton.window.height / EditorSingleton.cellHeight
+	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
+	log_debug_msg("UI Resized. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
 }
 
 func (proc *NvimProcess) Close() {
