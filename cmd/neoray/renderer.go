@@ -16,22 +16,12 @@ type FontAtlas struct {
 	characters map[string]sdl.Rect
 }
 
-type ScrollInfo struct {
-	top, bot, rows, left, right int
-	needs_redraw                bool
-	render_count_to_finish      int
-	current_render_count        int
-	vertical_scroll_factor      float32
-	current_vertical_scrolled   float32
-}
-
 type Renderer struct {
 	font               Font
 	font_atlas         FontAtlas
 	vertex_data        []Vertex
 	vertex_data_size   int
 	vertex_data_stride int
-	scroll_info        ScrollInfo
 }
 
 func CreateRenderer(font Font) Renderer {
@@ -141,106 +131,6 @@ func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 		renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
 		renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
 		renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
-	}
-}
-
-func (renderer *Renderer) SetRowVerticalScrollFactor(row, left, right int, factor float32) {
-	begin := renderer.GetCellVertexPosition(row, left)
-	end := renderer.GetCellVertexPosition(row, right)
-	for i := begin; i < end; i++ {
-		renderer.vertex_data[i].scroll_vertical = factor
-	}
-	begin += renderer.vertex_data_stride
-	end += renderer.vertex_data_stride
-	for i := begin; i < end; i++ {
-		renderer.vertex_data[i].scroll_vertical = factor
-	}
-}
-
-func (renderer *Renderer) BeginScrolling(top, bot, rows, left, right int) {
-	defer measure_execution_time("Renderer.BeginScrolling")()
-
-	if renderer.scroll_info.needs_redraw {
-		// User is testing our scroll capabilities, we must hurry!
-		renderer.EndScrolling()
-	}
-
-	vertical_scroll_factor := -float32(rows) * EditorSingleton.deltaTime * 20
-	renderer.scroll_info.render_count_to_finish =
-		iabs(int(float32(rows*EditorSingleton.cellHeight) / vertical_scroll_factor))
-
-	EditorSingleton.grid.ScrollIterator(top, bot, rows,
-		func(dst_row, src_row int) {
-			renderer.SetRowVerticalScrollFactor(src_row, left, right, vertical_scroll_factor)
-		})
-
-	renderer.scroll_info.vertical_scroll_factor = vertical_scroll_factor
-	renderer.scroll_info.current_render_count = 0
-	renderer.scroll_info.top = top
-	renderer.scroll_info.bot = bot
-	renderer.scroll_info.rows = rows
-	renderer.scroll_info.left = left
-	renderer.scroll_info.right = right
-	renderer.scroll_info.needs_redraw = true
-}
-
-func (renderer *Renderer) UpdateScrolling() {
-	defer measure_execution_time("Renderer.UpdateScrolling")()
-
-	renderer.scroll_info.current_vertical_scrolled += renderer.scroll_info.vertical_scroll_factor
-
-	rows := renderer.scroll_info.rows
-	top := renderer.scroll_info.top
-	bot := renderer.scroll_info.bot
-	left := renderer.scroll_info.left
-	right := renderer.scroll_info.right
-
-	EditorSingleton.grid.ScrollIterator(top, bot, rows,
-		func(dst_row, src_row int) {
-			renderer.SetRowVerticalScrollFactor(src_row, left, right, renderer.scroll_info.current_vertical_scrolled)
-		})
-}
-
-func (renderer *Renderer) EndScrolling() {
-	defer measure_execution_time("Renderer.EndScrolling")()
-	// Visual effect of scrolling finished, now we can really
-	// scroll our data
-	rows := renderer.scroll_info.rows
-	top := renderer.scroll_info.top
-	bot := renderer.scroll_info.bot
-	left := renderer.scroll_info.left
-	right := renderer.scroll_info.right
-
-	EditorSingleton.grid.ScrollIterator(top, bot, rows,
-		func(dst_row, src_row int) {
-			renderer.SetRowVerticalScrollFactor(src_row, left, right, 0)
-			renderer.CopyRowData(dst_row, src_row, left, right)
-		})
-
-	renderer.scroll_info.current_render_count = 0
-	renderer.scroll_info.current_vertical_scrolled = 0
-	renderer.scroll_info.needs_redraw = false
-	// Renderer is not busy now. We can change cells.
-	EditorSingleton.grid.ApplyCellChanges()
-}
-
-func (renderer *Renderer) UpdateAnimations() {
-	render := false
-	if renderer.scroll_info.needs_redraw {
-		renderer.UpdateScrolling()
-		renderer.scroll_info.current_render_count++
-		if renderer.scroll_info.current_render_count ==
-			renderer.scroll_info.render_count_to_finish {
-			renderer.EndScrolling()
-		}
-		render = true
-	}
-	if EditorSingleton.cursor.needs_redraw {
-		renderer.DrawCursor()
-		render = true
-	}
-	if render {
-		renderer.Render()
 	}
 }
 
@@ -428,12 +318,6 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 
 func (renderer *Renderer) DrawCursor() {
 	defer measure_execution_time("Renderer.DrawCursor")()
-	// NOTE: This function are starting to be calling immediately when the neoray
-	// has started. May be the cells are not initialized when this function called.
-	// We need to check are the cells ready for starting to drawing cursor.
-	// if !EditorSingleton.grid.cells_ready {
-	//     return
-	// }
 	info := EditorSingleton.cursor.GetDrawInfo()
 	cell := EditorSingleton.grid.cells[info.x][info.y]
 	if info.draw_char && len(cell.char) != 0 && cell.char != " " {
@@ -455,7 +339,7 @@ func (renderer *Renderer) DrawCursor() {
 		// No cell drawing needed. Just draw the cursor.
 		renderer.SetCursorData(info.rect, sdl.Rect{}, sdl.Color{}, info.bg)
 	}
-	// renderer.Render(editor)
+	renderer.Render()
 }
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {

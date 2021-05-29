@@ -24,22 +24,19 @@ type HighlightAttribute struct {
 }
 
 type Grid struct {
-	cells             [][]Cell
-	cells_ready       bool
-	width             int
-	height            int
-	default_fg        sdl.Color
-	default_bg        sdl.Color
-	default_sp        sdl.Color
-	attributes        map[int]HighlightAttribute
-	scroll_anim       Animation
-	cell_change_queue map[ivec2]Cell
+	cells       [][]Cell
+	cells_ready bool
+	width       int
+	height      int
+	default_fg  sdl.Color
+	default_bg  sdl.Color
+	default_sp  sdl.Color
+	attributes  map[int]HighlightAttribute
 }
 
 func CreateGrid() Grid {
 	return Grid{
-		attributes:        make(map[int]HighlightAttribute),
-		cell_change_queue: make(map[ivec2]Cell),
+		attributes: make(map[int]HighlightAttribute),
 	}
 }
 
@@ -84,56 +81,29 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		// We will queue changes if renderer is busy with animations
-		if EditorSingleton.renderer.scroll_info.needs_redraw {
-			grid.cell_change_queue[ivec2{X: x, Y: *y}] = Cell{
-				char:         char,
-				attrib_id:    hl_id,
-				needs_redraw: true,
-			}
-		} else {
-			cell := &grid.cells[x][*y]
-			cell.char = char
-			cell.attrib_id = hl_id
-			cell.needs_redraw = true
-		}
+		cell := &grid.cells[x][*y]
+		cell.char = char
+		cell.attrib_id = hl_id
+		cell.needs_redraw = true
 		*y++
-	}
-}
-
-func (grid *Grid) ApplyCellChanges() {
-	if len(grid.cell_change_queue) > 0 {
-		for key, val := range grid.cell_change_queue {
-			grid.cells[key.X][key.Y] = val
-			delete(grid.cell_change_queue, key)
-		}
-		// We need to flush renderer because neovim already sends it's flush.
-		EditorSingleton.renderer.DrawAllChangedCells()
-	}
-}
-
-// This is used both grid and renderer functions and every loop is same.
-// I have just done it like that because I'm obsessed with this kind of things.
-// Function is called in every row and does not include left and right borders
-// of scroll area. User should exclude left and right borders in function.
-func (grid *Grid) ScrollIterator(top, bot, rows int,
-	doPerIteration func(dst_row, src_row int)) {
-	if rows > 0 { // Scroll down, move up
-		for y := top + rows; y < bot; y++ {
-			doPerIteration(y-rows, y)
-		}
-	} else { // Scroll up, move down
-		for y := (bot + rows) - 1; y >= top; y-- {
-			doPerIteration(y-rows, y)
-		}
 	}
 }
 
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 	defer measure_execution_time("Grid.Scroll")()
-	EditorSingleton.renderer.BeginScrolling(top, bot, rows, left, right)
-	grid.ScrollIterator(top, bot, rows,
-		func(dst_row, src_row int) {
-			copy(grid.cells[dst_row][left:right], grid.cells[src_row][left:right])
-		})
+	if rows > 0 { // Scroll down, move up
+		for y := top + rows; y < bot; y++ {
+			copy(grid.cells[y-rows][left:right], grid.cells[y][left:right])
+			EditorSingleton.renderer.CopyRowData(y-rows, y, left, right)
+		}
+	} else { // Scroll up, move down
+		for y := (bot + rows) - 1; y >= top; y-- {
+			copy(grid.cells[y-rows][left:right], grid.cells[y][left:right])
+			EditorSingleton.renderer.CopyRowData(y-rows, y, left, right)
+		}
+	}
+	// This is for cursor animation when scrolling. Simply we are moving cursor
+	// with scroll area immediately, and returning back to its position with animation.
+	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X-rows, EditorSingleton.cursor.Y, true)
+	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X+rows, EditorSingleton.cursor.Y, false)
 }

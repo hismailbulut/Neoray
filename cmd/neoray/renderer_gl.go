@@ -7,7 +7,7 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-const VertexStructSize = 10 * 4
+const VertexStructSize = 9 * 4
 
 type Vertex struct {
 	// These are vertex positions. May not be changed for
@@ -21,9 +21,7 @@ type Vertex struct {
 	R, G, B, A float32 // layout 2
 	// Use texture is used like a boolean value for determining
 	// is this data is for background drawing or foreground drawing.
-	// TODO: Use boolean instead of float
-	useTexture      float32 // layout 3
-	scroll_vertical float32 // layout 4
+	useTexture float32 // layout 3
 }
 
 // render subsystem global variables
@@ -77,10 +75,6 @@ func RGL_Init() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
 	gl.VertexAttribPointerWithOffset(3, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-
-	offset += 1 * 4
-	gl.EnableVertexAttribArray(4)
-	gl.VertexAttribPointerWithOffset(4, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -154,7 +148,6 @@ layout(location = 0) in vec2 pos;
 layout(location = 1) in vec2 texCoord;
 layout(location = 2) in vec4 color;
 layout(location = 3) in float useTex;
-layout(location = 4) in float scrollVertical;
 
 out vec2 textureCoord;
 out vec4 vertexColor;
@@ -163,7 +156,7 @@ out float useTexture;
 uniform mat4 projection;
 
 void main() {
-	gl_Position = vec4(pos + vec2(0, scrollVertical), 0, 1) * projection;
+	gl_Position = vec4(pos, 0, 1) * projection;
 	textureCoord = texCoord;
 	useTexture = useTex;
 	vertexColor = color;

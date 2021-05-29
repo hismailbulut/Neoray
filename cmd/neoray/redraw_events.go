@@ -286,7 +286,7 @@ func grid_cursor_goto(args []interface{}) {
 	r := reflect.ValueOf(args).Index(0).Elem()
 	X := int(r.Index(1).Elem().Convert(t).Int())
 	Y := int(r.Index(2).Elem().Convert(t).Int())
-	EditorSingleton.cursor.SetPosition(X, Y)
+	EditorSingleton.cursor.SetPosition(X, Y, false)
 }
 
 func grid_scroll(args []interface{}) {

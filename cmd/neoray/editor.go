@@ -50,7 +50,7 @@ type Editor struct {
 // JetBrains Mono
 // Caskadyia Cove
 const FONT_NAME = "Go Mono"
-const FONT_SIZE = 14
+const FONT_SIZE = 13
 const TARGET_TPS = 60
 
 func (editor *Editor) Initialize() {
@@ -99,7 +99,7 @@ func (editor *Editor) MainLoop() {
 		HandleSDLEvents()
 		HandleNvimRedrawEvents()
 		editor.window.Update()
-		editor.renderer.UpdateAnimations()
+		editor.cursor.Update()
 		fps++
 		if time.Since(fpsTimer) > time.Second {
 			editor.framesPerSecond = fps

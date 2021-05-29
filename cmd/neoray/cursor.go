@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	CursorAnimationLifetime = 0.3
+	CursorAnimationLifetime = 0.5
 )
 
 type CursorDrawInfo struct {
@@ -23,11 +23,19 @@ type Cursor struct {
 	needs_redraw bool
 }
 
-func (cursor *Cursor) SetPosition(x, y int) {
-	cursor.anim = CreateAnimation(
-		f32vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
-		f32vec2{X: float32(x), Y: float32(y)},
-		CursorAnimationLifetime)
+func (cursor *Cursor) Update() {
+	if cursor.needs_redraw {
+		EditorSingleton.renderer.DrawCursor()
+	}
+}
+
+func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
+	if !immediately {
+		cursor.anim = CreateAnimation(
+			f32vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
+			f32vec2{X: float32(x), Y: float32(y)},
+			CursorAnimationLifetime)
+	}
 	cursor.X = x
 	cursor.Y = y
 	cursor.needs_redraw = true
