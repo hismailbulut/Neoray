@@ -24,15 +24,59 @@ type Vertex struct {
 	useTexture float32 // layout 3
 }
 
+var vertexShaderSource = `
+#version 330 core
+
+layout(location = 0) in vec2 pos;
+layout(location = 1) in vec2 texCoord;
+layout(location = 2) in vec4 color;
+layout(location = 3) in float useTex;
+
+out vec2 textureCoord;
+out vec4 vertexColor;
+out float useTexture;
+
+uniform mat4 projection;
+
+void main() {
+	gl_Position = vec4(pos, 0, 1) * projection;
+	textureCoord = texCoord;
+	useTexture = useTex;
+	vertexColor = color;
+}
+` + "\x00"
+
+var fragmentShaderSource = `
+#version 330 core
+
+in vec2 textureCoord;
+in vec4 vertexColor;
+in float useTexture;
+
+uniform sampler2D atlas;
+
+void main() {
+	vec4 color;
+	if (useTexture > 0.5) {
+		color = texture(atlas, textureCoord);
+		color *= vertexColor;
+	} else {
+		color = vertexColor;
+	}
+	gl_FragColor = color;
+}
+` + "\x00"
+
 // render subsystem global variables
 var rgl_context sdl.GLContext
 var rgl_vao uint32
 var rgl_vbo uint32
-var rgl_shader_program uint32
-var rgl_last_buffer_size int
 
+var rgl_shader_program uint32
 var rgl_atlas_uniform int32
 var rgl_projection_uniform int32
+
+var rgl_last_buffer_size int
 
 func RGL_Init() {
 	// Initialize opengl
@@ -75,6 +119,7 @@ func RGL_Init() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
 	gl.VertexAttribPointerWithOffset(3, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	// NOTE: If you changed something in Vertex you must update VertexStructSize!
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -82,7 +127,7 @@ func RGL_Init() {
 
 	RGL_CheckError("RGL_Init")
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl: ", gl.GoStr(gl.GetString(gl.VERSION)))
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
 func RGL_GetUniformLocation(name string) int32 {
@@ -141,49 +186,6 @@ func RGL_Render(vertex_data []Vertex) {
 	RGL_CheckError("RGL_Render.DrawArrays")
 }
 
-var vertexShaderSource = `
-#version 330 core
-
-layout(location = 0) in vec2 pos;
-layout(location = 1) in vec2 texCoord;
-layout(location = 2) in vec4 color;
-layout(location = 3) in float useTex;
-
-out vec2 textureCoord;
-out vec4 vertexColor;
-out float useTexture;
-
-uniform mat4 projection;
-
-void main() {
-	gl_Position = vec4(pos, 0, 1) * projection;
-	textureCoord = texCoord;
-	useTexture = useTex;
-	vertexColor = color;
-}
-` + "\x00"
-
-var fragmentShaderSource = `
-#version 330 core
-
-in vec2 textureCoord;
-in vec4 vertexColor;
-in float useTexture;
-
-uniform sampler2D atlas;
-
-void main() {
-	vec4 color;
-	if (useTexture > 0.5) {
-		color = texture(atlas, textureCoord);
-		color *= vertexColor;
-	} else {
-		color = vertexColor;
-	}
-	gl_FragColor = color;
-}
-` + "\x00"
-
 func RGL_InitShaders() {
 	vertexShader := RGL_CompileShader(vertexShaderSource, gl.VERTEX_SHADER)
 	fragmentShader := RGL_CompileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
@@ -226,7 +228,27 @@ func RGL_CompileShader(source string, shader_type uint32) uint32 {
 
 func RGL_CheckError(callerName string) {
 	if err := gl.GetError(); err != gl.NO_ERROR {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", err, "on", callerName)
+		var errName string
+		switch err {
+		case gl.INVALID_ENUM:
+			errName = "INVALID_ENUM"
+		case gl.INVALID_VALUE:
+			errName = "INVALID_VALUE"
+		case gl.INVALID_OPERATION:
+			errName = "INVALID_OPERATION"
+		case gl.STACK_OVERFLOW:
+			errName = "STACK_OVERFLOW"
+		case gl.STACK_UNDERFLOW:
+			errName = "STACK_UNDERFLOW"
+		case gl.OUT_OF_MEMORY:
+			errName = "OUT_OF_MEMORY"
+		case gl.CONTEXT_LOST:
+			errName = "CONTEXT_LOST"
+		default:
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", err, "on", callerName)
+			return
+		}
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
 	}
 }
 
