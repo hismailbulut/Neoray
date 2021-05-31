@@ -5,27 +5,20 @@ import (
 )
 
 const (
-	CursorAnimationLifetime = 0.5
+	CursorAnimationLifetime = 0.4
 )
 
-type CursorDrawInfo struct {
-	x, y      int
-	fg, bg    sdl.Color
-	rect      sdl.Rect
-	draw_char bool
-}
-
-// TODO: Cursor animation.
 type Cursor struct {
 	X            int
 	Y            int
 	anim         Animation
 	needs_redraw bool
+	hidden       bool
 }
 
 func (cursor *Cursor) Update() {
 	if cursor.needs_redraw {
-		EditorSingleton.renderer.DrawCursor()
+		cursor.Draw()
 	}
 }
 
@@ -103,22 +96,40 @@ func (cursor *Cursor) GetAnimatedPosition() ivec2 {
 	}
 }
 
-func (cursor *Cursor) GetDrawInfo() CursorDrawInfo {
-	mode_info := EditorSingleton.mode.mode_infos[EditorSingleton.mode.current_mode_name]
-
-	fg, bg := cursor.GetColors(mode_info)
-
-	cell_pos := cursor.GetAnimatedPosition()
-
-	cursor_rect, draw_char :=
-		cursor.GetPositionRectangle(cell_pos, mode_info)
-
-	return CursorDrawInfo{
-		x:         cursor.X,
-		y:         cursor.Y,
-		fg:        fg,
-		bg:        bg,
-		rect:      cursor_rect,
-		draw_char: draw_char && !cursor.needs_redraw,
+func (cursor *Cursor) Draw() {
+	defer measure_execution_time("Cursor.Draw")()
+	if cursor.hidden {
+		// Hide the cursor.
+		EditorSingleton.renderer.SetCursorData(
+			sdl.Rect{}, sdl.Rect{}, sdl.Color{}, sdl.Color{})
+	} else {
+		mode_info := EditorSingleton.mode.mode_infos[EditorSingleton.mode.current_mode_name]
+		fg, bg := cursor.GetColors(mode_info)
+		pos := cursor.GetAnimatedPosition()
+		rect, draw_char := cursor.GetPositionRectangle(pos, mode_info)
+		if draw_char && !cursor.needs_redraw {
+			cell := EditorSingleton.grid.cells[cursor.X][cursor.Y]
+			if len(cell.char) != 0 && cell.char != " " {
+				// We need to draw cell character to the cursor foreground.
+				// Because cursor is not transparent.
+				italic := false
+				bold := false
+				if cell.attrib_id > 0 {
+					attrib := EditorSingleton.grid.attributes[cell.attrib_id]
+					italic = attrib.italic
+					bold = attrib.bold
+				}
+				atlas_pos, err := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
+				if err != nil {
+					return
+				}
+				EditorSingleton.renderer.SetCursorData(rect, atlas_pos, fg, bg)
+			}
+		} else {
+			// No cell drawing needed. Just draw the cursor.
+			EditorSingleton.renderer.SetCursorData(
+				rect, sdl.Rect{}, sdl.Color{}, bg)
+		}
 	}
+	EditorSingleton.renderer.Render()
 }
