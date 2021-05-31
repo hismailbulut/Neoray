@@ -1,9 +1,6 @@
 package main
 
 import (
-	// "fmt"
-	// "strings"
-
 	"fmt"
 	"strings"
 
@@ -39,16 +36,16 @@ func CreateWindow(width int, height int, title string) Window {
 		fullscreen: false,
 	}
 
-	sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
-	sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
-	sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 3)
-
 	sdl_window, err := sdl.CreateWindow(title, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
 		int32(width), int32(height), sdl.WINDOW_OPENGL|sdl.WINDOW_RESIZABLE)
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL window:", err)
 	}
 	window.handle = sdl_window
+
+	sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
+	sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
+	sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 3)
 
 	return window
 }
