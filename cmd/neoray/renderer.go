@@ -33,16 +33,14 @@ func CreateRenderer(font Font) Renderer {
 	}
 
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = font.CalculateCellSize()
-
 	EditorSingleton.columnCount = EditorSingleton.window.width / EditorSingleton.cellWidth
 	EditorSingleton.rowCount = EditorSingleton.window.height / EditorSingleton.cellHeight
 
 	RGL_Init()
-
 	renderer.font_atlas.texture = CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
 	RGL_SetAtlasTexture(&renderer.font_atlas.texture)
-
 	renderer.Resize()
+
 	return renderer
 }
 
@@ -104,13 +102,11 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 
 // TODO: Find a way to speed up this function.
 // This function directly copies one row data to another.
-// And used for accelerating scroll operations.
-// But still slow.
+// And used for accelerating scroll operations. But still slow.
 func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 	defer measure_execution_time("Renderer.CopyRowData")()
 	// Move background data first
 	dst_begin := renderer.GetCellVertexPosition(dst, left)
-	// dst_end := renderer.GetCellVertexPosition(dst, right)
 	src_begin := renderer.GetCellVertexPosition(src, left)
 	src_end := renderer.GetCellVertexPosition(src, right)
 	for i := 0; i < src_end-src_begin; i++ {
@@ -121,7 +117,6 @@ func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 	}
 	// Move foreground data
 	dst_begin += renderer.vertex_data_stride
-	// dst_end += renderer.vertex_data_stride
 	src_begin += renderer.vertex_data_stride
 	src_end += renderer.vertex_data_stride
 	for i := 0; i < src_end-src_begin; i++ {
@@ -242,13 +237,10 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 	} else {
 		// Get suitable font
 		font_handle := renderer.font.GetSuitableFont(italic, bold)
-		// Get text glyph metrics
-		// metrics, err := font_handle.GlyphMetrics(rune(char[0]))
-		// if err != nil {
-		//     log_message(LOG_LEVEL_WARN, LOG_TYPE_RENDERER, "Failed to get glyph metrics of", char, ":", err)
-		//     return sdl.Rect{}, err
-		// }
-		// log_debug_msg("Char:", char, "Metrics:", metrics)
+		// TODO: Unsupported font glyphs must targets the same position in atlas.
+		// Currently we are drawing unsupported glyph for every font and filling
+		// the atlas with weird rectangles. If you don't understand please try
+		// rendering some glyphs your font is not supporting.
 		// Render text to surface
 		text_surface, err := font_handle.RenderUTF8Blended(char, COLOR_WHITE)
 		if err != nil {
@@ -316,32 +308,6 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	renderer.DrawCellCustom(x, y, cell.char, fg, bg, attrib.italic, attrib.bold)
 }
 
-func (renderer *Renderer) DrawCursor() {
-	defer measure_execution_time("Renderer.DrawCursor")()
-	info := EditorSingleton.cursor.GetDrawInfo()
-	cell := EditorSingleton.grid.cells[info.x][info.y]
-	if info.draw_char && len(cell.char) != 0 && cell.char != " " {
-		// We need to draw cell character to the cursor foreground.
-		// Because cursor is not transparent.
-		italic := false
-		bold := false
-		if cell.attrib_id > 0 {
-			attrib := EditorSingleton.grid.attributes[cell.attrib_id]
-			italic = attrib.italic
-			bold = attrib.bold
-		}
-		atlas_pos, err := renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
-		if err != nil {
-			return
-		}
-		renderer.SetCursorData(info.rect, atlas_pos, info.fg, info.bg)
-	} else {
-		// No cell drawing needed. Just draw the cursor.
-		renderer.SetCursorData(info.rect, sdl.Rect{}, sdl.Color{}, info.bg)
-	}
-	renderer.Render()
-}
-
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 	if cell.attrib_id > 0 {
 		renderer.DrawCellWithAttrib(x, y, cell, EditorSingleton.grid.attributes[cell.attrib_id])
@@ -360,8 +326,6 @@ func (renderer *Renderer) DrawAllChangedCells() {
 			}
 		}
 	}
-	// Cursor needs redrawing.
-	EditorSingleton.cursor.needs_redraw = true
 	// Render changes
 	renderer.Render()
 }
