@@ -65,6 +65,7 @@ func handle_mouse_event(event sdl.Event) {
 	var grid int
 	var row int
 	var col int
+
 	switch t := event.(type) {
 	case *sdl.MouseButtonEvent:
 		switch t.Button {
@@ -88,6 +89,7 @@ func handle_mouse_event(event sdl.Event) {
 		row = int(t.Y) / EditorSingleton.cellHeight
 		col = int(t.X) / EditorSingleton.cellWidth
 		break
+
 	case *sdl.MouseMotionEvent:
 		if last_mouse_state == sdl.PRESSED {
 			switch t.State {
@@ -110,6 +112,7 @@ func handle_mouse_event(event sdl.Event) {
 			return
 		}
 		break
+
 	case *sdl.MouseWheelEvent:
 		button = "wheel"
 		action = "up"
@@ -120,6 +123,7 @@ func handle_mouse_event(event sdl.Event) {
 		col = int(t.X) / EditorSingleton.cellWidth
 		break
 	}
+
 	EditorSingleton.nvim.SendButton(button, action, modifiers, grid, row, col)
 }
 
@@ -167,6 +171,7 @@ func handle_input_event(event sdl.Event) {
 			character_key = true
 		}
 		break
+
 	case *sdl.TextInputEvent:
 		if !character_key && t.GetText() != " " { // we are handling space in sdl.KeyboardEvent
 			keys = append(keys, t.GetText())
@@ -201,7 +206,6 @@ func handle_input_event(event sdl.Event) {
 	}
 
 	if keycode == "<F11>" {
-		log_debug_msg("SwitchFullscreen")
 		EditorSingleton.window.SwitchFullscreen()
 	}
 
