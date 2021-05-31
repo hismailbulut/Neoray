@@ -49,8 +49,8 @@ type Editor struct {
 // Hack
 // JetBrains Mono
 // Caskadyia Cove
-const FONT_NAME = "Go Mono"
-const FONT_SIZE = 13
+const FONT_NAME = "Liberation Mono"
+const FONT_SIZE = 15
 const TARGET_TPS = 60
 
 func (editor *Editor) Initialize() {
