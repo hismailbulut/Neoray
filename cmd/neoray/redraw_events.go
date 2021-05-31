@@ -41,10 +41,10 @@ func HandleNvimRedrawEvents() {
 			case "mouse_off":
 				break
 			case "busy_start":
-				log_debug_msg("Busy started.", update)
+				EditorSingleton.cursor.hidden = true
 				break
 			case "busy_stop":
-				log_debug_msg("Busy stopped.", update)
+				EditorSingleton.cursor.hidden = false
 				break
 			case "suspend":
 				break
@@ -131,6 +131,7 @@ func option_set(args []interface{}) {
 			break
 		}
 	}
+	log_debug_msg("Option Set:", options)
 }
 
 func mode_info_set(args []interface{}) {
