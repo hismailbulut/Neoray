@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"sync"
 
@@ -82,15 +83,23 @@ func (proc *NvimProcess) introduce() {
 	attributes := make(nvim.ClientAttributes, 1)
 	attributes["website"] = NEORAY_WEBPAGE
 	attributes["license"] = NEORAY_LICENSE
-
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
 	}
+
+	// Set a variable that users can define their neoray specific customization.
+	proc.handle.SetVar("neoray", 1)
+
+	id := proc.handle.ChannelID()
+	proc.ExecuteVimScript("au UIEnter * call rpcnotify(%d, \"NeorayUIEnter\")\n", id)
+	proc.handle.RegisterHandler("NeorayUIEnter", func() {
+		log_debug_msg("UIEnter")
+	})
 }
 
-func (proc *NvimProcess) ExecuteVimScript(script string) {
-	if err := proc.handle.Command(script); err != nil {
+func (proc *NvimProcess) ExecuteVimScript(script string, args ...interface{}) {
+	if err := proc.handle.Command(fmt.Sprintf(script, args...)); err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute vimscript:", err)
 	}
 }
