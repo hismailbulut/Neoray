@@ -81,6 +81,11 @@ func (font *Font) GetSuitableFont(italic bool, bold bool) *ttf.Font {
 }
 
 func (font *Font) CalculateCellSize() (int, int) {
+	if !font.regular.FaceIsFixedWidth() {
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
+			"Given font is not monospaced! Neoray does not support non monospaced fonts.")
+		return FONT_SIZE/2 + 3, FONT_SIZE + 3
+	}
 	metrics, err := font.regular.GlyphMetrics('m')
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to calculate cell size:", err)
