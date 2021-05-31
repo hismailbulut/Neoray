@@ -24,14 +24,13 @@ type HighlightAttribute struct {
 }
 
 type Grid struct {
-	cells       [][]Cell
-	cells_ready bool
-	width       int
-	height      int
-	default_fg  sdl.Color
-	default_bg  sdl.Color
-	default_sp  sdl.Color
-	attributes  map[int]HighlightAttribute
+	cells      [][]Cell
+	width      int
+	height     int
+	default_fg sdl.Color
+	default_bg sdl.Color
+	default_sp sdl.Color
+	attributes map[int]HighlightAttribute
 }
 
 func CreateGrid() Grid {
@@ -40,6 +39,8 @@ func CreateGrid() Grid {
 	}
 }
 
+// This function is only used by neovim,
+// and calling this anywhere else may break the program.
 func (grid *Grid) Resize(width int, height int) {
 	grid.width = width
 	grid.height = height
@@ -51,7 +52,6 @@ func (grid *Grid) Resize(width int, height int) {
 			grid.cells[i][j].needs_redraw = true
 		}
 	}
-	grid.cells_ready = true
 }
 
 func (grid *Grid) ClearCells() {
@@ -65,6 +65,10 @@ func (grid *Grid) ClearCells() {
 	}
 }
 
+// This makes all cells will be rendered in the next
+// draw call. We are using this when a highlight attribute
+// changes. Because we don't know how many and which cells
+// will be affected from highlight attribute change.
 func (grid *Grid) MakeAllCellsChanged() {
 	for i := range grid.cells {
 		for j := range grid.cells[i] {
@@ -73,9 +77,13 @@ func (grid *Grid) MakeAllCellsChanged() {
 	}
 }
 
+// Sets cells with the given parameters, and advances y to the next.
+// This function will not check the end of the row. And currently
+// only used by neovim. If you need to set a cell for your needs,
+// you can create an alternative function for your needs.
+// If `repeat` is present, the cell should be
+// repeated `repeat` times (including the first time)
 func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
-	// If `repeat` is present, the cell should be
-	// repeated `repeat` times (including the first time)
 	cell_count := 1
 	if repeat > 0 {
 		cell_count = repeat
@@ -103,7 +111,7 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 		}
 	}
 	// This is for cursor animation when scrolling. Simply we are moving cursor
-	// with scroll area immediately, and returning back to its position with animation.
+	// with scroll area immediately, and returning back to its position smoothly.
 	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X-rows, EditorSingleton.cursor.Y, true)
 	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X+rows, EditorSingleton.cursor.Y, false)
 }
