@@ -33,9 +33,10 @@ func CreateFont(fontname string, size float32) Font {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL_TTF:", err)
 	}
 
-	if size < 6 {
-		size = 12
+	if size == 0 {
+		size = 1
 	}
+
 	font := Font{size: size}
 
 	switch runtime.GOOS {
@@ -81,15 +82,10 @@ func (font *Font) GetSuitableFont(italic bool, bold bool) *ttf.Font {
 }
 
 func (font *Font) CalculateCellSize() (int, int) {
-	if !font.regular.FaceIsFixedWidth() {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
-			"Given font is not monospaced! Neoray does not support non monospaced fonts.")
-		return FONT_SIZE/2 + 3, FONT_SIZE + 3
-	}
 	metrics, err := font.regular.GlyphMetrics('m')
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to calculate cell size:", err)
-		return int(font.size), int(font.size / 2)
+		return int(font.size / 2), int(font.size)
 	}
 	w := metrics.Advance
 	h := font.regular.Height()
