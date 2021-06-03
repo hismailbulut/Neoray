@@ -97,7 +97,6 @@ func (cursor *Cursor) GetAnimatedPosition() ivec2 {
 }
 
 func (cursor *Cursor) Draw() {
-	defer measure_execution_time("Cursor.Draw")()
 	if cursor.hidden {
 		// Hide the cursor.
 		EditorSingleton.renderer.SetCursorData(
