@@ -10,6 +10,9 @@ run: build
 test:
 	go test -race ${SOURCEFOLDER}
 
+bench:
+	go test -run=XXX -bench=. -race ${SOURCEFOLDER}
+
 debug:
 	dlv debug ${SOURCEFOLDER}
 
