@@ -147,9 +147,8 @@ func (proc *NvimProcess) StartUI() {
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
 }
 
+// Call CalculateCellSize before this function.
 func (proc *NvimProcess) ResizeUI() {
-	EditorSingleton.columnCount = EditorSingleton.window.width / EditorSingleton.cellWidth
-	EditorSingleton.rowCount = EditorSingleton.window.height / EditorSingleton.cellHeight
 	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
 	log_debug_msg("UI Resized. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
 }
