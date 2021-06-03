@@ -32,12 +32,14 @@ type Editor struct {
 	// These are the global variables of neoray. They are same in everywhere.
 	// Some of them are initialized at runtime. Therefore we must be carefull when we
 	// use them. If you add more here just write some information about it.
-	// Initialized in CreateRenderer
-	cellWidth   int
-	cellHeight  int
+	// Initializing in CreateRenderer
+	cellWidth  int
+	cellHeight int
+	// Initializing in CalculateCellCount
 	rowCount    int
 	columnCount int
-	// MainLoop is setting these
+	cellCount   int
+	// Initializing in Editor.MainLoop
 	framesPerSecond int
 	deltaTime       float32
 }
@@ -49,8 +51,8 @@ type Editor struct {
 // Hack
 // JetBrains Mono
 // Caskadyia Cove
-const FONT_NAME = "Liberation Mono"
-const FONT_SIZE = 15
+const FONT_NAME = "Hack"
+const FONT_SIZE = 14
 const TARGET_TPS = 60
 
 func (editor *Editor) Initialize() {
@@ -115,6 +117,7 @@ func (editor *Editor) MainLoop() {
 
 func (editor *Editor) Shutdown() {
 	editor.nvim.Close()
+	editor.grid.Destroy()
 	editor.window.Close()
 	editor.renderer.Close()
 	sdl.Quit()
