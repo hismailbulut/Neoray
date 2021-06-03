@@ -6,8 +6,13 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-var (
+const (
 	FONT_ATLAS_DEFAULT_SIZE int = 256
+)
+
+var (
+	// Generate index data using this order.
+	IndexDataOrder = [6]uint32{0, 1, 2, 2, 3, 0}
 )
 
 type FontAtlas struct {
@@ -17,11 +22,20 @@ type FontAtlas struct {
 }
 
 type Renderer struct {
-	font               Font
-	font_atlas         FontAtlas
-	vertex_data        []Vertex
-	vertex_data_size   int
-	vertex_data_stride int
+	font       Font
+	font_atlas FontAtlas
+	// Vertex data is a buffer that stores vertices for cells.
+	// Every cell has 8 vertice, first 4 is for background and second 4
+	// is for foreground. Example is first 8 vertex is for cell 0. And
+	// second 8 is for cell 1 and so on. Last 8 vertex is for cursor.
+	// Vertex data positions is fixed and initialized in CreateVertexData.
+	// Others are changing in runtime continuously. And we are updating
+	// vertex data every render call. Total vertex count is 4*2*cell_count+8
+	vertex_data []Vertex
+	// Index data is a buffer that stores indices for how data will be rendered.
+	// The triangle order is defined at IndexDataOrder. Index data will not change
+	// on runtime (excepts Resize) and initialized and uploaded at CreateVertexData.
+	index_data []uint32
 }
 
 func CreateRenderer(font Font) Renderer {
@@ -31,54 +45,71 @@ func CreateRenderer(font Font) Renderer {
 			characters: make(map[string]sdl.Rect),
 		},
 	}
-
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = font.CalculateCellSize()
-	EditorSingleton.columnCount = EditorSingleton.window.width / EditorSingleton.cellWidth
-	EditorSingleton.rowCount = EditorSingleton.window.height / EditorSingleton.cellHeight
-
+	CalculateCellCount()
 	RGL_Init()
 	renderer.font_atlas.texture = CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE)
 	RGL_SetAtlasTexture(&renderer.font_atlas.texture)
 	renderer.Resize()
-
 	return renderer
 }
 
+func CalculateCellCount() {
+	EditorSingleton.columnCount = EditorSingleton.window.width / EditorSingleton.cellWidth
+	EditorSingleton.rowCount = EditorSingleton.window.height / EditorSingleton.cellHeight
+	EditorSingleton.cellCount = EditorSingleton.columnCount * EditorSingleton.rowCount
+}
+
+// Call CalculateCellCount before this function.
 func (renderer *Renderer) Resize() {
 	renderer.CreateVertexData()
 	RGL_CreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
 }
 
 func (renderer *Renderer) CreateVertexData() {
-	// Stride is the size of cells multiplied by 6 because
-	// every cell has 2 triangles and every triangle has 6 vertices.
-	renderer.vertex_data_stride = EditorSingleton.columnCount * EditorSingleton.rowCount * 6
-	// First area is for background drawing
-	// Second area is for text drawing
-	// Last 12 vertex is for cursor
-	renderer.vertex_data_size = 2*renderer.vertex_data_stride + 12
-	renderer.vertex_data = make([]Vertex, renderer.vertex_data_size, renderer.vertex_data_size)
+	defer measure_execution_time("Renderer.CreateVertexData")()
+	vertex_data_size := 4*2*EditorSingleton.cellCount + 8
+	renderer.vertex_data = make([]Vertex, vertex_data_size, vertex_data_size)
+	index_data_size := 6*2*EditorSingleton.cellCount + 12
+	renderer.index_data = make([]uint32, index_data_size, index_data_size)
 	for y := 0; y < EditorSingleton.rowCount; y++ {
 		for x := 0; x < EditorSingleton.columnCount; x++ {
-			// prepare first area
-			cell_rect := renderer.GetCellRect(y, x)
+			cell_rect := GetCellRect(y, x)
 			positions := triangulate_rect(&cell_rect)
-			begin := renderer.GetCellVertexPosition(y, x)
+			vBegin := GetCellVertexPosition(y, x)
+			// prepare vertex buffer
 			for i, pos := range positions {
-				renderer.vertex_data[begin+i].X = float32(pos.X)
-				renderer.vertex_data[begin+i].Y = float32(pos.Y)
+				// prepare background
+				renderer.vertex_data[vBegin+i].X = float32(pos.X)
+				renderer.vertex_data[vBegin+i].Y = float32(pos.Y)
+				// prepare foreground
+				renderer.vertex_data[vBegin+i+4].X = float32(pos.X)
+				renderer.vertex_data[vBegin+i+4].Y = float32(pos.Y)
+				renderer.vertex_data[vBegin+i+4].useTexture = 1
 			}
-			// prepare second area
-			begin += renderer.vertex_data_stride
-			for i, pos := range positions {
-				renderer.vertex_data[begin+i].X = float32(pos.X)
-				renderer.vertex_data[begin+i].Y = float32(pos.Y)
-				renderer.vertex_data[begin+i].useTexture = 1
+			// prepare element buffer
+			eBegin := GetCellElementPosition(y, x)
+			for i, e := range IndexDataOrder {
+				renderer.index_data[eBegin+i] = uint32(vBegin) + e
+				renderer.index_data[eBegin+i+6] = uint32(vBegin) + e + 4
 			}
 		}
 	}
+	// prepare cursor vertex buffer
+	vBegin := 4 * 2 * EditorSingleton.cellCount
+	for i := 4; i < 8; i++ {
+		renderer.vertex_data[vBegin+i].useTexture = 1
+	}
+	// prepare cursor element buffer
+	cBegin := 6 * 2 * EditorSingleton.cellCount
+	for i, e := range IndexDataOrder {
+		renderer.index_data[cBegin+i] = uint32(vBegin) + e
+		renderer.index_data[cBegin+i+6] = uint32(vBegin) + e + 4
+	}
 	// DEBUG: draw font atlas to top right
 	renderer.DebugDrawFontAtlas()
+	// Update element buffer
+	RGL_UpdateElementData(renderer.index_data)
 }
 
 func (renderer *Renderer) DebugDrawFontAtlas() {
@@ -91,48 +122,46 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 	vertex := Vertex{useTexture: 1, R: 1, G: 1, B: 1, A: 1}
 	positions := triangulate_rect(&atlas_pos)
 	texture_positions := triangulate_frect(&sdl.FRect{X: 0, Y: 0, W: 1, H: 1})
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 4; i++ {
 		vertex.X = float32(positions[i].X)
 		vertex.Y = float32(positions[i].Y)
 		vertex.TexX = texture_positions[i].X
 		vertex.TexY = texture_positions[i].Y
 		renderer.vertex_data = append(renderer.vertex_data, vertex)
 	}
+	vBegin := len(renderer.vertex_data) - 4
+	for _, e := range IndexDataOrder {
+		renderer.index_data = append(renderer.index_data, uint32(vBegin)+e)
+	}
 }
 
-// TODO: Find a way to speed up this function.
-// This function directly copies one row data to another.
-// And used for accelerating scroll operations. But still slow.
 func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 	defer measure_execution_time("Renderer.CopyRowData")()
-	// Move background data first
-	dst_begin := renderer.GetCellVertexPosition(dst, left)
-	src_begin := renderer.GetCellVertexPosition(src, left)
-	src_end := renderer.GetCellVertexPosition(src, right)
-	for i := 0; i < src_end-src_begin; i++ {
-		renderer.vertex_data[dst_begin+i].R = renderer.vertex_data[src_begin+i].R
-		renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
-		renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
-		renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
-	}
-	// Move foreground data
-	dst_begin += renderer.vertex_data_stride
-	src_begin += renderer.vertex_data_stride
-	src_end += renderer.vertex_data_stride
-	for i := 0; i < src_end-src_begin; i++ {
-		renderer.vertex_data[dst_begin+i].TexX = renderer.vertex_data[src_begin+i].TexX
-		renderer.vertex_data[dst_begin+i].TexY = renderer.vertex_data[src_begin+i].TexY
-		renderer.vertex_data[dst_begin+i].R = renderer.vertex_data[src_begin+i].R
-		renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
-		renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
-		renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
+	dst_begin := GetCellVertexPosition(dst, left)
+	src_begin := GetCellVertexPosition(src, left)
+	src_end := GetCellVertexPosition(src, right)
+	for j := 0; j < src_end-src_begin; j += 8 {
+		for i := j; i < j+4; i++ {
+			// copy background data
+			renderer.vertex_data[dst_begin+i].R = renderer.vertex_data[src_begin+i].R
+			renderer.vertex_data[dst_begin+i].G = renderer.vertex_data[src_begin+i].G
+			renderer.vertex_data[dst_begin+i].B = renderer.vertex_data[src_begin+i].B
+			renderer.vertex_data[dst_begin+i].A = renderer.vertex_data[src_begin+i].A
+			// copy foreground data
+			renderer.vertex_data[dst_begin+i+4].TexX = renderer.vertex_data[src_begin+i+4].TexX
+			renderer.vertex_data[dst_begin+i+4].TexY = renderer.vertex_data[src_begin+i+4].TexY
+			renderer.vertex_data[dst_begin+i+4].R = renderer.vertex_data[src_begin+i+4].R
+			renderer.vertex_data[dst_begin+i+4].G = renderer.vertex_data[src_begin+i+4].G
+			renderer.vertex_data[dst_begin+i+4].B = renderer.vertex_data[src_begin+i+4].B
+			renderer.vertex_data[dst_begin+i+4].A = renderer.vertex_data[src_begin+i+4].A
+		}
 	}
 }
 
 func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
 	c := u8color_to_fcolor(color)
-	begin := renderer.GetCellVertexPosition(x, y)
-	for i := 0; i < 6; i++ {
+	begin := GetCellVertexPosition(x, y)
+	for i := 0; i < 4; i++ {
 		renderer.vertex_data[begin+i].R = c.R
 		renderer.vertex_data[begin+i].G = c.G
 		renderer.vertex_data[begin+i].B = c.B
@@ -141,13 +170,13 @@ func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
 }
 
 func (renderer *Renderer) SetCellForegroundData(x, y int, src sdl.Rect, dest sdl.Rect, color sdl.Color) {
-	area := renderer.font_atlas.texture.GetRectGLCoordinates(&src)
 	c := u8color_to_fcolor(color)
+	area := renderer.font_atlas.texture.GetRectGLCoordinates(&src)
 	texture_coords := triangulate_frect(&area)
-	begin := renderer.vertex_data_stride + renderer.GetCellVertexPosition(x, y)
-	for i := 0; i < 6; i++ {
-		renderer.vertex_data[begin+i].TexX = texture_coords[i].X
-		renderer.vertex_data[begin+i].TexY = texture_coords[i].Y
+	begin := GetCellVertexPosition(x, y)
+	for i := 4; i < 8; i++ {
+		renderer.vertex_data[begin+i].TexX = texture_coords[i-4].X
+		renderer.vertex_data[begin+i].TexY = texture_coords[i-4].Y
 		renderer.vertex_data[begin+i].R = c.R
 		renderer.vertex_data[begin+i].G = c.G
 		renderer.vertex_data[begin+i].B = c.B
@@ -156,8 +185,8 @@ func (renderer *Renderer) SetCellForegroundData(x, y int, src sdl.Rect, dest sdl
 }
 
 func (renderer *Renderer) ClearCellForegroundData(x, y int) {
-	begin := renderer.vertex_data_stride + renderer.GetCellVertexPosition(x, y)
-	for i := 0; i < 6; i++ {
+	begin := GetCellVertexPosition(x, y)
+	for i := 4; i < 8; i++ {
 		renderer.vertex_data[begin+i].TexX = 0
 		renderer.vertex_data[begin+i].TexY = 0
 		renderer.vertex_data[begin+i].R = 0
@@ -168,37 +197,33 @@ func (renderer *Renderer) ClearCellForegroundData(x, y int) {
 }
 
 func (renderer *Renderer) SetCursorData(pos sdl.Rect, atlas_pos sdl.Rect, fg, bg sdl.Color) {
-	// Set background data first
 	bgc := u8color_to_fcolor(bg)
+	fgc := u8color_to_fcolor(fg)
 	positions := triangulate_rect(&pos)
-	begin := 2 * renderer.vertex_data_stride
-	for i := 0; i < 6; i++ {
+	atlas_pos_gl := renderer.font_atlas.texture.GetRectGLCoordinates(&atlas_pos)
+	texture_positions := triangulate_frect(&atlas_pos_gl)
+	begin := 4 * 2 * EditorSingleton.cellCount
+	for i := 0; i < 4; i++ {
+		// background
 		renderer.vertex_data[begin+i].X = float32(positions[i].X)
 		renderer.vertex_data[begin+i].Y = float32(positions[i].Y)
 		renderer.vertex_data[begin+i].R = bgc.R
 		renderer.vertex_data[begin+i].G = bgc.G
 		renderer.vertex_data[begin+i].B = bgc.B
 		renderer.vertex_data[begin+i].A = bgc.A
-	}
-	// Set foreground data
-	begin += 6
-	atlas_pos_gl := renderer.font_atlas.texture.GetRectGLCoordinates(&atlas_pos)
-	texture_positions := triangulate_frect(&atlas_pos_gl)
-	fgc := u8color_to_fcolor(fg)
-	for i := 0; i < 6; i++ {
-		renderer.vertex_data[begin+i].X = float32(positions[i].X)
-		renderer.vertex_data[begin+i].Y = float32(positions[i].Y)
-		renderer.vertex_data[begin+i].TexX = texture_positions[i].X
-		renderer.vertex_data[begin+i].TexY = texture_positions[i].Y
-		renderer.vertex_data[begin+i].useTexture = 1
-		renderer.vertex_data[begin+i].R = fgc.R
-		renderer.vertex_data[begin+i].G = fgc.G
-		renderer.vertex_data[begin+i].B = fgc.B
-		renderer.vertex_data[begin+i].A = fgc.A
+		// foreground
+		renderer.vertex_data[begin+i+4].X = float32(positions[i].X)
+		renderer.vertex_data[begin+i+4].Y = float32(positions[i].Y)
+		renderer.vertex_data[begin+i+4].TexX = texture_positions[i].X
+		renderer.vertex_data[begin+i+4].TexY = texture_positions[i].Y
+		renderer.vertex_data[begin+i+4].R = fgc.R
+		renderer.vertex_data[begin+i+4].G = fgc.G
+		renderer.vertex_data[begin+i+4].B = fgc.B
+		renderer.vertex_data[begin+i+4].A = fgc.A
 	}
 }
 
-func (renderer *Renderer) GetCellRect(x, y int) sdl.Rect {
+func GetCellRect(x, y int) sdl.Rect {
 	return sdl.Rect{
 		X: int32(y * EditorSingleton.cellWidth),
 		Y: int32(x * EditorSingleton.cellHeight),
@@ -207,8 +232,12 @@ func (renderer *Renderer) GetCellRect(x, y int) sdl.Rect {
 	}
 }
 
-func (renderer *Renderer) GetCellVertexPosition(x, y int) int {
-	return (x*EditorSingleton.columnCount + y) * 6
+func GetCellVertexPosition(x, y int) int {
+	return (x*EditorSingleton.columnCount + y) * 8
+}
+
+func GetCellElementPosition(x, y int) int {
+	return (x*EditorSingleton.columnCount + y) * 12
 }
 
 func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
@@ -256,6 +285,10 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 			W: text_surface.W,
 			H: text_surface.H,
 		}
+		if text_surface.W != int32(EditorSingleton.cellWidth) || text_surface.H != int32(EditorSingleton.cellHeight) {
+			log_debug_msg("Char:", char, "Width:", position.W, "Height:", position.H, "DEFAULT:",
+				EditorSingleton.cellWidth, EditorSingleton.cellHeight)
+		}
 		// Draw text to empty position of atlas texture
 		renderer.font_atlas.texture.UpdatePartFromSurface(text_surface, &position)
 		// Add this font to character list for further use
@@ -278,7 +311,7 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color
 		return
 	}
 	// draw
-	renderer.SetCellForegroundData(x, y, atlas_char_pos, renderer.GetCellRect(x, y), fg)
+	renderer.SetCellForegroundData(x, y, atlas_char_pos, GetCellRect(x, y), fg)
 }
 
 func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute) {
@@ -326,6 +359,8 @@ func (renderer *Renderer) DrawAllChangedCells() {
 			}
 		}
 	}
+	// Draw cursor one more time.
+	EditorSingleton.cursor.Draw()
 	// Render changes
 	renderer.Render()
 }
@@ -333,7 +368,8 @@ func (renderer *Renderer) DrawAllChangedCells() {
 func (renderer *Renderer) Render() {
 	defer measure_execution_time("Renderer.Render")()
 	RGL_ClearScreen(EditorSingleton.grid.default_bg)
-	RGL_Render(renderer.vertex_data)
+	RGL_UpdateVertexData(renderer.vertex_data)
+	RGL_Render()
 	EditorSingleton.window.handle.GLSwap()
 }
 

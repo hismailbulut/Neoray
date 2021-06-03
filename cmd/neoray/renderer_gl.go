@@ -56,9 +56,9 @@ in float useTexture;
 uniform sampler2D atlas;
 
 void main() {
-	vec4 color;
+	vec4 color = vec4(1);
 	if (useTexture > 0.5) {
-		color = texture(atlas, textureCoord);
+		color = texture2D(atlas, textureCoord);
 		color *= vertexColor;
 	} else {
 		color = vertexColor;
@@ -71,12 +71,14 @@ void main() {
 var rgl_context sdl.GLContext
 var rgl_vao uint32
 var rgl_vbo uint32
+var rgl_ebo uint32
 
 var rgl_shader_program uint32
 var rgl_atlas_uniform int32
 var rgl_projection_uniform int32
 
-var rgl_last_buffer_size int
+var rgl_vertex_buffer_len int
+var rgl_element_buffer_len int
 
 func RGL_Init() {
 	// Initialize opengl
@@ -97,11 +99,17 @@ func RGL_Init() {
 	rgl_atlas_uniform = RGL_GetUniformLocation("atlas")
 	rgl_projection_uniform = RGL_GetUniformLocation("projection")
 
-	// Initialize vao and vbo
+	// Initialize vao
 	gl.CreateVertexArrays(1, &rgl_vao)
 	gl.BindVertexArray(rgl_vao)
+
+	// Initialize vbo
 	gl.GenBuffers(1, &rgl_vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, rgl_vbo)
+
+	// Initialize ebo
+	gl.GenBuffers(1, &rgl_ebo)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rgl_ebo)
 
 	// position
 	offset := 0
@@ -119,14 +127,13 @@ func RGL_Init() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
 	gl.VertexAttribPointerWithOffset(3, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// NOTE: If you changed something in Vertex you must update VertexStructSize!
+	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	gl.Enable(gl.TEXTURE_2D)
 
 	RGL_CheckError("RGL_Init")
-
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
@@ -172,18 +179,33 @@ func RGL_ClearScreen(color sdl.Color) {
 	gl.ClearColor(c.R, c.G, c.B, c.A)
 }
 
-func RGL_Render(vertex_data []Vertex) {
-	// Upload vertex data
-	if rgl_last_buffer_size != len(vertex_data) {
-		gl.BufferData(gl.ARRAY_BUFFER, len(vertex_data)*VertexStructSize, gl.Ptr(vertex_data), gl.STATIC_DRAW)
-		RGL_CheckError("RGL_Render.BufferData")
+func RGL_UpdateVertexData(data []Vertex) {
+	if rgl_vertex_buffer_len != len(data) {
+		gl.BufferData(gl.ARRAY_BUFFER, len(data)*VertexStructSize, gl.Ptr(data), gl.STATIC_DRAW)
+		RGL_CheckError("RGL_UpdateVertexBufferData.BufferData")
+		rgl_vertex_buffer_len = len(data)
 	} else {
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(vertex_data)*VertexStructSize, gl.Ptr(vertex_data))
-		RGL_CheckError("RGL_Render.BufferSubData")
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*VertexStructSize, gl.Ptr(data))
+		RGL_CheckError("RGL_UpdateVertexBufferData.BufferSubData")
 	}
-	// Draw
-	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(vertex_data)))
-	RGL_CheckError("RGL_Render.DrawArrays")
+}
+
+func RGL_UpdateElementData(data []uint32) {
+	if rgl_element_buffer_len != len(data) {
+		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(data)*4, gl.Ptr(data), gl.STATIC_DRAW)
+		RGL_CheckError("RGL_UpdateElementBufferData.BufferData")
+		rgl_element_buffer_len = len(data)
+	} else {
+		gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, len(data)*4, gl.Ptr(data))
+		RGL_CheckError("RGL_UpdateElementBufferData.BufferSubData")
+	}
+}
+
+func RGL_Render() {
+	// gl.DrawArrays(gl.TRIANGLES, 0, int32(rgl_vertex_buffer_len))
+	// RGL_CheckError("RGL_Render.DrawArrays")
+	gl.DrawElements(gl.TRIANGLES, int32(rgl_element_buffer_len), gl.UNSIGNED_INT, nil)
+	RGL_CheckError("RGL_Render.DrawElements")
 }
 
 func RGL_InitShaders() {

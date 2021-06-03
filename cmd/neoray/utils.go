@@ -77,25 +77,21 @@ func iabs(v int) int {
 	return v
 }
 
-func triangulate_rect(rect *sdl.Rect) [6]i32vec2 {
-	return [6]i32vec2{
+func triangulate_rect(rect *sdl.Rect) [4]i32vec2 {
+	return [4]i32vec2{
 		{rect.X, rect.Y},                   //0
 		{rect.X, rect.Y + rect.H},          //1
 		{rect.X + rect.W, rect.Y + rect.H}, //2
-		{rect.X + rect.W, rect.Y + rect.H}, //2
 		{rect.X + rect.W, rect.Y},          //3
-		{rect.X, rect.Y},                   //0
 	}
 }
 
-func triangulate_frect(rect *sdl.FRect) [6]f32vec2 {
-	return [6]f32vec2{
+func triangulate_frect(rect *sdl.FRect) [4]f32vec2 {
+	return [4]f32vec2{
 		{rect.X, rect.Y},                   //0
 		{rect.X, rect.Y + rect.H},          //1
 		{rect.X + rect.W, rect.Y + rect.H}, //2
-		{rect.X + rect.W, rect.Y + rect.H}, //2
 		{rect.X + rect.W, rect.Y},          //3
-		{rect.X, rect.Y},                   //0
 	}
 }
 
