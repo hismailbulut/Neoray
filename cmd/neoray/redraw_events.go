@@ -190,9 +190,9 @@ func default_colors_set(args []interface{}) {
 	fg := r.Index(0).Elem().Convert(t).Uint()
 	bg := r.Index(1).Elem().Convert(t).Uint()
 	sp := r.Index(2).Elem().Convert(t).Uint()
-	EditorSingleton.grid.default_fg = convert_rgb24_to_rgba(uint32(fg))
-	EditorSingleton.grid.default_bg = convert_rgb24_to_rgba(uint32(bg))
-	EditorSingleton.grid.default_sp = convert_rgb24_to_rgba(uint32(sp))
+	EditorSingleton.grid.default_fg = unpackColor(uint32(fg))
+	EditorSingleton.grid.default_bg = unpackColor(uint32(bg))
+	EditorSingleton.grid.default_sp = unpackColor(uint32(sp))
 }
 
 func hl_attr_define(args []interface{}) {
@@ -214,15 +214,15 @@ func hl_attr_define(args []interface{}) {
 			switch mapIter.Key().String() {
 			case "foreground":
 				fg := uint32(mapIter.Value().Elem().Convert(t).Uint())
-				hl_attr.foreground = convert_rgb24_to_rgba(fg)
+				hl_attr.foreground = unpackColor(fg)
 				break
 			case "background":
 				bg := uint32(mapIter.Value().Elem().Convert(t).Uint())
-				hl_attr.background = convert_rgb24_to_rgba(bg)
+				hl_attr.background = unpackColor(bg)
 				break
 			case "special":
 				sp := uint32(mapIter.Value().Elem().Convert(t).Uint())
-				hl_attr.special = convert_rgb24_to_rgba(sp)
+				hl_attr.special = unpackColor(sp)
 				break
 			// All boolean keys default to false,
 			// and will only be sent when they are true.
