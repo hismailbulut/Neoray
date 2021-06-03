@@ -16,27 +16,17 @@ var (
 	COLOR_TRANSPARENT = sdl.Color{R: 0, G: 0, B: 0, A: 0}
 )
 
-func convert_rgb24_to_rgba(color uint32) sdl.Color {
-	return sdl.Color{
-		// 0x000000rr & 0xff = red: 0xrr
-		R: uint8((color >> 16) & 0xff),
-		// 0x0000rrgg & 0xff = green: 0xgg
-		G: uint8((color >> 8) & 0xff),
-		// 0x00rrggbb & 0xff = blue: 0xbb
-		B: uint8(color & 0xff),
-		A: 255,
-	}
+// Math
+type f32vec2 struct {
+	X, Y float32
 }
 
-func convert_rgba_to_rgb24(color sdl.Color) uint32 {
-	// 0x00000000
-	rgb24 := uint32(color.R)
-	// 0x000000rr
-	rgb24 = (rgb24 << 8) | uint32(color.G)
-	// 0x0000rrgg
-	rgb24 = (rgb24 << 8) | uint32(color.B)
-	// 0x00rrggbb
-	return rgb24
+type i32vec2 struct {
+	X, Y int32
+}
+
+type ivec2 struct {
+	X, Y int
 }
 
 type f32color struct {
@@ -46,7 +36,23 @@ type f32color struct {
 	A float32
 }
 
-func u8color_to_fcolor(sdlcolor sdl.Color) f32color {
+func packColor(color sdl.Color) uint32 {
+	rgb24 := uint32(color.R)
+	rgb24 = (rgb24 << 8) | uint32(color.G)
+	rgb24 = (rgb24 << 8) | uint32(color.B)
+	return rgb24
+}
+
+func unpackColor(color uint32) sdl.Color {
+	return sdl.Color{
+		R: uint8((color >> 16) & 0xff),
+		G: uint8((color >> 8) & 0xff),
+		B: uint8(color & 0xff),
+		A: 255,
+	}
+}
+
+func color_u8_to_f32(sdlcolor sdl.Color) f32color {
 	return f32color{
 		R: float32(sdlcolor.R) / 256,
 		G: float32(sdlcolor.G) / 256,
@@ -55,19 +61,8 @@ func u8color_to_fcolor(sdlcolor sdl.Color) f32color {
 	}
 }
 
-func is_color_black(color sdl.Color) bool {
+func colorIsBlack(color sdl.Color) bool {
 	return color.R == 0 && color.G == 0 && color.B == 0
-}
-
-// Math
-type f32vec2 struct {
-	X, Y float32
-}
-type i32vec2 struct {
-	X, Y int32
-}
-type ivec2 struct {
-	X, Y int
 }
 
 func iabs(v int) int {
@@ -77,16 +72,16 @@ func iabs(v int) int {
 	return v
 }
 
-func triangulate_rect(rect *sdl.Rect) [4]i32vec2 {
-	return [4]i32vec2{
-		{rect.X, rect.Y},                   //0
-		{rect.X, rect.Y + rect.H},          //1
-		{rect.X + rect.W, rect.Y + rect.H}, //2
-		{rect.X + rect.W, rect.Y},          //3
+func triangulateRect(rect *sdl.Rect) [4]f32vec2 {
+	return [4]f32vec2{
+		{float32(rect.X), float32(rect.Y)},                   //0
+		{float32(rect.X), float32(rect.Y + rect.H)},          //1
+		{float32(rect.X + rect.W), float32(rect.Y + rect.H)}, //2
+		{float32(rect.X + rect.W), float32(rect.Y)},          //3
 	}
 }
 
-func triangulate_frect(rect *sdl.FRect) [4]f32vec2 {
+func triangulateFRect(rect *sdl.FRect) [4]f32vec2 {
 	return [4]f32vec2{
 		{rect.X, rect.Y},                   //0
 		{rect.X, rect.Y + rect.H},          //1
@@ -95,7 +90,11 @@ func triangulate_frect(rect *sdl.FRect) [4]f32vec2 {
 	}
 }
 
-// Function execution time mesurement functions
+func has_flag_u16(val, flag uint16) bool {
+	return val&flag != 0
+}
+
+// DEBUGGING UTILITIES
 type FunctionMeasure struct {
 	totalCall int64
 	totalTime time.Duration
@@ -134,11 +133,6 @@ func close_function_time_tracker() {
 	}
 }
 
-// Other utility functions
-func has_flag_u16(val, flag uint16) bool {
-	return val&flag != 0
-}
-
 // Logger
 const MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
 const (
@@ -152,6 +146,7 @@ const (
 	LOG_TYPE_NEORAY
 	LOG_TYPE_RENDERER
 	LOG_TYPE_PERFORMANCE
+	// NOTE: Delete all debug type messages on release build.
 	LOG_TYPE_DEBUG_MESSAGE
 )
 
@@ -159,6 +154,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 	if log_level < MINIMUM_LOG_LEVEL {
 		return
 	}
+
 	log_string := " "
 	debug_type := false
 	switch log_type {
@@ -176,6 +172,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 	default:
 		return
 	}
+
 	err := false
 	fatal := false
 	log_string += " "
@@ -200,6 +197,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		log_string += fmt.Sprint(msg)
 		log_string += " "
 	}
+
 	if fatal {
 		fmt.Printf("\n")
 		debug.PrintStack()
@@ -217,6 +215,6 @@ func log_debug_msg(message ...interface{}) {
 
 func assert(cond bool, message ...interface{}) {
 	if cond == false {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed: ", message)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", message)
 	}
 }
