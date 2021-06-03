@@ -206,7 +206,7 @@ func handle_input_event(event sdl.Event) {
 	}
 
 	if keycode == "<F11>" {
-		EditorSingleton.window.SwitchFullscreen()
+		EditorSingleton.window.ToggleFullscreen()
 	}
 
 	// send keycode to neovim
