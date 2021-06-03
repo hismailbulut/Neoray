@@ -34,9 +34,10 @@ type Grid struct {
 }
 
 func CreateGrid() Grid {
-	return Grid{
+	grid := Grid{
 		attributes: make(map[int]HighlightAttribute),
 	}
+	return grid
 }
 
 // This function is only used by neovim,
@@ -55,7 +56,6 @@ func (grid *Grid) Resize(width int, height int) {
 }
 
 func (grid *Grid) ClearCells() {
-	defer measure_execution_time("Grid.ClearCells")()
 	for _, row := range grid.cells {
 		for _, cell := range row {
 			cell.char = ""
@@ -80,7 +80,7 @@ func (grid *Grid) MakeAllCellsChanged() {
 // Sets cells with the given parameters, and advances y to the next.
 // This function will not check the end of the row. And currently
 // only used by neovim. If you need to set a cell for your needs,
-// you can create an alternative function for your needs.
+// you should create an alternative function for your needs.
 // If `repeat` is present, the cell should be
 // repeated `repeat` times (including the first time)
 func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
@@ -97,21 +97,40 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 	}
 }
 
+// This function gives secure access to grid cells.
+// Just check if the cell is nil or not.
+func (grid *Grid) GetCell(x, y int) *Cell {
+	if x < len(grid.cells) {
+		if y < len(grid.cells[x]) {
+			return &grid.cells[x][y]
+		}
+	}
+	return nil
+}
+
+// TODO: Find a way to speed up.
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 	defer measure_execution_time("Grid.Scroll")()
+	copyCellsAndScroll := func(dst, src, left, right int) {
+		copy(grid.cells[dst][left:right], grid.cells[src][left:right])
+		EditorSingleton.renderer.CopyRowData(dst, src, left, right)
+	}
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ {
-			copy(grid.cells[y-rows][left:right], grid.cells[y][left:right])
-			EditorSingleton.renderer.CopyRowData(y-rows, y, left, right)
+			copyCellsAndScroll(y-rows, y, left, right)
 		}
 	} else { // Scroll up, move down
 		for y := (bot + rows) - 1; y >= top; y-- {
-			copy(grid.cells[y-rows][left:right], grid.cells[y][left:right])
-			EditorSingleton.renderer.CopyRowData(y-rows, y, left, right)
+			copyCellsAndScroll(y-rows, y, left, right)
 		}
 	}
 	// This is for cursor animation when scrolling. Simply we are moving cursor
 	// with scroll area immediately, and returning back to its position smoothly.
 	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X-rows, EditorSingleton.cursor.Y, true)
 	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X+rows, EditorSingleton.cursor.Y, false)
+}
+
+// NOTE: Reserved
+func (grid *Grid) Destroy() {
+	log_debug_msg("Grid destroyed.")
 }
