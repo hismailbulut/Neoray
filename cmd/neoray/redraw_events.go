@@ -76,6 +76,7 @@ func HandleNvimRedrawEvents() {
 				EditorSingleton.grid.ClearCells()
 				break
 			case "grid_destroy":
+				EditorSingleton.grid.Destroy()
 				break
 			case "grid_cursor_goto":
 				grid_cursor_goto(update[1:])
@@ -131,7 +132,6 @@ func option_set(args []interface{}) {
 			break
 		}
 	}
-	log_debug_msg("Option Set:", options)
 }
 
 func mode_info_set(args []interface{}) {
