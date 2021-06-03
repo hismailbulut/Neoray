@@ -7,19 +7,6 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type UIOptions struct {
-	arabicshape   bool
-	ambiwidth     string
-	emoji         bool
-	guifont       string
-	guifontset    string
-	guifontwide   string
-	linespace     int
-	pumblend      int
-	showtabline   int
-	termguicolors bool
-}
-
 type Window struct {
 	handle     *sdl.Window
 	title      string
@@ -55,6 +42,7 @@ func (window *Window) HandleWindowResizing() {
 	if w != int32(window.width) || h != int32(window.height) {
 		window.width = int(w)
 		window.height = int(h)
+		CalculateCellCount()
 		EditorSingleton.nvim.ResizeUI()
 		EditorSingleton.renderer.Resize()
 	}
@@ -82,7 +70,7 @@ func (window *Window) SetTitle(title string) {
 	window.title = title
 }
 
-func (window *Window) SwitchFullscreen() {
+func (window *Window) ToggleFullscreen() {
 	if window.fullscreen {
 		window.handle.SetFullscreen(0)
 		window.fullscreen = false
