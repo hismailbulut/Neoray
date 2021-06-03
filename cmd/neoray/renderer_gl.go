@@ -1,71 +1,30 @@
 package main
 
 import (
+	_ "embed"
 	"strings"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-const VertexStructSize = 9 * 4
+//go:embed shaders.glsl
+var shader_sources string
+
+const VertexStructSize = 12 * 4
 
 type Vertex struct {
 	// These are vertex positions. May not be changed for
 	// most of the vertices in runtime.
-	X, Y float32 // layout 0
+	pos f32vec2 // layout 0
 	// These are vertex atlas texture positions for given character
 	// and they are changing most of the time.
-	TexX, TexY float32 // layout 1
-	// These are the background color if useTexture is 0,
-	// foreground color if useTexture is 1.
-	R, G, B, A float32 // layout 2
-	// Use texture is used like a boolean value for determining
-	// is this data is for background drawing or foreground drawing.
-	useTexture float32 // layout 3
+	tex f32vec2 // layout 1
+	// foreground color
+	fg f32color // layout 2
+	// background color
+	bg f32color // layout 3
 }
-
-var vertexShaderSource = `
-#version 330 core
-
-layout(location = 0) in vec2 pos;
-layout(location = 1) in vec2 texCoord;
-layout(location = 2) in vec4 color;
-layout(location = 3) in float useTex;
-
-out vec2 textureCoord;
-out vec4 vertexColor;
-out float useTexture;
-
-uniform mat4 projection;
-
-void main() {
-	gl_Position = vec4(pos, 0, 1) * projection;
-	textureCoord = texCoord;
-	useTexture = useTex;
-	vertexColor = color;
-}
-` + "\x00"
-
-var fragmentShaderSource = `
-#version 330 core
-
-in vec2 textureCoord;
-in vec4 vertexColor;
-in float useTexture;
-
-uniform sampler2D atlas;
-
-void main() {
-	vec4 color = vec4(1);
-	if (useTexture > 0.5) {
-		color = texture2D(atlas, textureCoord);
-		color *= vertexColor;
-	} else {
-		color = vertexColor;
-	}
-	gl_FragColor = color;
-}
-` + "\x00"
 
 // render subsystem global variables
 var rgl_context sdl.GLContext
@@ -119,19 +78,22 @@ func RGL_Init() {
 	offset += 2 * 4
 	gl.EnableVertexAttribArray(1)
 	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// color
+	// foreground color
 	offset += 2 * 4
 	gl.EnableVertexAttribArray(2)
 	gl.VertexAttribPointerWithOffset(2, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// useTexture boolean value
+	// background color
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
-	gl.VertexAttribPointerWithOffset(3, 1, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	gl.VertexAttribPointerWithOffset(3, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
 
+	gl.Enable(gl.TEXTURE_2D)
+
+	// NOTE: We don't need blending. This is only for Renderer.DebugDrawFontAtlas
+	// Disable on release build
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-	gl.Enable(gl.TEXTURE_2D)
 
 	RGL_CheckError("RGL_Init")
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
@@ -175,7 +137,7 @@ func RGL_SetAtlasTexture(atlas *Texture) {
 
 func RGL_ClearScreen(color sdl.Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-	c := u8color_to_fcolor(color)
+	c := color_u8_to_f32(color)
 	gl.ClearColor(c.R, c.G, c.B, c.A)
 }
 
@@ -209,6 +171,21 @@ func RGL_Render() {
 }
 
 func RGL_InitShaders() {
+	vertexSourceBegin := strings.Index(shader_sources, "// Vertex Shader")
+	fragSourceBegin := strings.Index(shader_sources, "// Fragment Shader")
+	assert(vertexSourceBegin != -1 && fragSourceBegin != -1, "Shaders are not correctly prefixed!")
+	var vertexShaderSource string
+	var fragmentShaderSource string
+	if vertexSourceBegin < fragSourceBegin {
+		vertexShaderSource = shader_sources[vertexSourceBegin:fragSourceBegin]
+		fragmentShaderSource = shader_sources[fragSourceBegin:]
+	} else {
+		fragmentShaderSource = shader_sources[fragSourceBegin:vertexSourceBegin]
+		vertexShaderSource = shader_sources[vertexSourceBegin:]
+	}
+	vertexShaderSource += "\x00"
+	fragmentShaderSource += "\x00"
+
 	vertexShader := RGL_CompileShader(vertexShaderSource, gl.VERTEX_SHADER)
 	fragmentShader := RGL_CompileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
 	rgl_shader_program = gl.CreateProgram()
