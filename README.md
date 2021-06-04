@@ -1,3 +1,2 @@
 # Neoray (Work in progress)
-Neovim GUI Client, in Golang using SDL2
-
+Simple and lightweight neovim GUI client.
