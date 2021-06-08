@@ -42,7 +42,7 @@ func HandleSDLEvents() {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
-			EditorSingleton.quit_requested = true
+			EditorSingleton.quitRequested = true
 			break
 		case *sdl.DropEvent:
 			break
