@@ -2,8 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
-	_ "net/http/pprof"
 )
 
 const (
@@ -25,13 +23,16 @@ func init() {
 
 // EditorSingleton is main instance of the editor and there can be only one
 // editor in this program. EditorSingleton is not threadsafe and can not be
-// accessed at same time from different threads or goroutines.
+// accessed at same time from different threads or goroutines. Most of the
+// functions accessing it and these functions also not thread safe.
 var EditorSingleton Editor
+
+// TODO:
+// --single-instance, -si := Open file in already opened neoray if there is available neoray instance, create otherwise.
 
 func main() {
 	// NOTE: Disable on release build
 	start_pprof()
-
 	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
 	EditorSingleton.Initialize()
@@ -39,15 +40,4 @@ func main() {
 	defer EditorSingleton.Shutdown()
 	// MainLoop is main loop of the neoray.
 	EditorSingleton.MainLoop()
-}
-
-func start_pprof() {
-	// pprof for debugging
-	// NOTE: disable on release build
-	go func() {
-		err := http.ListenAndServe("localhost:6060", nil)
-		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create pprof server.")
-		}
-	}()
 }
