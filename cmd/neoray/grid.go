@@ -25,8 +25,6 @@ type HighlightAttribute struct {
 
 type Grid struct {
 	cells      [][]Cell
-	width      int
-	height     int
 	default_fg sdl.Color
 	default_bg sdl.Color
 	default_sp sdl.Color
@@ -42,13 +40,10 @@ func CreateGrid() Grid {
 
 // This function is only used by neovim,
 // and calling this anywhere else may break the program.
-func (grid *Grid) Resize(width int, height int) {
-	grid.width = width
-	grid.height = height
-	// row count is height, column count is width
-	grid.cells = make([][]Cell, height) // rows
+func (grid *Grid) Resize(rows, cols int) {
+	grid.cells = make([][]Cell, rows)
 	for i := range grid.cells {
-		grid.cells[i] = make([]Cell, width) // columns
+		grid.cells[i] = make([]Cell, cols)
 		for j := range grid.cells[i] {
 			grid.cells[i][j].needs_redraw = true
 		}
@@ -89,10 +84,14 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		cell := &grid.cells[x][*y]
-		cell.char = char
-		cell.attrib_id = hl_id
-		cell.needs_redraw = true
+		cell := grid.GetCell(x, *y)
+		if cell != nil {
+			cell.char = char
+			cell.attrib_id = hl_id
+			cell.needs_redraw = true
+		} else {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Grid cell index out of bounds.", x, *y)
+		}
 		*y++
 	}
 }
@@ -100,10 +99,8 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 // This function gives secure access to grid cells.
 // Just check if the cell is nil or not.
 func (grid *Grid) GetCell(x, y int) *Cell {
-	if x < len(grid.cells) {
-		if y < len(grid.cells[x]) {
-			return &grid.cells[x][y]
-		}
+	if x < len(grid.cells) && y < len(grid.cells[x]) {
+		return &grid.cells[x][y]
 	}
 	return nil
 }

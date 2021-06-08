@@ -6,6 +6,12 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+const (
+	MINIMUM_FONT_SIZE = 7
+	DEFAULT_FONT_SIZE = 14
+	TARGET_TPS        = 60
+)
+
 type Editor struct {
 	// Neovim child process, nvim_process.go
 	nvim NvimProcess
@@ -26,9 +32,13 @@ type Editor struct {
 	renderer Renderer
 	// UIOptions is a struct, holds some user ui options like guifont.
 	options UIOptions
-	// Quit requested is a boolean, if it is true the program will be shutdown at begin of the next loop
-	quit_requested      bool
-	quit_requested_chan chan bool
+	// If quitRequested is true the program will quit.
+	quitRequested     bool
+	quitRequestedChan chan bool
+	// This is for resizing from nvim side, first we will send resize request to neovim,
+	// than we wait for the resize call from neovim side. When waiting this we dont want
+	// to render because its dangerous.
+	waitingResize bool
 	// These are the global variables of neoray. They are same in everywhere.
 	// Some of them are initialized at runtime. Therefore we must be carefull when we
 	// use them. If you add more here just write some information about it.
@@ -44,42 +54,22 @@ type Editor struct {
 	deltaTime       float32
 }
 
-// Consolas
-// Ubuntu Mono
-// GoMono
-// Cousine
-// Hack
-// JetBrains Mono
-// Caskadyia Cove
-const FONT_NAME = "Hack"
-const FONT_SIZE = 14
-const TARGET_TPS = 60
-
 func (editor *Editor) Initialize() {
 	startupTime := time.Now()
-
 	init_function_time_tracker()
 
 	editor.nvim = CreateNvimProcess()
-
 	if err := sdl.Init(sdl.INIT_EVENTS); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
 	}
 
 	editor.window = CreateWindow(800, 600, NEORAY_NAME)
-
 	editor.grid = CreateGrid()
-
 	editor.cursor = Cursor{}
-
 	editor.mode = CreateMode()
-
-	editor.renderer = CreateRenderer(CreateFont(FONT_NAME, FONT_SIZE))
-
+	editor.renderer = CreateRenderer()
 	editor.options = UIOptions{}
-
-	editor.quit_requested_chan = make(chan bool)
-
+	editor.quitRequestedChan = make(chan bool)
 	editor.nvim.StartUI()
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
@@ -91,17 +81,21 @@ func (editor *Editor) MainLoop() {
 	defer ticker.Stop()
 	fpsTimer := time.Now()
 	fps := 0
-	for !editor.quit_requested {
+	for !editor.quitRequested {
 		select {
-		case <-editor.quit_requested_chan:
-			editor.quit_requested = true
+		case <-editor.quitRequestedChan:
+			editor.quitRequested = true
 			continue
 		default:
 		}
-		HandleSDLEvents()
+		// Order is important!
 		HandleNvimRedrawEvents()
-		editor.window.Update()
-		editor.cursor.Update()
+		HandleSDLEvents()
+		if !editor.waitingResize {
+			editor.window.Update()
+			editor.cursor.Update()
+			editor.renderer.Update()
+		}
 		fps++
 		if time.Since(fpsTimer) > time.Second {
 			editor.framesPerSecond = fps

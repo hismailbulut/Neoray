@@ -42,9 +42,7 @@ func (window *Window) HandleWindowResizing() {
 	if w != int32(window.width) || h != int32(window.height) {
 		window.width = int(w)
 		window.height = int(h)
-		CalculateCellCount()
-		EditorSingleton.nvim.ResizeUI()
-		EditorSingleton.renderer.Resize()
+		EditorSingleton.nvim.RequestResize()
 	}
 }
 

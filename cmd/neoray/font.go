@@ -10,35 +10,22 @@ import (
 
 var (
 	system_default_fontname string
+	systemFontList          []*sysfont.Font
 )
 
 type Font struct {
-	size float32
-
-	regular_found     bool
-	italic_found      bool
-	bold_found        bool
-	bold_italic_found bool
-
-	regular_path string
-
+	size        float32
 	regular     *ttf.Font
 	italic      *ttf.Font
 	bold        *ttf.Font
 	bold_italic *ttf.Font
 }
 
-func CreateFont(fontname string, size float32) Font {
+func FontSystemInit() {
 	if err := ttf.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL_TTF:", err)
 	}
-
-	if size == 0 {
-		size = 1
-	}
-
-	font := Font{size: size}
-
+	systemFontList = sysfont.NewFinder(nil).List()
 	switch runtime.GOOS {
 	case "windows":
 		system_default_fontname = "Consolas"
@@ -50,39 +37,58 @@ func CreateFont(fontname string, size float32) Font {
 		system_default_fontname = "Menlo"
 		break
 	}
-
-	if fontname == "" {
-		font.find_and_load(system_default_fontname)
-	} else {
-		font.find_and_load(fontname)
-	}
-
-	// print_font_information(font.regular)
-
-	return font
 }
 
-func (font *Font) Unload() {
-	font.regular.Close()
-	font.bold.Close()
-	font.italic.Close()
-	font.bold_italic.Close()
+func FontSystemClose() {
 	ttf.Quit()
+}
+
+func CreateFont(fontName string, size float32) (Font, bool) {
+	defer measure_execution_time("CreateFont")()
+
+	if size < MINIMUM_FONT_SIZE {
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
+			"Font size", size, "is small. Reset to default", DEFAULT_FONT_SIZE)
+		size = DEFAULT_FONT_SIZE
+	}
+
+	font := Font{size: size}
+	if fontName == "" || fontName == " " {
+		font.loadDefaultFont()
+	} else if !font.findAndLoad(fontName) {
+		return font, false
+	}
+
+	return font, true
 }
 
 func (font *Font) GetSuitableFont(italic bool, bold bool) *ttf.Font {
 	if italic && bold {
-		return font.bold_italic
+		if font.bold_italic == nil {
+			font.regular.SetStyle(ttf.STYLE_BOLD | ttf.STYLE_ITALIC)
+		} else {
+			return font.bold_italic
+		}
 	} else if italic {
-		return font.italic
+		if font.italic == nil {
+			font.regular.SetStyle(ttf.STYLE_ITALIC)
+		} else {
+			return font.italic
+		}
 	} else if bold {
-		return font.bold
+		if font.bold == nil {
+			font.regular.SetStyle(ttf.STYLE_BOLD)
+		} else {
+			return font.bold
+		}
+	} else {
+		font.regular.SetStyle(0)
 	}
 	return font.regular
 }
 
 func (font *Font) CalculateCellSize() (int, int) {
-	metrics, err := font.regular.GlyphMetrics('m')
+	metrics, err := font.regular.GlyphMetrics('M')
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to calculate cell size:", err)
 		return int(font.size / 2), int(font.size)
@@ -92,40 +98,45 @@ func (font *Font) CalculateCellSize() (int, int) {
 	return w, h
 }
 
-func (font *Font) find_and_load(fontname string) {
-	finder := sysfont.NewFinder(nil)
-	font_list := finder.List()
-	matched_fonts, ok := font.get_matching_fonts(fontname, font_list)
-	if !ok {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font", fontname, "not found. Using system default font.")
-		matched_fonts, _ = font.get_matching_fonts(system_default_fontname, font_list)
-	}
-	if !font.load_matching_fonts(matched_fonts) {
-		matched_fonts, _ = font.get_matching_fonts(system_default_fontname, font_list)
-		font.load_matching_fonts(matched_fonts)
+func (font *Font) loadDefaultFont() {
+	matched_fonts, ok := font.getMatchingFonts(system_default_fontname)
+	if !ok || !font.loadMatchingFonts(matched_fonts) {
+		// Maybe default system font is not installed (?) or failed to access.
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY,
+			"Default system font is not found!", system_default_fontname)
 	}
 }
 
-func (font *Font) get_matching_fonts(name string, list []*sysfont.Font) ([]sysfont.Font, bool) {
+func (font *Font) findAndLoad(fontName string) bool {
+	matched_fonts, ok := font.getMatchingFonts(fontName)
+	if !ok || !font.loadMatchingFonts(matched_fonts) {
+		// Maybe non regular fonts are loaded?
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font", fontName, "not found.")
+		font.Unload()
+		return false
+	}
+	return true
+}
+
+func (font *Font) getMatchingFonts(fontName string) ([]sysfont.Font, bool) {
 	matched_fonts := []sysfont.Font{}
-	for _, f := range list {
-		if font_name_contains(f, name) {
+	for _, f := range systemFontList {
+		if fontNameContains(f, fontName) {
 			matched_fonts = append(matched_fonts, *f)
 		}
 	}
 	return matched_fonts, len(matched_fonts) > 0
 }
 
-func (font *Font) load_matching_fonts(font_list []sysfont.Font) bool {
-
+func (font *Font) loadMatchingFonts(font_list []sysfont.Font) bool {
 	bold_italics := make([]sysfont.Font, 0)
 	italics := make([]sysfont.Font, 0)
 	bolds := make([]sysfont.Font, 0)
 	others := make([]sysfont.Font, 0)
 
 	for _, f := range font_list {
-		has_italic := font_name_contains(&f, "Italic")
-		has_bold := font_name_contains(&f, "Bold")
+		has_italic := fontNameContains(&f, "Italic")
+		has_bold := fontNameContains(&f, "Bold")
 		if has_italic && has_bold {
 			bold_italics = append(bold_italics, f)
 		} else if has_italic && !has_bold {
@@ -138,84 +149,89 @@ func (font *Font) load_matching_fonts(font_list []sysfont.Font) bool {
 	}
 
 	// bold-italic
-	if !font.bold_italic_found && len(bold_italics) > 0 {
-		bold_italic_font_file_name := find_smaller_length_font_name(bold_italics)
-		font.bold_italic = font.load_font_data(bold_italic_font_file_name)
+	if font.bold_italic == nil && len(bold_italics) > 0 {
+		smallest := findSmallestLengthFont(bold_italics)
+		font.bold_italic = font.loadFontData(smallest)
 		if font.bold_italic != nil {
-			font.bold_italic_found = true
-			log_debug_msg("Font Bold Italic:", bold_italic_font_file_name)
+			log_debug_msg("Font Bold Italic:", font.bold_italic.FaceFamilyName(), "Bold Italic")
 		}
 	}
 
 	// italic
-	if !font.italic_found && len(italics) > 0 {
-		italic_font_file_name := find_smaller_length_font_name(italics)
-		font.italic = font.load_font_data(italic_font_file_name)
+	if font.italic == nil && len(italics) > 0 {
+		smallest := findSmallestLengthFont(italics)
+		font.italic = font.loadFontData(smallest)
 		if font.italic != nil {
-			font.italic_found = true
-			log_debug_msg("Font Italic:", italic_font_file_name)
+			log_debug_msg("Font Italic:", font.italic.FaceFamilyName(), "Italic")
 		}
 	}
 
 	//bold
-	if !font.bold_found && len(bolds) > 0 {
-		bold_font_file_name := find_smaller_length_font_name(bolds)
-		font.bold = font.load_font_data(bold_font_file_name)
+	if font.bold == nil && len(bolds) > 0 {
+		smallest := findSmallestLengthFont(bolds)
+		font.bold = font.loadFontData(smallest)
 		if font.bold != nil {
-			font.bold_found = true
-			log_debug_msg("Font Bold:", bold_font_file_name)
+			log_debug_msg("Font Bold:", font.bold.FaceFamilyName(), "Bold")
 		}
 	}
 
 	//regular
-	if !font.regular_found && len(others) > 0 {
-		regular_font_file_name := find_smaller_length_font_name(others)
-		font.regular_path = regular_font_file_name
-		font.regular = font.load_font_data(regular_font_file_name)
+	if font.regular == nil && len(others) > 0 {
+		smallest := findSmallestLengthFont(others)
+		font.regular = font.loadFontData(smallest)
 		if font.regular != nil {
-			font.regular_found = true
-			log_debug_msg("Font Regular:", regular_font_file_name)
+			log_debug_msg("Font Regular:", font.regular.FaceFamilyName())
+		} else {
+			return false
 		}
 	}
 
-	return font.regular_found && font.bold_found && font.italic_found && font.bold_italic_found
+	return true
 }
 
-func (font *Font) load_font_data(filename string) *ttf.Font {
+func (font *Font) loadFontData(filename string) *ttf.Font {
 	sdl_font_data, err := ttf.OpenFont(filename, int(font.size))
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to open font file:", err)
 		return nil
 	}
-	sdl_font_data.SetKerning(false)
 	return sdl_font_data
 }
 
-func find_smaller_length_font_name(font_list []sysfont.Font) string {
-	best_match_font_file_name := ""
-	smallest_font_name_length := 1000000
+func findSmallestLengthFont(font_list []sysfont.Font) string {
+	smallest := ""
+	smallestLen := 1000000
 	for _, f := range font_list {
-		if len(f.Filename) < smallest_font_name_length {
-			best_match_font_file_name = f.Filename
-			smallest_font_name_length = len(f.Filename)
+		if len(f.Filename) < smallestLen {
+			smallest = f.Filename
+			smallestLen = len(f.Filename)
 		}
 	}
-	return best_match_font_file_name
+	return smallest
 }
 
-func font_name_contains(f *sysfont.Font, str string) bool {
+func fontNameContains(f *sysfont.Font, str string) bool {
 	return strings.Contains(strings.ToLower(f.Name), strings.ToLower(str)) ||
 		strings.Contains(strings.ToLower(f.Family), strings.ToLower(str)) ||
 		strings.Contains(strings.ToLower(f.Filename), strings.ToLower(str))
 }
 
-func print_font_information(font *ttf.Font) {
-	log_debug_msg("FaceFamilyName:", font.FaceFamilyName())
-	log_debug_msg("TotalFaces:", font.Faces())
-	log_debug_msg("Ascent:", font.Ascent())
-	log_debug_msg("Descent:", font.Descent())
-	log_debug_msg("Height:", font.Height())
-	log_debug_msg("FaceIsFixedWidth:", font.FaceIsFixedWidth())
-	log_debug_msg("Outline:", font.GetOutline())
-	log_debug_msg("LineSkip:", font.LineSkip())
+func (font *Font) Unload() {
+	if font.regular != nil {
+		font.regular.Close()
+		font.regular = nil
+	}
+	if font.bold != nil {
+		font.bold.Close()
+		font.bold = nil
+	}
+	if font.italic != nil {
+		font.italic.Close()
+		font.italic = nil
+	}
+	if font.bold_italic != nil {
+		font.bold_italic.Close()
+		font.bold_italic = nil
+	}
+	font.size = 0
 }

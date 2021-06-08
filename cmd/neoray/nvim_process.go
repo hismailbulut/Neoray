@@ -20,9 +20,9 @@ func CreateNvimProcess() NvimProcess {
 		update_stack: make([][][]interface{}, 0),
 	}
 
-	// TODO: preprocess args in main function
 	args := []string{
 		"--embed",
+		// "-V9nvim_verbose.log",
 		// "-u",
 		// "NORC",
 		// "--noplugin",
@@ -30,7 +30,7 @@ func CreateNvimProcess() NvimProcess {
 	args = append(args, os.Args[1:]...)
 
 	nv, err := nvim.NewChildProcess(
-		nvim.ChildProcessServe(true),
+		// nvim.ChildProcessServe(true),
 		nvim.ChildProcessArgs(args...))
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, err)
@@ -39,11 +39,6 @@ func CreateNvimProcess() NvimProcess {
 	proc.handle = nv
 	proc.requestApiInfo()
 	proc.introduce()
-
-	// proc.ExecuteVimScript("au UIEnter call rpcnotify(0, \"uienter_success\")")
-	// proc.handle.RegisterHandler("uienter_success", func() {
-	//     log_debug_msg("UI Entered Succesfully.")
-	// })
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process created.")
 
@@ -91,10 +86,16 @@ func (proc *NvimProcess) introduce() {
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
 
+	// We need UIEnter for gui options.
 	id := proc.handle.ChannelID()
 	proc.ExecuteVimScript("au UIEnter * call rpcnotify(%d, \"NeorayUIEnter\")\n", id)
 	proc.handle.RegisterHandler("NeorayUIEnter", func() {
-		log_debug_msg("UIEnter")
+		proc.update_mutex.Lock()
+		defer proc.update_mutex.Unlock()
+		name := make([][]interface{}, 1, 1)
+		name[0] = make([]interface{}, 1, 1)
+		name[0][0] = "UIEnter"
+		proc.update_stack = append(proc.update_stack, name)
 	})
 }
 
@@ -131,8 +132,8 @@ func (proc *NvimProcess) StartUI() {
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
 			proc.update_mutex.Lock()
+			defer proc.update_mutex.Unlock()
 			proc.update_stack = append(proc.update_stack, updates)
-			proc.update_mutex.Unlock()
 		})
 
 	go func() {
@@ -141,16 +142,18 @@ func (proc *NvimProcess) StartUI() {
 			return
 		}
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process closed.")
-		EditorSingleton.quit_requested_chan <- true
+		EditorSingleton.quitRequestedChan <- true
 	}()
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "UI Connected. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM,
+		"UI Connected. Rows:", EditorSingleton.rowCount, "Cols:", EditorSingleton.columnCount)
 }
 
 // Call CalculateCellSize before this function.
-func (proc *NvimProcess) ResizeUI() {
+func (proc *NvimProcess) RequestResize() {
+	CalculateCellCount()
 	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
-	log_debug_msg("UI Resized. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
+	EditorSingleton.waitingResize = true
 }
 
 func (proc *NvimProcess) Close() {

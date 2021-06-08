@@ -17,6 +17,9 @@ func HandleNvimRedrawEvents() {
 	for _, updates := range EditorSingleton.nvim.update_stack {
 		for _, update := range updates {
 			switch update[0] {
+			// Neoray events RESERVED
+			case "UIEnter":
+				break
 			// Global events
 			case "set_title":
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
@@ -55,7 +58,7 @@ func HandleNvimRedrawEvents() {
 			case "visual_bell":
 				break
 			case "flush":
-				EditorSingleton.renderer.DrawAllChangedCells()
+				EditorSingleton.renderer.drawCall = true
 				break
 			// Grid Events (line-based)
 			case "grid_resize":
@@ -110,7 +113,7 @@ func option_set(args []interface{}) {
 			options.emoji = valr.Bool()
 			break
 		case "guifont":
-			options.guifont = valr.String()
+			options.SetGuiFont(valr.String())
 			break
 		case "guifontset":
 			options.guifontset = valr.String()
@@ -179,9 +182,17 @@ func mode_info_set(args []interface{}) {
 func grid_resize(args []interface{}) {
 	r := reflect.ValueOf(args[0])
 	t := reflect.TypeOf(int(0))
-	width := r.Index(1).Elem().Convert(t).Int()
-	height := r.Index(2).Elem().Convert(t).Int()
-	EditorSingleton.grid.Resize(int(width), int(height))
+	rows := int(r.Index(2).Elem().Convert(t).Int())
+	cols := int(r.Index(1).Elem().Convert(t).Int())
+
+	EditorSingleton.rowCount = rows
+	EditorSingleton.columnCount = cols
+	EditorSingleton.cellCount = rows * cols
+
+	EditorSingleton.grid.Resize(rows, cols)
+	EditorSingleton.renderer.Resize(rows, cols)
+
+	EditorSingleton.waitingResize = false
 }
 
 func default_colors_set(args []interface{}) {

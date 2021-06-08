@@ -17,8 +17,8 @@ func CreateTexture(width, height int) Texture {
 	gl.BindTexture(gl.TEXTURE_2D, texture_id)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	RGL_CheckError("CreateTexture.TexParameteri")
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	RGL_CheckError("CreateTexture.TexImage2D")
@@ -32,6 +32,10 @@ func CreateTexture(width, height int) Texture {
 
 func (texture *Texture) Bind() {
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
+}
+
+func (texture *Texture) Clear() {
+	gl.ClearTexImage(texture.id, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 }
 
 func (texture *Texture) UpdateFromSurface(surface *sdl.Surface) {
