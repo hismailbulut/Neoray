@@ -1,5 +1,6 @@
 // NOTE: These tags are used for specifying shader type, do not delete or change them!
 // If this file name has changed, update filename in the renderer_gl (above the shader_sources)
+
 // Vertex Shader
 #version 330 core
 layout(location = 0) in vec2 pos;
@@ -30,6 +31,6 @@ in vec4 bgColor;
 uniform sampler2D atlas;
 
 void main() {
-	vec4 texColor = texture2D(atlas, texCoord);
+	vec4 texColor = texture(atlas, texCoord);
 	gl_FragColor = mix(bgColor, fgColor, texColor.a);
 }
