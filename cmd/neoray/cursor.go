@@ -107,7 +107,10 @@ func (cursor *Cursor) Draw() {
 		pos := cursor.GetAnimatedPosition()
 		rect, draw_char := cursor.GetPositionRectangle(pos, mode_info)
 		if draw_char && !cursor.needs_redraw {
-			cell := EditorSingleton.grid.cells[cursor.X][cursor.Y]
+			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
+			if cell == nil {
+				return
+			}
 			if len(cell.char) != 0 && cell.char != " " {
 				// We need to draw cell character to the cursor foreground.
 				// Because cursor is not transparent.
@@ -130,5 +133,5 @@ func (cursor *Cursor) Draw() {
 				rect, sdl.Rect{}, sdl.Color{}, bg)
 		}
 	}
-	EditorSingleton.renderer.Render()
+	EditorSingleton.renderer.renderCall = true
 }
