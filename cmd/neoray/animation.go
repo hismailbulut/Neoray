@@ -12,10 +12,10 @@ const AnimationFinishTolerance = 0.1
 
 // Lifetime is the life of the animation. Animation speed is depends of the
 // delta time and lifetime. For lifeTime parameter, 1.0 value is 1 seconds
-func CreateAnimation(from, target f32vec2, lifeTime float32) Animation {
+func CreateAnimation(from, to f32vec2, lifeTime float32) Animation {
 	return Animation{
 		current:  from,
-		target:   target,
+		target:   to,
 		lifeTime: lifeTime,
 	}
 }
