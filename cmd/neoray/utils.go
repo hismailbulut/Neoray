@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"sync/atomic"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -67,7 +68,7 @@ func iabs(v int) int {
 	return v
 }
 
-func triangulateRect(rect *sdl.Rect) [4]f32vec2 {
+func triangulateRect(rect sdl.Rect) [4]f32vec2 {
 	return [4]f32vec2{
 		{float32(rect.X), float32(rect.Y)},                   //0
 		{float32(rect.X), float32(rect.Y + rect.H)},          //1
@@ -76,7 +77,7 @@ func triangulateRect(rect *sdl.Rect) [4]f32vec2 {
 	}
 }
 
-func triangulateFRect(rect *sdl.FRect) [4]f32vec2 {
+func triangulateFRect(rect sdl.FRect) [4]f32vec2 {
 	return [4]f32vec2{
 		{rect.X, rect.Y},                   //0
 		{rect.X, rect.Y + rect.H},          //1
@@ -94,6 +95,25 @@ func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 		float32(-(right + left) / rml), // 4
 		float32(-(top + bottom) / tmb),
 		float32(-(far + near) / fmn), 1}
+}
+
+func afterSubstr(str string, substrs ...string) string {
+	for _, substr := range substrs {
+		idx := strings.Index(str, substr)
+		if idx != -1 {
+			return str[idx+len(substr):]
+		}
+	}
+	return ""
+}
+
+func beginsWith(str string, substrs ...string) bool {
+	for _, substr := range substrs {
+		if strings.Index(str, substr) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func has_flag_u16(val, flag uint16) bool {

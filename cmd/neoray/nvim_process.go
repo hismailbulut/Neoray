@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/neovim/go-client/nvim"
@@ -22,16 +21,13 @@ func CreateNvimProcess() NvimProcess {
 
 	args := []string{
 		"--embed",
-		// "-V9nvim_verbose.log",
 		// "-u",
 		// "NORC",
 		// "--noplugin",
 	}
-	args = append(args, os.Args[1:]...)
+	args = append(args, NeovimArgs...)
 
-	nv, err := nvim.NewChildProcess(
-		// nvim.ChildProcessServe(true),
-		nvim.ChildProcessArgs(args...))
+	nv, err := nvim.NewChildProcess(nvim.ChildProcessArgs(args...))
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, err)
 	}
@@ -138,7 +134,7 @@ func (proc *NvimProcess) StartUI() {
 
 	go func() {
 		if err := proc.handle.Serve(); err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process exited with errors:", err)
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process closed with errors:", err)
 			return
 		}
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process closed.")

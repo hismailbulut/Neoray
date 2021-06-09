@@ -8,7 +8,7 @@ import (
 
 const (
 	MINIMUM_FONT_SIZE = 7
-	DEFAULT_FONT_SIZE = 14
+	DEFAULT_FONT_SIZE = 15
 	TARGET_TPS        = 60
 )
 
@@ -56,7 +56,6 @@ type Editor struct {
 
 func (editor *Editor) Initialize() {
 	startupTime := time.Now()
-	init_function_time_tracker()
 
 	editor.nvim = CreateNvimProcess()
 	if err := sdl.Init(sdl.INIT_EVENTS); err != nil {
@@ -88,6 +87,7 @@ func (editor *Editor) MainLoop() {
 			continue
 		default:
 		}
+		editor.ProcessSignals()
 		// Order is important!
 		HandleNvimRedrawEvents()
 		HandleSDLEvents()
@@ -109,11 +109,20 @@ func (editor *Editor) MainLoop() {
 		"Program finished. Total execution time:", time.Since(programBegin))
 }
 
+func (editor *Editor) ProcessSignals() {
+	if atomicGetBool(&SignalOpenFile) == true {
+		SignalMutex.Lock()
+		defer SignalMutex.Unlock()
+		editor.nvim.ExecuteVimScript(":edit %s", SignalOpenFileName)
+		atomicSetBool(&SignalOpenFile, false)
+		editor.window.handle.Raise()
+	}
+}
+
 func (editor *Editor) Shutdown() {
 	editor.nvim.Close()
 	editor.grid.Destroy()
 	editor.window.Close()
 	editor.renderer.Close()
 	sdl.Quit()
-	close_function_time_tracker()
 }
