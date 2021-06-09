@@ -280,7 +280,7 @@ func grid_line(args []interface{}) {
 			// second one is highlight attribute id -optional
 			// third one is repeat count -optional
 			cell_slice := cell.([]interface{})
-			char := cell_slice[0].(string)
+			char := reflect.ValueOf(cell_slice).Index(0).Elem().String()
 			repeat := 0
 			if len(cell_slice) >= 2 {
 				hl_id = int(reflect.ValueOf(cell_slice).Index(1).Elem().Convert(t).Int())
