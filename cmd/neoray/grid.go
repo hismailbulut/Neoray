@@ -75,7 +75,7 @@ func (grid *Grid) MakeAllCellsChanged() {
 // Sets cells with the given parameters, and advances y to the next.
 // This function will not check the end of the row. And currently
 // only used by neovim. If you need to set a cell for your needs,
-// you should create an alternative function for your needs.
+// you should create an alternative function.
 // If `repeat` is present, the cell should be
 // repeated `repeat` times (including the first time)
 func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
@@ -84,14 +84,10 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		cell := grid.GetCell(x, *y)
-		if cell != nil {
-			cell.char = char
-			cell.attrib_id = hl_id
-			cell.needs_redraw = true
-		} else {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Grid cell index out of bounds.", x, *y)
-		}
+		cell := &grid.cells[x][*y]
+		cell.char = char
+		cell.attrib_id = hl_id
+		cell.needs_redraw = true
 		*y++
 	}
 }
