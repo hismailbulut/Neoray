@@ -97,6 +97,7 @@ func (cursor *Cursor) GetAnimatedPosition() ivec2 {
 }
 
 func (cursor *Cursor) Draw() {
+	defer measure_execution_time("Cursor.Draw")()
 	if cursor.hidden {
 		// Hide the cursor.
 		EditorSingleton.renderer.SetCursorData(
@@ -111,7 +112,7 @@ func (cursor *Cursor) Draw() {
 			if cell == nil {
 				return
 			}
-			if len(cell.char) != 0 && cell.char != " " {
+			if cell.char != "" && cell.char != " " {
 				// We need to draw cell character to the cursor foreground.
 				// Because cursor is not transparent.
 				italic := false
