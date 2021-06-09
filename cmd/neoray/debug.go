@@ -14,7 +14,7 @@ func start_pprof() {
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create pprof server.")
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to start pprof:", err)
 		}
 	}()
 }
@@ -25,14 +25,21 @@ type FunctionMeasure struct {
 	totalTime time.Duration
 }
 
-var measure_averages map[string]FunctionMeasure
-var measure_averages_mutex sync.Mutex
+var (
+	measure_initialized    int32 = 0
+	measure_averages       map[string]FunctionMeasure
+	measure_averages_mutex sync.Mutex
+)
 
 func init_function_time_tracker() {
 	measure_averages = make(map[string]FunctionMeasure)
+	measure_initialized = 1
 }
 
 func measure_execution_time(name string) func() {
+	if atomicGetBool(&measure_initialized) == false {
+		return func() {}
+	}
 	now := time.Now()
 	return func() {
 		elapsed := time.Since(now)
@@ -52,14 +59,17 @@ func measure_execution_time(name string) func() {
 }
 
 func close_function_time_tracker() {
+	if atomicGetBool(&measure_initialized) == false {
+		return
+	}
 	for key, val := range measure_averages {
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 			key, "Calls:", val.totalCall, "Time:", val.totalTime, "Average:", val.totalTime/time.Duration(val.totalCall))
 	}
 }
 
-// TODO: Set log level to warn or error in release build.
-const MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
+var MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
+
 const (
 	// log levels
 	LOG_LEVEL_DEBUG = iota
