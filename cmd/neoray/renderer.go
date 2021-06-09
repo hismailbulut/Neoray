@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
 const (
-	FONT_ATLAS_DEFAULT_SIZE int = 512
+	FONT_ATLAS_DEFAULT_SIZE int = 1024
 )
 
 var (
@@ -69,7 +70,6 @@ func (renderer *Renderer) SetFont(font Font) {
 		renderer.fontAtlas.texture.Clear()
 		renderer.fontAtlas.characters = make(map[string]sdl.Rect)
 		renderer.fontAtlas.pos = ivec2{}
-		// Redraw every cell.
 	}
 	// We need to check if the given font is valid,
 	// otherwise caller wants to disable user font and use
@@ -80,9 +80,8 @@ func (renderer *Renderer) SetFont(font Font) {
 	} else {
 		cellWidth, cellHeight = renderer.defaultFont.CalculateCellSize()
 	}
-	// Only resize if font metrics is different
+	// Only resize if font metrics are different
 	if cellWidth != EditorSingleton.cellWidth || cellHeight != EditorSingleton.cellHeight {
-		// We need to resize because cell dimensions has been changed
 		EditorSingleton.cellWidth = cellWidth
 		EditorSingleton.cellHeight = cellHeight
 		EditorSingleton.nvim.RequestResize()
@@ -113,7 +112,7 @@ func (renderer *Renderer) CreateVertexData(rows, cols int) {
 	for y := 0; y < rows; y++ {
 		for x := 0; x < cols; x++ {
 			cell_rect := cellRect(y, x)
-			positions := triangulateRect(&cell_rect)
+			positions := triangulateRect(cell_rect)
 			vBegin := cellVertexPosition(y, x)
 			// prepare vertex buffer
 			for i, pos := range positions {
@@ -133,7 +132,7 @@ func (renderer *Renderer) CreateVertexData(rows, cols int) {
 		renderer.indexData[eBegin+i] = uint32(vBegin) + e
 	}
 	// DEBUG: draw font atlas to top right
-	renderer.DebugDrawFontAtlas()
+	// renderer.DebugDrawFontAtlas()
 	// Update element buffer
 	RGL_UpdateElementData(renderer.indexData)
 }
@@ -146,8 +145,8 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 		H: int32(FONT_ATLAS_DEFAULT_SIZE),
 	}
 	vertex := Vertex{fg: f32color{R: 1, G: 1, B: 1, A: 1}}
-	positions := triangulateRect(&atlas_pos)
-	texture_positions := triangulateFRect(&sdl.FRect{X: 0, Y: 0, W: 1, H: 1})
+	positions := triangulateRect(atlas_pos)
+	texture_positions := triangulateFRect(sdl.FRect{X: 0, Y: 0, W: 1, H: 1})
 	for i := 0; i < 4; i++ {
 		vertex.pos = positions[i]
 		vertex.tex = texture_positions[i]
@@ -185,8 +184,8 @@ func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
 
 func (renderer *Renderer) SetCellForegroundData(x, y int, src sdl.Rect, dest sdl.Rect, color sdl.Color) {
 	c := color_u8_to_f32(color)
-	area := renderer.fontAtlas.texture.GetRectGLCoordinates(&src)
-	texture_coords := triangulateFRect(&area)
+	area := renderer.fontAtlas.texture.GetRectGLCoordinates(src)
+	texture_coords := triangulateFRect(area)
 	begin := cellVertexPosition(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].tex = texture_coords[i]
@@ -209,9 +208,9 @@ func (renderer *Renderer) ClearCellForegroundData(x, y int) {
 func (renderer *Renderer) SetCursorData(pos sdl.Rect, atlas_pos sdl.Rect, fg, bg sdl.Color) {
 	bgc := color_u8_to_f32(bg)
 	fgc := color_u8_to_f32(fg)
-	positions := triangulateRect(&pos)
-	atlas_pos_gl := renderer.fontAtlas.texture.GetRectGLCoordinates(&atlas_pos)
-	texture_positions := triangulateFRect(&atlas_pos_gl)
+	positions := triangulateRect(pos)
+	atlas_pos_gl := renderer.fontAtlas.texture.GetRectGLCoordinates(atlas_pos)
+	texture_positions := triangulateFRect(atlas_pos_gl)
 	begin := 4 * EditorSingleton.cellCount
 	for i := 0; i < 4; i++ {
 		// background
@@ -262,7 +261,7 @@ func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
 func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) (sdl.Rect, error) {
 	var position sdl.Rect
 	// generate specific id for this character
-	id := fmt.Sprintf("%s%t%t", char, italic, bold)
+	id := fmt.Sprintf("%d%t%t", char, italic, bold)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
 		// use stored texture
 		position = pos
@@ -274,15 +273,20 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 		} else {
 			font_handle = renderer.defaultFont.GetSuitableFont(italic, bold)
 		}
-		// TODO: Unsupported font glyphs must targets the same position in atlas.
-		// Currently we are drawing unsupported glyph for every font and filling
-		// the atlas with weird rectangles. If you don't understand please try
-		// rendering some glyphs your font is not supporting.
+		// TODO: Detect unsupported glyphs
 		// Render text to surface
 		text_surface, err := font_handle.RenderUTF8Blended(char, COLOR_WHITE)
 		if err != nil {
 			log_message(LOG_LEVEL_WARN, LOG_TYPE_RENDERER, "Failed to render text:", err)
 			return sdl.Rect{}, err
+		}
+		if text_surface.W > int32(EditorSingleton.cellWidth) {
+			log_debug_msg("Char:", char, "W:", text_surface.W, "DW:", EditorSingleton.cellWidth)
+			newSurface := clipSurfaceWidth(text_surface, int(text_surface.W)-EditorSingleton.cellWidth)
+			if newSurface != nil {
+				text_surface.Free()
+				text_surface = newSurface
+			}
 		}
 		defer text_surface.Free()
 		// Get empty atlas position for this char
@@ -293,33 +297,63 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 			W: text_surface.W,
 			H: text_surface.H,
 		}
-		if text_surface.W != int32(EditorSingleton.cellWidth) || text_surface.H != int32(EditorSingleton.cellHeight) {
-			// log_debug_msg("Char:", char, "Width:", position.W, "Height:", position.H, "DEFAULT:",
-			//     EditorSingleton.cellWidth, EditorSingleton.cellHeight)
-		}
 		// Draw text to empty position of atlas texture
-		renderer.fontAtlas.texture.UpdatePartFromSurface(text_surface, &position)
+		renderer.fontAtlas.texture.UpdatePartFromSurface(text_surface, position)
 		// Add this font to character list for further use
 		renderer.fontAtlas.characters[id] = position
 	}
 	return position, nil
 }
 
+func clipSurfaceWidth(surface *sdl.Surface, diff int) *sdl.Surface {
+	pixels := surface.Pixels()
+	assert(len(pixels) == int(surface.W)*int(surface.H)*4)
+
+	xBegin := int(diff/2 + diff%2)
+	xEnd := int(surface.W) - diff/2
+	assert(xBegin < xEnd)
+
+	newWidth := xEnd - xBegin
+	assert(newWidth == int(surface.W)-diff)
+
+	newPixelsLen := newWidth * int(surface.H) * 4
+	newPixels := make([]byte, newPixelsLen, newPixelsLen)
+
+	for y := 0; y < int(surface.H); y++ {
+		pixelsBegin := (y*int(surface.W) + xBegin) * 4
+		pixelsEnd := (y*int(surface.W) + xEnd) * 4
+		assert(pixelsEnd <= len(pixels))
+
+		newPixelsBegin := y * newWidth * 4
+		newPixelsEnd := newPixelsBegin + newWidth
+		assert(newPixelsEnd <= newPixelsLen)
+
+		copy(newPixels[newPixelsBegin:newPixelsEnd], pixels[pixelsBegin:pixelsEnd])
+	}
+
+	newSurface, err := sdl.CreateRGBSurfaceWithFormatFrom(
+		unsafe.Pointer(&newPixels[0]), int32(newWidth), surface.H, 4, surface.Pitch, surface.Format.Format)
+	if err != nil {
+		return nil
+	}
+	return newSurface
+}
+
 func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color, italic, bold bool) {
 	// draw Background
 	renderer.SetCellBackgroundData(x, y, bg)
-	if len(char) == 0 || char == " " {
+	if char == "" || char == " " {
 		// this is an empty cell, clear the text vertex data
 		renderer.ClearCellForegroundData(x, y)
 		return
 	}
 	// get character position in atlas texture
-	atlas_char_pos, err := renderer.GetCharacterAtlasPosition(char, italic, bold)
+	atlasPos, err := renderer.GetCharacterAtlasPosition(char, italic, bold)
 	if err != nil {
 		return
 	}
 	// draw
-	renderer.SetCellForegroundData(x, y, atlas_char_pos, cellRect(x, y), fg)
+	renderer.SetCellForegroundData(x, y, atlasPos, cellRect(x, y), fg)
 }
 
 func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute) {
