@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	system_default_fontname string
-	systemFontList          []*sysfont.Font
+	systemFontDefault string
+	systemFontList    []*sysfont.Font
 )
 
 type Font struct {
@@ -28,13 +28,13 @@ func FontSystemInit() {
 	systemFontList = sysfont.NewFinder(nil).List()
 	switch runtime.GOOS {
 	case "windows":
-		system_default_fontname = "Consolas"
+		systemFontDefault = "Consolas"
 		break
 	case "linux":
-		system_default_fontname = "Noto Sans Mono"
+		systemFontDefault = "Noto Sans Mono"
 		break
 	case "darwin":
-		system_default_fontname = "Menlo"
+		systemFontDefault = "Menlo"
 		break
 	}
 }
@@ -88,7 +88,7 @@ func (font *Font) GetSuitableFont(italic bool, bold bool) *ttf.Font {
 }
 
 func (font *Font) CalculateCellSize() (int, int) {
-	metrics, err := font.regular.GlyphMetrics('M')
+	metrics, err := font.regular.GlyphMetrics('m')
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to calculate cell size:", err)
 		return int(font.size / 2), int(font.size)
@@ -99,11 +99,11 @@ func (font *Font) CalculateCellSize() (int, int) {
 }
 
 func (font *Font) loadDefaultFont() {
-	matched_fonts, ok := font.getMatchingFonts(system_default_fontname)
+	matched_fonts, ok := font.getMatchingFonts(systemFontDefault)
 	if !ok || !font.loadMatchingFonts(matched_fonts) {
 		// Maybe default system font is not installed (?) or failed to access.
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY,
-			"Default system font is not found!", system_default_fontname)
+			"Default system font is not found!", systemFontDefault)
 	}
 }
 
@@ -190,12 +190,17 @@ func (font *Font) loadMatchingFonts(font_list []sysfont.Font) bool {
 }
 
 func (font *Font) loadFontData(filename string) *ttf.Font {
-	sdl_font_data, err := ttf.OpenFont(filename, int(font.size))
+	fontHandle, err := ttf.OpenFont(filename, int(font.size))
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to open font file:", err)
 		return nil
 	}
-	return sdl_font_data
+	fontHandle.SetHinting(ttf.HINTING_MONO | ttf.HINTING_LIGHT)
+	fontHandle.SetOutline(0)
+	if fontHandle.Faces() > 1 {
+		log_debug_msg("Font has more than one face.")
+	}
+	return fontHandle
 }
 
 func findSmallestLengthFont(font_list []sysfont.Font) string {
