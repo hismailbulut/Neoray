@@ -36,25 +36,27 @@ func (texture *Texture) Bind() {
 
 func (texture *Texture) Clear() {
 	gl.ClearTexImage(texture.id, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	RGL_CheckError("Texture.Clear")
 }
 
-func (texture *Texture) UpdateFromSurface(surface *sdl.Surface) {
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, surface.W, surface.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, surface.Data())
-	RGL_CheckError("Texture.UpdateFromSurface")
-}
-
-func (texture *Texture) UpdatePartFromSurface(surface *sdl.Surface, dest *sdl.Rect) {
+func (texture *Texture) UpdatePartFromSurface(surface *sdl.Surface, dest sdl.Rect) {
+	if dest.X+dest.W > int32(texture.width) {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Surface width is out of bounds.")
+	}
+	if dest.Y+dest.H > int32(texture.height) {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Surface height is out of bounds.")
+	}
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0, dest.X, dest.Y, dest.W, dest.H, gl.RGBA, gl.UNSIGNED_BYTE, surface.Data())
 	RGL_CheckError("Texture.UpdatePartFromSurface")
 }
 
-func (texture *Texture) GetRectGLCoordinates(rect *sdl.Rect) sdl.FRect {
-	area := sdl.FRect{}
-	area.X = float32(rect.X) / float32(texture.width)
-	area.Y = float32(rect.Y) / float32(texture.height)
-	area.W = float32(rect.W) / float32(texture.width)
-	area.H = float32(rect.H) / float32(texture.height)
-	return area
+func (texture *Texture) GetRectGLCoordinates(rect sdl.Rect) sdl.FRect {
+	return sdl.FRect{
+		X: float32(rect.X) / float32(texture.width),
+		Y: float32(rect.Y) / float32(texture.height),
+		W: float32(rect.W) / float32(texture.width),
+		H: float32(rect.H) / float32(texture.height),
+	}
 }
 
 func (texture *Texture) Delete() {
