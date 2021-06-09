@@ -8,9 +8,6 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-//go:embed shaders.glsl
-var shader_sources string
-
 const VertexStructSize = 12 * 4
 
 type Vertex struct {
@@ -27,17 +24,22 @@ type Vertex struct {
 }
 
 // render subsystem global variables
-var rgl_context sdl.GLContext
-var rgl_vao uint32
-var rgl_vbo uint32
-var rgl_ebo uint32
+var (
+	rgl_context sdl.GLContext
+	rgl_vao     uint32
+	rgl_vbo     uint32
+	rgl_ebo     uint32
 
-var rgl_shader_program uint32
-var rgl_atlas_uniform int32
-var rgl_projection_uniform int32
+	//go:embed shaders.glsl
+	shader_sources string
 
-var rgl_vertex_buffer_len int
-var rgl_element_buffer_len int
+	rgl_shader_program     uint32
+	rgl_atlas_uniform      int32
+	rgl_projection_uniform int32
+
+	rgl_vertex_buffer_len  int
+	rgl_element_buffer_len int
+)
 
 func RGL_Init() {
 	// Initialize opengl
@@ -92,8 +94,8 @@ func RGL_Init() {
 
 	// NOTE: We don't need blending. This is only for Renderer.DebugDrawFontAtlas
 	// Disable on release build
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	// gl.Enable(gl.BLEND)
+	// gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 	RGL_CheckError("RGL_Init")
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
