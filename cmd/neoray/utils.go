@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strings"
 	"sync/atomic"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -97,41 +96,47 @@ func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 		float32(-(far + near) / fmn), 1}
 }
 
-func afterSubstr(str string, substrs ...string) string {
-	for _, substr := range substrs {
-		idx := strings.Index(str, substr)
-		if idx != -1 {
-			return str[idx+len(substr):]
-		}
-	}
-	return ""
-}
-
-func beginsWith(str string, substrs ...string) bool {
-	for _, substr := range substrs {
-		if strings.Index(str, substr) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func has_flag_u16(val, flag uint16) bool {
 	return val&flag != 0
 }
 
-func atomicSetBool(b *int32, value bool) {
+type AtomicValue struct {
+	valueBool int32
+	valueInt  int32
+}
+
+func (atomicBool *AtomicValue) SetBool(value bool) {
 	var val int32 = 0
 	if value == true {
 		val = 1
 	}
-	atomic.StoreInt32(b, val)
+	atomic.StoreInt32(&atomicBool.valueBool, val)
 }
 
-func atomicGetBool(b *int32) bool {
-	val := atomic.LoadInt32(b)
+func (atomicBool *AtomicValue) GetBool() bool {
+	val := atomic.LoadInt32(&atomicBool.valueBool)
 	if val == 0 {
 		return false
 	}
 	return true
+}
+
+func (atomicBool *AtomicValue) SetInt(value int) {
+	atomic.StoreInt32(&atomicBool.valueInt, int32(value))
+}
+
+func (atomicBool *AtomicValue) GetInt() int {
+	return int(atomic.LoadInt32(&atomicBool.valueInt))
+}
+
+func (atomicBool *AtomicValue) Increase() {
+	atomic.StoreInt32(&atomicBool.valueInt, atomic.LoadInt32(&atomicBool.valueInt)+1)
+}
+
+func (atomicBool *AtomicValue) Decrease() {
+	atomic.StoreInt32(&atomicBool.valueInt, atomic.LoadInt32(&atomicBool.valueInt)-1)
+}
+
+func (atomicBool *AtomicValue) IsZero() bool {
+	return atomic.LoadInt32(&atomicBool.valueInt) == 0
 }
