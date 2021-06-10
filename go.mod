@@ -9,4 +9,5 @@ require (
 	github.com/go-gl/gl v0.0.0-20210501111010-69f74958bac0
 	github.com/neovim/go-client v1.1.7
 	github.com/veandco/go-sdl2 v0.4.7
+	golang.org/x/image v0.0.0-20210607152325-775e3b0c77b9
 )
