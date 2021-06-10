@@ -54,10 +54,10 @@ type Editor struct {
 	deltaTime       float32
 }
 
-func (editor *Editor) Initialize() {
+func (editor *Editor) Initialize(nvimArgs []string) {
 	startupTime := time.Now()
 
-	editor.nvim = CreateNvimProcess()
+	editor.nvim = CreateNvimProcess(nvimArgs)
 	if err := sdl.Init(sdl.INIT_EVENTS); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
 	}
@@ -87,7 +87,7 @@ func (editor *Editor) MainLoop() {
 			continue
 		default:
 		}
-		editor.ProcessSignals()
+		ProcessSignals()
 		// Order is important!
 		HandleNvimRedrawEvents()
 		HandleSDLEvents()
@@ -107,16 +107,6 @@ func (editor *Editor) MainLoop() {
 	}
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 		"Program finished. Total execution time:", time.Since(programBegin))
-}
-
-func (editor *Editor) ProcessSignals() {
-	if atomicGetBool(&SignalOpenFile) == true {
-		SignalMutex.Lock()
-		defer SignalMutex.Unlock()
-		editor.nvim.ExecuteVimScript(":edit %s", SignalOpenFileName)
-		atomicSetBool(&SignalOpenFile, false)
-		editor.window.handle.Raise()
-	}
 }
 
 func (editor *Editor) Shutdown() {

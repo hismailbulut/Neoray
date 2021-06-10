@@ -6,17 +6,16 @@ import (
 )
 
 const (
-	DEBUG_BUILD   = 0
-	RELEASE_BUILD = 1
+	BUILD_TYPE_DEBUG   = 0
+	BUILD_TYPE_RELEASE = 1
+	NEORAY_BUILD_TYPE  = BUILD_TYPE_DEBUG
 
 	NEORAY_NAME          = "Neoray"
 	NEORAY_VERSION_MAJOR = 0
 	NEORAY_VERSION_MINOR = 0
-	NEORAY_VERSION_PATCH = 2
+	NEORAY_VERSION_PATCH = 3
 	NEORAY_WEBPAGE       = "github.com/hismailbulut/Neoray"
 	NEORAY_LICENSE       = "GPLv3"
-
-	NEORAY_BUILD_TYPE = DEBUG_BUILD
 )
 
 // NOTE: This source code is documented by me and I don't know English well.
@@ -33,47 +32,37 @@ func init() {
 // functions accessing it and these functions also not thread safe.
 var EditorSingleton Editor
 
-var NeovimArgs []string
-
-func preprocessArgs() bool {
-	dontStart := false
-	for _, arg := range os.Args[1:] {
-		if beginsWith(arg, "--single-instance=", "-si=") {
-			fileName := afterSubstr(arg, "--single-instance=", "-si=")
-			if fileName != "" && SendOpenFile(fileName) {
-				dontStart = true
-			} else {
-				CreateServer()
-			}
-		} else {
-			NeovimArgs = append(NeovimArgs, arg)
-		}
-	}
-	return dontStart
-}
-
 func main() {
+	// Set some build type specific options.
 	switch NEORAY_BUILD_TYPE {
-	case DEBUG_BUILD:
+	case BUILD_TYPE_DEBUG:
 		start_pprof()
 		init_function_time_tracker()
 		defer close_function_time_tracker()
 		MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
-	case RELEASE_BUILD:
+	case BUILD_TYPE_RELEASE:
 		MINIMUM_LOG_LEVEL = LOG_LEVEL_WARN
 	default:
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Unknown build type.")
 	}
 
-	if preprocessArgs() {
+	argOptions, nvimArgs := ParseArgs(os.Args[1:])
+	// If parse before returns true, we will not start neoray.
+	if argOptions.ProcessBefore() {
 		return
 	}
 
 	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
-	EditorSingleton.Initialize()
+	EditorSingleton.Initialize(nvimArgs)
 	// And shutdown will frees resources and closes neovim.
 	defer EditorSingleton.Shutdown()
+	// Some arguments must be processed after initializing.
+	argOptions.ProcessAfter()
 	// MainLoop is main loop of the neoray.
 	EditorSingleton.MainLoop()
+}
+
+func isDebugBuild() bool {
+	return NEORAY_BUILD_TYPE == BUILD_TYPE_DEBUG
 }
