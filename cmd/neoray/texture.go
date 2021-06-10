@@ -1,6 +1,9 @@
 package main
 
 import (
+	"image"
+	"unsafe"
+
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -39,14 +42,10 @@ func (texture *Texture) Clear() {
 	RGL_CheckError("Texture.Clear")
 }
 
-func (texture *Texture) UpdatePartFromSurface(surface *sdl.Surface, dest sdl.Rect) {
-	if dest.X+dest.W > int32(texture.width) {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Surface width is out of bounds.")
-	}
-	if dest.Y+dest.H > int32(texture.height) {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Surface height is out of bounds.")
-	}
-	gl.TexSubImage2D(gl.TEXTURE_2D, 0, dest.X, dest.Y, dest.W, dest.H, gl.RGBA, gl.UNSIGNED_BYTE, surface.Data())
+func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest sdl.Rect) {
+	gl.TexSubImage2D(gl.TEXTURE_2D, 0,
+		dest.X, dest.Y, dest.W, dest.H,
+		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
 	RGL_CheckError("Texture.UpdatePartFromSurface")
 }
 

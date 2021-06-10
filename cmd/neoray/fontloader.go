@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/adrg/sysfont"
-	"github.com/veandco/go-sdl2/ttf"
 )
 
 var (
@@ -14,17 +13,17 @@ var (
 )
 
 type Font struct {
-	size        float32
-	regular     *ttf.Font
-	italic      *ttf.Font
-	bold        *ttf.Font
-	bold_italic *ttf.Font
+	// If you want to disable a font, just set size to 0.
+	size int
+	// All faces has a bool value that specifies is font loaded or not.
+	// And only set to true by CreateFontFace
+	regular     FontFace
+	italic      FontFace
+	bold        FontFace
+	bold_italic FontFace
 }
 
 func FontSystemInit() {
-	if err := ttf.Init(); err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL_TTF:", err)
-	}
 	systemFontList = sysfont.NewFinder(nil).List()
 	switch runtime.GOOS {
 	case "windows":
@@ -39,11 +38,7 @@ func FontSystemInit() {
 	}
 }
 
-func FontSystemClose() {
-	ttf.Quit()
-}
-
-func CreateFont(fontName string, size float32) (Font, bool) {
+func CreateFont(fontName string, size int) (Font, bool) {
 	defer measure_execution_time("CreateFont")()
 
 	if size < MINIMUM_FONT_SIZE {
@@ -62,40 +57,31 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	return font, true
 }
 
-func (font *Font) GetSuitableFont(italic bool, bold bool) *ttf.Font {
-	if italic && bold {
-		if font.bold_italic == nil {
-			font.regular.SetStyle(ttf.STYLE_BOLD | ttf.STYLE_ITALIC)
-		} else {
-			return font.bold_italic
-		}
-	} else if italic {
-		if font.italic == nil {
-			font.regular.SetStyle(ttf.STYLE_ITALIC)
-		} else {
-			return font.italic
-		}
-	} else if bold {
-		if font.bold == nil {
-			font.regular.SetStyle(ttf.STYLE_BOLD)
-		} else {
-			return font.bold
-		}
-	} else {
-		font.regular.SetStyle(0)
+func (font *Font) Unload() {
+	font.bold_italic.loaded = false
+	font.bold_italic.handle = nil
+	font.italic.loaded = false
+	font.italic.handle = nil
+	font.bold.loaded = false
+	font.bold.handle = nil
+	font.regular.loaded = false
+	font.regular.handle = nil
+	font.size = 0
+}
+
+func (font *Font) GetSuitableFont(italic bool, bold bool) FontFace {
+	if italic && bold && font.bold_italic.loaded {
+		return font.bold_italic
+	} else if italic && font.italic.loaded {
+		return font.italic
+	} else if bold && font.bold.loaded {
+		return font.bold
 	}
 	return font.regular
 }
 
 func (font *Font) CalculateCellSize() (int, int) {
-	metrics, err := font.regular.GlyphMetrics('m')
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to calculate cell size:", err)
-		return int(font.size / 2), int(font.size)
-	}
-	w := metrics.Advance
-	h := font.regular.Height()
-	return w, h
+	return font.regular.advance, font.regular.ascent + font.regular.descent
 }
 
 func (font *Font) loadDefaultFont() {
@@ -148,59 +134,46 @@ func (font *Font) loadMatchingFonts(font_list []sysfont.Font) bool {
 		}
 	}
 
+	var err error
+
 	// bold-italic
-	if font.bold_italic == nil && len(bold_italics) > 0 {
+	if !font.bold_italic.loaded && len(bold_italics) > 0 {
 		smallest := findSmallestLengthFont(bold_italics)
-		font.bold_italic = font.loadFontData(smallest)
-		if font.bold_italic != nil {
-			log_debug_msg("Font Bold Italic:", font.bold_italic.FaceFamilyName(), "Bold Italic")
+		font.bold_italic, err = CreateFontFace(smallest, font.size)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load bold italic font face.")
 		}
 	}
 
 	// italic
-	if font.italic == nil && len(italics) > 0 {
+	if !font.italic.loaded && len(italics) > 0 {
 		smallest := findSmallestLengthFont(italics)
-		font.italic = font.loadFontData(smallest)
-		if font.italic != nil {
-			log_debug_msg("Font Italic:", font.italic.FaceFamilyName(), "Italic")
+		font.italic, err = CreateFontFace(smallest, font.size)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load italic font face.")
 		}
 	}
 
 	//bold
-	if font.bold == nil && len(bolds) > 0 {
+	if !font.bold.loaded && len(bolds) > 0 {
 		smallest := findSmallestLengthFont(bolds)
-		font.bold = font.loadFontData(smallest)
-		if font.bold != nil {
-			log_debug_msg("Font Bold:", font.bold.FaceFamilyName(), "Bold")
+		font.bold, err = CreateFontFace(smallest, font.size)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load bold font face.")
 		}
 	}
 
 	//regular
-	if font.regular == nil && len(others) > 0 {
+	if !font.regular.loaded && len(others) > 0 {
 		smallest := findSmallestLengthFont(others)
-		font.regular = font.loadFontData(smallest)
-		if font.regular != nil {
-			log_debug_msg("Font Regular:", font.regular.FaceFamilyName())
-		} else {
+		font.regular, err = CreateFontFace(smallest, font.size)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load regular font face.")
 			return false
 		}
 	}
 
 	return true
-}
-
-func (font *Font) loadFontData(filename string) *ttf.Font {
-	fontHandle, err := ttf.OpenFont(filename, int(font.size))
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to open font file:", err)
-		return nil
-	}
-	fontHandle.SetHinting(ttf.HINTING_MONO | ttf.HINTING_LIGHT)
-	fontHandle.SetOutline(0)
-	if fontHandle.Faces() > 1 {
-		log_debug_msg("Font has more than one face.")
-	}
-	return fontHandle
 }
 
 func findSmallestLengthFont(font_list []sysfont.Font) string {
@@ -219,24 +192,4 @@ func fontNameContains(f *sysfont.Font, str string) bool {
 	return strings.Contains(strings.ToLower(f.Name), strings.ToLower(str)) ||
 		strings.Contains(strings.ToLower(f.Family), strings.ToLower(str)) ||
 		strings.Contains(strings.ToLower(f.Filename), strings.ToLower(str))
-}
-
-func (font *Font) Unload() {
-	if font.regular != nil {
-		font.regular.Close()
-		font.regular = nil
-	}
-	if font.bold != nil {
-		font.bold.Close()
-		font.bold = nil
-	}
-	if font.italic != nil {
-		font.italic.Close()
-		font.italic = nil
-	}
-	if font.bold_italic != nil {
-		font.bold_italic.Close()
-		font.bold_italic = nil
-	}
-	font.size = 0
 }
