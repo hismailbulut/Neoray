@@ -26,18 +26,18 @@ type FunctionMeasure struct {
 }
 
 var (
-	measure_initialized    int32 = 0
+	measure_initialized    AtomicValue
 	measure_averages       map[string]FunctionMeasure
 	measure_averages_mutex sync.Mutex
 )
 
 func init_function_time_tracker() {
 	measure_averages = make(map[string]FunctionMeasure)
-	measure_initialized = 1
+	measure_initialized.SetBool(true)
 }
 
 func measure_execution_time(name string) func() {
-	if atomicGetBool(&measure_initialized) == false {
+	if !measure_initialized.GetBool() {
 		return func() {}
 	}
 	now := time.Now()
@@ -59,7 +59,7 @@ func measure_execution_time(name string) func() {
 }
 
 func close_function_time_tracker() {
-	if atomicGetBool(&measure_initialized) == false {
+	if !measure_initialized.GetBool() {
 		return
 	}
 	for key, val := range measure_averages {
