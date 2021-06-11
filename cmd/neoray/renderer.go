@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 const (
@@ -17,8 +15,8 @@ var (
 
 type FontAtlas struct {
 	texture    Texture
-	pos        ivec2
-	characters map[string]sdl.Rect
+	pos        IntVec2
+	characters map[string]IntRect
 }
 
 type Renderer struct {
@@ -40,11 +38,11 @@ type Renderer struct {
 
 func CreateRenderer() Renderer {
 	RGL_Init()
-	FontSystemInit()
+	InitializeFontLoader()
 	renderer := Renderer{
 		fontAtlas: FontAtlas{
 			texture:    CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE),
-			characters: make(map[string]sdl.Rect),
+			characters: make(map[string]IntRect),
 		},
 	}
 	renderer.defaultFont, _ = CreateFont("", DEFAULT_FONT_SIZE)
@@ -81,6 +79,7 @@ func (renderer *Renderer) SetDefaultFont(size int) {
 	}
 	// disable user font
 	renderer.userFont.Unload()
+	renderer.userFontLoaded = false
 	// clear atlas texture
 	renderer.ClearAtlas()
 	// update cell size if font size has changed
@@ -117,8 +116,8 @@ func (renderer *Renderer) Resize(rows, cols int) {
 
 func (renderer *Renderer) ClearAtlas() {
 	renderer.fontAtlas.texture.Clear()
-	renderer.fontAtlas.characters = make(map[string]sdl.Rect)
-	renderer.fontAtlas.pos = ivec2{}
+	renderer.fontAtlas.characters = make(map[string]IntRect)
+	renderer.fontAtlas.pos = IntVec2{}
 }
 
 func (renderer *Renderer) CreateVertexData(rows, cols int) {
@@ -159,15 +158,15 @@ func (renderer *Renderer) CreateVertexData(rows, cols int) {
 }
 
 func (renderer *Renderer) DebugDrawFontAtlas() {
-	atlas_pos := sdl.Rect{
-		X: int32(EditorSingleton.window.width - int(FONT_ATLAS_DEFAULT_SIZE)),
+	atlas_pos := IntRect{
+		X: EditorSingleton.window.width - FONT_ATLAS_DEFAULT_SIZE,
 		Y: 0,
-		W: int32(FONT_ATLAS_DEFAULT_SIZE),
-		H: int32(FONT_ATLAS_DEFAULT_SIZE),
+		W: FONT_ATLAS_DEFAULT_SIZE,
+		H: FONT_ATLAS_DEFAULT_SIZE,
 	}
-	vertex := Vertex{fg: f32color{R: 1, G: 1, B: 1, A: 1}}
+	vertex := Vertex{fg: F32Color{R: 1, G: 1, B: 1, A: 1}}
 	positions := triangulateRect(atlas_pos)
-	texture_positions := triangulateFRect(sdl.FRect{X: 0, Y: 0, W: 1, H: 1})
+	texture_positions := triangulateFRect(F32Rect{X: 0, Y: 0, W: 1, H: 1})
 	for i := 0; i < 4; i++ {
 		vertex.pos = positions[i]
 		vertex.tex = texture_positions[i]
@@ -195,16 +194,16 @@ func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 	}
 }
 
-func (renderer *Renderer) SetCellBackgroundData(x, y int, color sdl.Color) {
-	c := color_u8_to_f32(color)
+func (renderer *Renderer) SetCellBackgroundData(x, y int, color U8Color) {
+	c := color.ToF32Color()
 	begin := cellVertexPosition(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].bg = c
 	}
 }
 
-func (renderer *Renderer) SetCellForegroundData(x, y int, src sdl.Rect, dest sdl.Rect, color sdl.Color) {
-	c := color_u8_to_f32(color)
+func (renderer *Renderer) SetCellForegroundData(x, y int, src IntRect, dest IntRect, color U8Color) {
+	c := color.ToF32Color()
 	area := renderer.fontAtlas.texture.GetRectGLCoordinates(src)
 	texture_coords := triangulateFRect(area)
 	begin := cellVertexPosition(x, y)
@@ -226,9 +225,9 @@ func (renderer *Renderer) ClearCellForegroundData(x, y int) {
 	}
 }
 
-func (renderer *Renderer) SetCursorData(pos sdl.Rect, atlas_pos sdl.Rect, fg, bg sdl.Color) {
-	bgc := color_u8_to_f32(bg)
-	fgc := color_u8_to_f32(fg)
+func (renderer *Renderer) SetCursorData(pos IntRect, atlas_pos IntRect, fg, bg U8Color) {
+	bgc := bg.ToF32Color()
+	fgc := fg.ToF32Color()
 	positions := triangulateRect(pos)
 	atlas_pos_gl := renderer.fontAtlas.texture.GetRectGLCoordinates(atlas_pos)
 	texture_positions := triangulateFRect(atlas_pos_gl)
@@ -242,28 +241,24 @@ func (renderer *Renderer) SetCursorData(pos sdl.Rect, atlas_pos sdl.Rect, fg, bg
 	}
 }
 
-func cellRect(x, y int) sdl.Rect {
-	return sdl.Rect{
-		X: int32(y * EditorSingleton.cellWidth),
-		Y: int32(x * EditorSingleton.cellHeight),
-		W: int32(EditorSingleton.cellWidth),
-		H: int32(EditorSingleton.cellHeight),
+func cellRect(x, y int) IntRect {
+	return IntRect{
+		X: y * EditorSingleton.cellWidth,
+		Y: x * EditorSingleton.cellHeight,
+		W: EditorSingleton.cellWidth,
+		H: EditorSingleton.cellHeight,
 	}
 }
 
 func cellVertexPosition(x, y int) int {
-	r := (x*EditorSingleton.columnCount + y) * 4
-	if r >= len(EditorSingleton.renderer.vertexData) {
-		log_debug_msg("BREAK")
-	}
-	return r
+	return (x*EditorSingleton.columnCount + y) * 4
 }
 
 func cellElementPosition(x, y int) int {
 	return (x*EditorSingleton.columnCount + y) * 6
 }
 
-func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
+func (renderer *Renderer) GetEmptyAtlasPosition(width int) IntVec2 {
 	atlas := &renderer.fontAtlas
 	pos := atlas.pos
 	atlas.pos.X += width
@@ -274,13 +269,13 @@ func (renderer *Renderer) GetEmptyAtlasPosition(width int) ivec2 {
 	if atlas.pos.Y+EditorSingleton.cellHeight > int(FONT_ATLAS_DEFAULT_SIZE) {
 		// Fully filled
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
-		atlas.pos = ivec2{}
+		atlas.pos = IntVec2{}
 	}
 	return pos
 }
 
-func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) (sdl.Rect, error) {
-	var position sdl.Rect
+func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) (IntRect, error) {
+	var position IntRect
 	// generate specific id for this character
 	id := fmt.Sprintf("%s%t%t", char, italic, bold)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
@@ -298,11 +293,11 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 		textImage := fontFace.RenderChar(char)
 		// Get empty atlas position for this char
 		text_pos := renderer.GetEmptyAtlasPosition(EditorSingleton.cellWidth)
-		position = sdl.Rect{
-			X: int32(text_pos.X),
-			Y: int32(text_pos.Y),
-			W: int32(EditorSingleton.cellWidth),
-			H: int32(EditorSingleton.cellHeight),
+		position = IntRect{
+			X: text_pos.X,
+			Y: text_pos.Y,
+			W: EditorSingleton.cellWidth,
+			H: EditorSingleton.cellHeight,
 		}
 		// Draw text to empty position of atlas texture
 		renderer.fontAtlas.texture.UpdatePartFromImage(textImage, position)
@@ -312,7 +307,7 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 	return position, nil
 }
 
-func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg sdl.Color, italic, bold bool) {
+func (renderer *Renderer) DrawCellCustom(x, y int, char string, fg, bg U8Color, italic, bold bool) {
 	// draw Background
 	renderer.SetCellBackgroundData(x, y, bg)
 	if char == "" || char == " " {
@@ -400,7 +395,7 @@ func (renderer *Renderer) Render() {
 	RGL_ClearScreen(EditorSingleton.grid.default_bg)
 	RGL_UpdateVertexData(renderer.vertexData)
 	RGL_Render()
-	EditorSingleton.window.handle.GLSwap()
+	EditorSingleton.window.handle.SwapBuffers()
 }
 
 func (renderer *Renderer) Close() {
