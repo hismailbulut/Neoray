@@ -11,14 +11,15 @@ type Args struct {
 	line           int
 	column         int
 	singleInstance bool
+
+	nvimArgs []string
 }
 
-func ParseArgs(args []string) (Args, []string) {
+func ParseArgs(args []string) Args {
 	options := Args{
 		line:   -1,
 		column: -1,
 	}
-	otherOptions := make([]string, 0)
 	for _, arg := range args {
 		prefix := arg
 		equalsIndex := strings.Index(arg, "=")
@@ -51,23 +52,21 @@ func ParseArgs(args []string) (Args, []string) {
 			options.singleInstance = true
 			break
 		default:
-			otherOptions = append(otherOptions, arg)
+			options.nvimArgs = append(options.nvimArgs, arg)
 			break
 		}
 	}
-	return options, otherOptions
+	return options
 }
 
 // Call this before starting neovim.
 func (options Args) ProcessBefore() bool {
 	dontStart := false
 	if options.singleInstance {
-		if options.file != "" {
+		if !dontStart && options.file != "" {
 			fullPath, err := filepath.Abs(options.file)
 			if err == nil {
 				dontStart = SendSignal(FORMAT_OPENFILE, fullPath)
-			} else {
-				log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "Failed to send openfile signal:", err)
 			}
 		}
 		if options.line != -1 {
@@ -77,6 +76,7 @@ func (options Args) ProcessBefore() bool {
 			dontStart = SendSignal(FORMAT_GOTOCOL, options.column)
 		}
 		if !dontStart {
+			log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "No open instance founded, creating server.")
 			CreateServer()
 		}
 	}
@@ -86,12 +86,12 @@ func (options Args) ProcessBefore() bool {
 // Call this after connected neovim as ui.
 func (options Args) ProcessAfter() {
 	if options.file != "" {
-		EditorSingleton.nvim.ExecuteVimScript(":edit %s", options.file)
+		EditorSingleton.nvim.ExecuteVimScript(FORMAT_OPENFILE, options.file)
 	}
 	if options.line != -1 {
-		EditorSingleton.nvim.ExecuteVimScript("call cursor(%d, 0)", options.line)
+		EditorSingleton.nvim.ExecuteVimScript(FORMAT_GOTOLINE, options.line)
 	}
 	if options.column != -1 {
-		EditorSingleton.nvim.ExecuteVimScript("call cursor(0, %d)", options.column)
+		EditorSingleton.nvim.ExecuteVimScript(FORMAT_GOTOCOL, options.column)
 	}
 }
