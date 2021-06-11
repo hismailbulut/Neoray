@@ -1,9 +1,5 @@
 package main
 
-import (
-	"github.com/veandco/go-sdl2/sdl"
-)
-
 type Cell struct {
 	char         string
 	attrib_id    int
@@ -11,9 +7,9 @@ type Cell struct {
 }
 
 type HighlightAttribute struct {
-	foreground    sdl.Color
-	background    sdl.Color
-	special       sdl.Color
+	foreground    U8Color
+	background    U8Color
+	special       U8Color
 	reverse       bool
 	italic        bool
 	bold          bool
@@ -25,9 +21,9 @@ type HighlightAttribute struct {
 
 type Grid struct {
 	cells      [][]Cell
-	default_fg sdl.Color
-	default_bg sdl.Color
-	default_sp sdl.Color
+	default_fg U8Color
+	default_bg U8Color
+	default_sp U8Color
 	attributes map[int]HighlightAttribute
 }
 
