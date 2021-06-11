@@ -4,50 +4,49 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 type Window struct {
-	handle     *sdl.Window
-	title      string
-	width      int
-	height     int
-	fullscreen bool
+	handle *glfw.Window
+	title  string
+	width  int
+	height int
+	// This is for restoring window from fullscreen, dont use them
+	rect IntRect
 }
 
 func CreateWindow(width int, height int, title string) Window {
 	window := Window{
-		title:      title,
-		width:      width,
-		height:     height,
-		fullscreen: false,
+		title:  title,
+		width:  width,
+		height: height,
 	}
 
-	sdl_window, err := sdl.CreateWindow(title, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
-		int32(width), int32(height), sdl.WINDOW_OPENGL|sdl.WINDOW_RESIZABLE)
+	glfw.WindowHint(glfw.ContextVersionMajor, 3)
+	glfw.WindowHint(glfw.ContextVersionMinor, 3)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.Resizable, glfw.True)
+
+	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL window:", err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
-	window.handle = sdl_window
+	window.handle = windowHandle
 
-	sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
-	sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
-	sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 3)
+	window.handle.SetSizeCallback(WindowResizeHandler)
+	window.handle.MakeContextCurrent()
 
 	return window
 }
 
-func (window *Window) HandleWindowResizing() {
-	w, h := window.handle.GetSize()
-	if w != int32(window.width) || h != int32(window.height) {
-		window.width = int(w)
-		window.height = int(h)
-		EditorSingleton.nvim.RequestResize()
-	}
+func WindowResizeHandler(w *glfw.Window, width, height int) {
+	EditorSingleton.window.width = width
+	EditorSingleton.window.height = height
+	EditorSingleton.nvim.RequestResize()
 }
 
 func (window *Window) Update() {
-	window.HandleWindowResizing()
 	// DEBUG
 	fps_string := fmt.Sprintf(" | FPS: %d", EditorSingleton.framesPerSecond)
 	idx := strings.LastIndex(window.title, " | ")
@@ -58,26 +57,33 @@ func (window *Window) Update() {
 	}
 }
 
-func (window *Window) SetSize(newWidth int, newHeight int, editor *Editor) {
-	window.handle.SetSize(int32(newWidth), int32(newHeight))
-	window.HandleWindowResizing()
-}
-
 func (window *Window) SetTitle(title string) {
 	window.handle.SetTitle(title)
 	window.title = title
 }
 
 func (window *Window) ToggleFullscreen() {
-	if window.fullscreen {
-		window.handle.SetFullscreen(0)
-		window.fullscreen = false
+	if window.handle.GetMonitor() == nil {
+		// Set to fullscreen
+		x, y := window.handle.GetPos()
+		w, h := window.handle.GetSize()
+		window.rect.X = x
+		window.rect.Y = y
+		window.rect.W = w
+		window.rect.H = h
+		monitor := glfw.GetPrimaryMonitor()
+		videoMode := monitor.GetVideoMode()
+		window.handle.SetMonitor(monitor, 0, 0,
+			videoMode.Width, videoMode.Height, videoMode.RefreshRate)
 	} else {
-		window.handle.SetFullscreen(sdl.WINDOW_FULLSCREEN_DESKTOP)
-		window.fullscreen = true
+		// restore
+		window.handle.SetMonitor(nil,
+			window.rect.X, window.rect.Y,
+			window.rect.W, window.rect.H, 0)
 	}
 }
 
 func (window *Window) Close() {
+	glfw.DetachCurrentContext()
 	window.handle.Destroy()
 }

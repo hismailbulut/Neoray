@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 const (
@@ -33,7 +33,6 @@ type Editor struct {
 	// UIOptions is a struct, holds some user ui options like guifont.
 	options UIOptions
 	// If quitRequested is true the program will quit.
-	quitRequested     bool
 	quitRequestedChan chan bool
 	// This is for resizing from nvim side, first we will send resize request to neovim,
 	// than we wait for the resize call from neovim side. When waiting this we dont want
@@ -54,20 +53,24 @@ type Editor struct {
 	deltaTime       float32
 }
 
-func (editor *Editor) Initialize(nvimArgs []string) {
+func (editor *Editor) Initialize() {
 	startupTime := time.Now()
 
-	editor.nvim = CreateNvimProcess(nvimArgs)
-	if err := sdl.Init(sdl.INIT_EVENTS); err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize SDL2:", err)
-	}
+	editor.nvim = CreateNvimProcess()
 
+	if err := glfw.Init(); err != nil {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
+	}
 	editor.window = CreateWindow(800, 600, NEORAY_NAME)
+	InitializeInputEvents()
+
 	editor.grid = CreateGrid()
-	editor.cursor = Cursor{}
 	editor.mode = CreateMode()
-	editor.renderer = CreateRenderer()
+	editor.cursor = Cursor{}
 	editor.options = UIOptions{}
+
+	editor.renderer = CreateRenderer()
+
 	editor.quitRequestedChan = make(chan bool)
 	editor.nvim.StartUI()
 
@@ -80,22 +83,22 @@ func (editor *Editor) MainLoop() {
 	defer ticker.Stop()
 	fpsTimer := time.Now()
 	fps := 0
-	for !editor.quitRequested {
+	for !editor.window.handle.ShouldClose() {
 		select {
 		case <-editor.quitRequestedChan:
-			editor.quitRequested = true
+			editor.window.handle.SetShouldClose(true)
 			continue
 		default:
 		}
-		ProcessSignals()
 		// Order is important!
+		ProcessSignals()
 		HandleNvimRedrawEvents()
-		HandleSDLEvents()
 		if !editor.waitingResize {
 			editor.window.Update()
 			editor.cursor.Update()
 			editor.renderer.Update()
 		}
+		glfw.PollEvents()
 		fps++
 		if time.Since(fpsTimer) > time.Second {
 			editor.framesPerSecond = fps
@@ -114,5 +117,5 @@ func (editor *Editor) Shutdown() {
 	editor.grid.Destroy()
 	editor.window.Close()
 	editor.renderer.Close()
-	sdl.Quit()
+	glfw.Terminate()
 }
