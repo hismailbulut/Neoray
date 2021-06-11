@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
 )
 
 const (
@@ -23,6 +24,7 @@ const (
 // correct me with a pr or something else you can communicate with me.
 
 func init() {
+	runtime.LockOSThread()
 	log.SetFlags(0)
 }
 
@@ -31,6 +33,9 @@ func init() {
 // accessed at same time from different threads or goroutines. Most of the
 // functions accessing it and these functions also not thread safe.
 var EditorSingleton Editor
+
+// Given arguments when starting this editor.
+var EditorArgs Args
 
 func main() {
 	// Set some build type specific options.
@@ -46,19 +51,19 @@ func main() {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Unknown build type.")
 	}
 
-	argOptions, nvimArgs := ParseArgs(os.Args[1:])
+	EditorArgs = ParseArgs(os.Args[1:])
 	// If parse before returns true, we will not start neoray.
-	if argOptions.ProcessBefore() {
+	if EditorArgs.ProcessBefore() {
 		return
 	}
 
 	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
-	EditorSingleton.Initialize(nvimArgs)
+	EditorSingleton.Initialize()
 	// And shutdown will frees resources and closes neovim.
 	defer EditorSingleton.Shutdown()
 	// Some arguments must be processed after initializing.
-	argOptions.ProcessAfter()
+	EditorArgs.ProcessAfter()
 	// MainLoop is main loop of the neoray.
 	EditorSingleton.MainLoop()
 }
