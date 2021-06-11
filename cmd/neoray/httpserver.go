@@ -9,31 +9,23 @@ import (
 const (
 	SERVER_DEFAULT_PORT = "17717"
 
-	FORMAT_OPENFILE = iota
-	FORMAT_GOTOLINE
-	FORMAT_GOTOCOL
+	FORMAT_CHECK_SIGNAL = "this is a signal for checking already open instance"
+	FORMAT_OPENFILE     = ":edit %s"
+	FORMAT_GOTOLINE     = "call cursor(%d, 0)"
+	FORMAT_GOTOCOL      = "call cursor(0, %d)"
 )
 
 var (
+	ServerCreated  bool
 	SignalMutex    sync.Mutex
-	SignalReceived AtomicValue
+	SignalReceived AtomicBool
 	SignalContent  []string
-
-	SignalScriptFormats = map[int]string{
-		FORMAT_OPENFILE: ":edit %s",
-		FORMAT_GOTOLINE: "call cursor(%d, 0)",
-		FORMAT_GOTOCOL:  "call cursor(0, %d)",
-	}
 )
 
-func SendSignal(format int, args ...interface{}) bool {
+func SendSignal(format string, args ...interface{}) bool {
 	defer measure_execution_time("SendSignal")()
-	formatStr, ok := SignalScriptFormats[format]
-	if !ok {
-		return false
-	}
-	formatted := fmt.Sprintf(formatStr, args...)
-	requesturl := "http://localhost:" + SERVER_DEFAULT_PORT + "/" + formatted
+
+	requesturl := "http://localhost:" + SERVER_DEFAULT_PORT + "/" + fmt.Sprintf(format, args...)
 	resp, err := http.Get(requesturl)
 	if err != nil {
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "Connection failed:", err)
@@ -48,6 +40,9 @@ func SendSignal(format int, args ...interface{}) bool {
 }
 
 func ProcessSignals() {
+	if !ServerCreated {
+		return
+	}
 	if SignalReceived.GetBool() {
 		SignalMutex.Lock()
 		defer SignalMutex.Unlock()
@@ -57,7 +52,7 @@ func ProcessSignals() {
 		}
 		SignalContent = nil
 		SignalReceived.SetBool(false)
-		EditorSingleton.window.handle.Raise()
+		EditorSingleton.window.handle.RequestAttention()
 	}
 }
 
@@ -66,15 +61,16 @@ func CreateServer() {
 	handler := http.NewServeMux()
 
 	handler.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-		SignalMutex.Lock()
-		defer SignalMutex.Unlock()
 		content := r.URL.Path[1:]
-		if content != "" {
-			SignalContent = append(SignalContent, content)
+		if content != "" && content != FORMAT_CHECK_SIGNAL {
 			SignalReceived.SetBool(true)
+			SignalMutex.Lock()
+			defer SignalMutex.Unlock()
+			SignalContent = append(SignalContent, content)
 		}
 	})
 
+	ServerCreated = true
 	go func() {
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "Listening port:", SERVER_DEFAULT_PORT)
 		err := http.ListenAndServe(":"+SERVER_DEFAULT_PORT, handler)
