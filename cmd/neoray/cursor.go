@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/veandco/go-sdl2/sdl"
-)
+import ()
 
 const (
 	CursorAnimationLifetime = 0.4
@@ -25,8 +23,8 @@ func (cursor *Cursor) Update() {
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	if !immediately {
 		cursor.anim = CreateAnimation(
-			f32vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
-			f32vec2{X: float32(x), Y: float32(y)},
+			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
+			F32Vec2{X: float32(x), Y: float32(y)},
 			CursorAnimationLifetime)
 	}
 	cursor.X = x
@@ -34,41 +32,41 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	cursor.needs_redraw = true
 }
 
-func (cursor *Cursor) GetPositionRectangle(cell_pos ivec2, info ModeInfo) (sdl.Rect, bool) {
-	var cursor_rect sdl.Rect
+func (cursor *Cursor) GetRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bool) {
+	var cursor_rect IntRect
 	var draw_char bool
 	switch info.cursor_shape {
 	case "block":
-		cursor_rect = sdl.Rect{
-			X: int32(cell_pos.X),
-			Y: int32(cell_pos.Y),
-			W: int32(EditorSingleton.cellWidth),
-			H: int32(EditorSingleton.cellHeight),
+		cursor_rect = IntRect{
+			X: cell_pos.X,
+			Y: cell_pos.Y,
+			W: EditorSingleton.cellWidth,
+			H: EditorSingleton.cellHeight,
 		}
 		draw_char = true
 		break
 	case "horizontal":
 		height := EditorSingleton.cellHeight / (100 / info.cell_percentage)
-		cursor_rect = sdl.Rect{
-			X: int32(cell_pos.X),
-			Y: int32(cell_pos.Y + (EditorSingleton.cellHeight - height)),
-			W: int32(EditorSingleton.cellWidth),
-			H: int32(height),
+		cursor_rect = IntRect{
+			X: cell_pos.X,
+			Y: cell_pos.Y + (EditorSingleton.cellHeight - height),
+			W: EditorSingleton.cellWidth,
+			H: height,
 		}
 		break
 	case "vertical":
-		cursor_rect = sdl.Rect{
-			X: int32(cell_pos.X),
-			Y: int32(cell_pos.Y),
-			W: int32(EditorSingleton.cellWidth / (100 / info.cell_percentage)),
-			H: int32(EditorSingleton.cellHeight),
+		cursor_rect = IntRect{
+			X: cell_pos.X,
+			Y: cell_pos.Y,
+			W: EditorSingleton.cellWidth / (100 / info.cell_percentage),
+			H: EditorSingleton.cellHeight,
 		}
 		break
 	}
 	return cursor_rect, draw_char
 }
 
-func (cursor *Cursor) GetColors(info ModeInfo) (sdl.Color, sdl.Color) {
+func (cursor *Cursor) GetColors(info ModeInfo) (U8Color, U8Color) {
 	// initialize swapped
 	fg := EditorSingleton.grid.default_bg
 	bg := EditorSingleton.grid.default_fg
@@ -80,16 +78,16 @@ func (cursor *Cursor) GetColors(info ModeInfo) (sdl.Color, sdl.Color) {
 	return fg, bg
 }
 
-func (cursor *Cursor) GetAnimatedPosition() ivec2 {
+func (cursor *Cursor) GetAnimatedPosition() IntVec2 {
 	aPos, finished := cursor.anim.GetCurrentStep(EditorSingleton.deltaTime)
 	if finished {
 		cursor.needs_redraw = false
-		return ivec2{
+		return IntVec2{
 			X: EditorSingleton.cellWidth * cursor.Y,
 			Y: EditorSingleton.cellHeight * cursor.X,
 		}
 	} else {
-		return ivec2{
+		return IntVec2{
 			X: int(float32(EditorSingleton.cellWidth) * aPos.Y),
 			Y: int(float32(EditorSingleton.cellHeight) * aPos.X),
 		}
@@ -101,12 +99,12 @@ func (cursor *Cursor) Draw() {
 	if cursor.hidden {
 		// Hide the cursor.
 		EditorSingleton.renderer.SetCursorData(
-			sdl.Rect{}, sdl.Rect{}, sdl.Color{}, sdl.Color{})
+			IntRect{}, IntRect{}, U8Color{}, U8Color{})
 	} else {
 		mode_info := EditorSingleton.mode.mode_infos[EditorSingleton.mode.current_mode_name]
 		fg, bg := cursor.GetColors(mode_info)
 		pos := cursor.GetAnimatedPosition()
-		rect, draw_char := cursor.GetPositionRectangle(pos, mode_info)
+		rect, draw_char := cursor.GetRectangle(pos, mode_info)
 		if draw_char && !cursor.needs_redraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
 			if cell == nil {
@@ -131,7 +129,7 @@ func (cursor *Cursor) Draw() {
 		} else {
 			// No cell drawing needed. Just draw the cursor.
 			EditorSingleton.renderer.SetCursorData(
-				rect, sdl.Rect{}, sdl.Color{}, bg)
+				rect, IntRect{}, U8Color{}, bg)
 		}
 	}
 	EditorSingleton.renderer.renderCall = true
