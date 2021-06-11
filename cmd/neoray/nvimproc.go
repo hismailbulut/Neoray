@@ -13,19 +13,14 @@ type NvimProcess struct {
 	update_stack [][][]interface{}
 }
 
-func CreateNvimProcess(nvimArgs []string) NvimProcess {
+func CreateNvimProcess() NvimProcess {
 	proc := NvimProcess{
 		update_mutex: &sync.Mutex{},
 		update_stack: make([][][]interface{}, 0),
 	}
 
-	args := []string{
-		"--embed",
-		// "-u",
-		// "NORC",
-		// "--noplugin",
-	}
-	args = append(args, nvimArgs...)
+	args := []string{"--embed"}
+	args = append(args, EditorArgs.nvimArgs...)
 
 	nv, err := nvim.NewChildProcess(nvim.ChildProcessArgs(args...))
 	if err != nil {
