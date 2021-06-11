@@ -23,7 +23,7 @@ type Font struct {
 	bold_italic FontFace
 }
 
-func FontSystemInit() {
+func InitializeFontLoader() {
 	systemFontList = sysfont.NewFinder(nil).List()
 	switch runtime.GOOS {
 	case "windows":
