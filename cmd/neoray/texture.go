@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 type Texture struct {
@@ -42,15 +41,15 @@ func (texture *Texture) Clear() {
 	RGL_CheckError("Texture.Clear")
 }
 
-func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest sdl.Rect) {
+func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest IntRect) {
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0,
-		dest.X, dest.Y, dest.W, dest.H,
+		int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
 	RGL_CheckError("Texture.UpdatePartFromSurface")
 }
 
-func (texture *Texture) GetRectGLCoordinates(rect sdl.Rect) sdl.FRect {
-	return sdl.FRect{
+func (texture *Texture) GetRectGLCoordinates(rect IntRect) F32Rect {
+	return F32Rect{
 		X: float32(rect.X) / float32(texture.width),
 		Y: float32(rect.Y) / float32(texture.height),
 		W: float32(rect.W) / float32(texture.width),
