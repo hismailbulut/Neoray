@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 const VertexStructSize = 12 * 4
@@ -13,22 +12,21 @@ const VertexStructSize = 12 * 4
 type Vertex struct {
 	// These are vertex positions. May not be changed for
 	// most of the vertices in runtime.
-	pos f32vec2 // layout 0
+	pos F32Vec2 // layout 0
 	// These are vertex atlas texture positions for given character
 	// and they are changing most of the time.
-	tex f32vec2 // layout 1
+	tex F32Vec2 // layout 1
 	// foreground color
-	fg f32color // layout 2
+	fg F32Color // layout 2
 	// background color
-	bg f32color // layout 3
+	bg F32Color // layout 3
 }
 
 // render subsystem global variables
 var (
-	rgl_context sdl.GLContext
-	rgl_vao     uint32
-	rgl_vbo     uint32
-	rgl_ebo     uint32
+	rgl_vao uint32
+	rgl_vbo uint32
+	rgl_ebo uint32
 
 	//go:embed shaders.glsl
 	shader_sources string
@@ -43,13 +41,7 @@ var (
 
 func RGL_Init() {
 	// Initialize opengl
-	context, err := EditorSingleton.window.handle.GLCreateContext()
-	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize render context:", err)
-	}
-
-	rgl_context = context
-	if err = gl.Init(); err != nil {
+	if err := gl.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
 	}
 
@@ -121,9 +113,9 @@ func RGL_SetAtlasTexture(atlas *Texture) {
 	gl.BindTexture(gl.TEXTURE_2D, atlas.id)
 }
 
-func RGL_ClearScreen(color sdl.Color) {
+func RGL_ClearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
-	c := color_u8_to_f32(color)
+	c := color.ToF32Color()
 	gl.ClearColor(c.R, c.G, c.B, c.A)
 }
 
@@ -243,5 +235,4 @@ func RGL_Close() {
 	gl.DeleteProgram(rgl_shader_program)
 	gl.DeleteBuffers(1, &rgl_vbo)
 	gl.DeleteVertexArrays(1, &rgl_vao)
-	sdl.GLDeleteContext(rgl_context)
 }
