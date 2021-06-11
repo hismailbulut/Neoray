@@ -11,13 +11,13 @@ import (
 )
 
 type FontFace struct {
-	loaded bool
+	handle font.Face
+	drawer font.Drawer
 
+	loaded  bool
 	advance int
 	ascent  int
 	descent int
-
-	handle font.Face
 }
 
 func CreateFontFace(fileName string, size int) (FontFace, error) {
@@ -36,35 +36,35 @@ func CreateFontFace(fileName string, size int) (FontFace, error) {
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
-
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to create font face: %s\n", err)
 	}
 
-	_, advance, ok := face.GlyphBounds('m')
+	advance, ok := face.GlyphAdvance('m')
 	if !ok {
 		return FontFace{}, fmt.Errorf("Failed to get glyph advance!")
 	}
 
-	return FontFace{
+	fontFace := FontFace{
+		handle:  face,
 		loaded:  true,
 		advance: advance.Ceil(),
 		ascent:  face.Metrics().Ascent.Floor(),
 		descent: face.Metrics().Descent.Floor(),
-		handle:  face,
-	}, nil
+	}
+	fontFace.drawer = font.Drawer{
+		Src:  image.White,
+		Face: fontFace.handle,
+	}
+	return fontFace, nil
 }
 
-// TODO: Dont use image and drawer
 func (fontFace *FontFace) RenderChar(c string) *image.RGBA {
 	defer measure_execution_time("FontFace.RenderChar")()
 	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
-	drawer := font.Drawer{
-		Dst:  img,
-		Src:  image.White,
-		Face: fontFace.handle,
-		Dot:  fixed.P(0, EditorSingleton.cellHeight-fontFace.descent),
-	}
-	drawer.DrawString(c)
+	fontFace.drawer.Dst = img
+	fontFace.drawer.Dot = fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
+	// TODO: Check bounds
+	fontFace.drawer.DrawString(c)
 	return img
 }
