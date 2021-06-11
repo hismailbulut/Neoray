@@ -2,44 +2,51 @@ package main
 
 import (
 	"sync/atomic"
-
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 var (
-	COLOR_WHITE       = sdl.Color{R: 255, G: 255, B: 255, A: 255}
-	COLOR_BLACK       = sdl.Color{R: 0, G: 0, B: 0, A: 255}
-	COLOR_TRANSPARENT = sdl.Color{R: 0, G: 0, B: 0, A: 0}
+	COLOR_WHITE       = U8Color{R: 255, G: 255, B: 255, A: 255}
+	COLOR_BLACK       = U8Color{R: 0, G: 0, B: 0, A: 255}
+	COLOR_TRANSPARENT = U8Color{R: 0, G: 0, B: 0, A: 0}
 )
 
-type f32vec2 struct {
-	X, Y float32
+type U8Color struct {
+	R, G, B, A uint8
 }
 
-type i32vec2 struct {
-	X, Y int32
+type F32Color struct {
+	R, G, B, A float32
 }
 
-type ivec2 struct {
+type IntVec2 struct {
 	X, Y int
 }
 
-type f32color struct {
-	R float32
-	G float32
-	B float32
-	A float32
+type I32Vec2 struct {
+	X, Y int32
 }
 
-func packColor(color sdl.Color) uint32 {
+type F32Vec2 struct {
+	X, Y float32
+}
+
+type IntRect struct {
+	X, Y, W, H int
+}
+
+type F32Rect struct {
+	X, Y, W, H float32
+}
+
+func packColor(color U8Color) uint32 {
 	rgb24 := uint32(color.R)
 	rgb24 = (rgb24 << 8) | uint32(color.G)
 	rgb24 = (rgb24 << 8) | uint32(color.B)
 	return rgb24
 }
 
-func unpackColor(color uint32) sdl.Color {
-	return sdl.Color{
+func unpackColor(color uint32) U8Color {
+	return U8Color{
 		R: uint8((color >> 16) & 0xff),
 		G: uint8((color >> 8) & 0xff),
 		B: uint8(color & 0xff),
@@ -47,16 +54,16 @@ func unpackColor(color uint32) sdl.Color {
 	}
 }
 
-func color_u8_to_f32(sdlcolor sdl.Color) f32color {
-	return f32color{
-		R: float32(sdlcolor.R) / 256,
-		G: float32(sdlcolor.G) / 256,
-		B: float32(sdlcolor.B) / 256,
-		A: float32(sdlcolor.A) / 256,
+func (c U8Color) ToF32Color() F32Color {
+	return F32Color{
+		R: float32(c.R) / 256,
+		G: float32(c.G) / 256,
+		B: float32(c.B) / 256,
+		A: float32(c.A) / 256,
 	}
 }
 
-func colorIsBlack(color sdl.Color) bool {
+func colorIsBlack(color U8Color) bool {
 	return color.R == 0 && color.G == 0 && color.B == 0
 }
 
@@ -67,8 +74,8 @@ func iabs(v int) int {
 	return v
 }
 
-func triangulateRect(rect sdl.Rect) [4]f32vec2 {
-	return [4]f32vec2{
+func triangulateRect(rect IntRect) [4]F32Vec2 {
+	return [4]F32Vec2{
 		{float32(rect.X), float32(rect.Y)},                   //0
 		{float32(rect.X), float32(rect.Y + rect.H)},          //1
 		{float32(rect.X + rect.W), float32(rect.Y + rect.H)}, //2
@@ -76,8 +83,8 @@ func triangulateRect(rect sdl.Rect) [4]f32vec2 {
 	}
 }
 
-func triangulateFRect(rect sdl.FRect) [4]f32vec2 {
-	return [4]f32vec2{
+func triangulateFRect(rect F32Rect) [4]F32Vec2 {
+	return [4]F32Vec2{
 		{rect.X, rect.Y},                   //0
 		{rect.X, rect.Y + rect.H},          //1
 		{rect.X + rect.W, rect.Y + rect.H}, //2
@@ -96,16 +103,15 @@ func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 		float32(-(far + near) / fmn), 1}
 }
 
-func has_flag_u16(val, flag uint16) bool {
+func hasFlagU16(val, flag uint16) bool {
 	return val&flag != 0
 }
 
-type AtomicValue struct {
+type AtomicBool struct {
 	valueBool int32
-	valueInt  int32
 }
 
-func (atomicBool *AtomicValue) SetBool(value bool) {
+func (atomicBool *AtomicBool) SetBool(value bool) {
 	var val int32 = 0
 	if value == true {
 		val = 1
@@ -113,30 +119,10 @@ func (atomicBool *AtomicValue) SetBool(value bool) {
 	atomic.StoreInt32(&atomicBool.valueBool, val)
 }
 
-func (atomicBool *AtomicValue) GetBool() bool {
+func (atomicBool *AtomicBool) GetBool() bool {
 	val := atomic.LoadInt32(&atomicBool.valueBool)
 	if val == 0 {
 		return false
 	}
 	return true
-}
-
-func (atomicBool *AtomicValue) SetInt(value int) {
-	atomic.StoreInt32(&atomicBool.valueInt, int32(value))
-}
-
-func (atomicBool *AtomicValue) GetInt() int {
-	return int(atomic.LoadInt32(&atomicBool.valueInt))
-}
-
-func (atomicBool *AtomicValue) Increase() {
-	atomic.StoreInt32(&atomicBool.valueInt, atomic.LoadInt32(&atomicBool.valueInt)+1)
-}
-
-func (atomicBool *AtomicValue) Decrease() {
-	atomic.StoreInt32(&atomicBool.valueInt, atomic.LoadInt32(&atomicBool.valueInt)-1)
-}
-
-func (atomicBool *AtomicValue) IsZero() bool {
-	return atomic.LoadInt32(&atomicBool.valueInt) == 0
 }
