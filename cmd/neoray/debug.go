@@ -26,7 +26,7 @@ type FunctionMeasure struct {
 }
 
 var (
-	measure_initialized    AtomicValue
+	measure_initialized    AtomicBool
 	measure_averages       map[string]FunctionMeasure
 	measure_averages_mutex sync.Mutex
 )
