@@ -17,8 +17,6 @@ type UIOptions struct {
 	pumblend      int
 	showtabline   int
 	termguicolors bool
-	// our options
-	smoothcursor bool
 }
 
 func (options *UIOptions) SetGuiFont(newGuiFont string) {
