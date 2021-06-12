@@ -12,6 +12,7 @@ import (
 
 type FontFace struct {
 	handle font.Face
+	// fontHandle *sfnt.Font
 	drawer font.Drawer
 
 	loaded  bool
