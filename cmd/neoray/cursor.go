@@ -3,7 +3,7 @@ package main
 import ()
 
 const (
-	CursorAnimationLifetime = 0.4
+	CursorAnimationLifetime = 0.3
 )
 
 type Cursor struct {
