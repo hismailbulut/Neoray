@@ -88,7 +88,7 @@ func HandleNvimRedrawEvents() {
 				grid_scroll(update[1:])
 				break
 			default:
-				log_debug_msg("Unknown update:", update)
+				log_debug("Unknown update:", update)
 				break
 			}
 		}

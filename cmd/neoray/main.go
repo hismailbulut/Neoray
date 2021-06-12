@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	BUILD_TYPE_DEBUG   = 0
-	BUILD_TYPE_RELEASE = 1
-	NEORAY_BUILD_TYPE  = BUILD_TYPE_DEBUG
+	DEBUG   = 0
+	RELEASE = 1
 
 	NEORAY_NAME          = "Neoray"
 	NEORAY_VERSION_MAJOR = 0
@@ -38,25 +37,15 @@ var EditorSingleton Editor
 var EditorArgs Args
 
 func main() {
-	// Set some build type specific options.
-	switch NEORAY_BUILD_TYPE {
-	case BUILD_TYPE_DEBUG:
-		start_pprof()
-		init_function_time_tracker()
-		defer close_function_time_tracker()
-		MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
-	case BUILD_TYPE_RELEASE:
-		MINIMUM_LOG_LEVEL = LOG_LEVEL_WARN
-	default:
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Unknown build type.")
-	}
-
+	init_function_time_tracker()
+	defer close_function_time_tracker()
+	// Parse args
 	EditorArgs = ParseArgs(os.Args[1:])
 	// If parse before returns true, we will not start neoray.
 	if EditorArgs.ProcessBefore() {
 		return
 	}
-
+	start_pprof()
 	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
 	EditorSingleton.Initialize()
@@ -69,5 +58,5 @@ func main() {
 }
 
 func isDebugBuild() bool {
-	return NEORAY_BUILD_TYPE == BUILD_TYPE_DEBUG
+	return BUILD_TYPE == DEBUG
 }

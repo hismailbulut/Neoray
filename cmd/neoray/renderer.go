@@ -37,6 +37,7 @@ type Renderer struct {
 }
 
 func CreateRenderer() Renderer {
+	defer measure_execution_time("CreateRenderer")()
 	RGL_Init()
 	InitializeFontLoader()
 	renderer := Renderer{

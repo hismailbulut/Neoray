@@ -17,6 +17,7 @@ type Window struct {
 }
 
 func CreateWindow(width int, height int, title string) Window {
+	defer measure_execution_time("CreateWindow")()
 	window := Window{
 		title:  title,
 		width:  width,
@@ -47,13 +48,14 @@ func WindowResizeHandler(w *glfw.Window, width, height int) {
 }
 
 func (window *Window) Update() {
-	// DEBUG
-	fps_string := fmt.Sprintf(" | FPS: %d", EditorSingleton.framesPerSecond)
-	idx := strings.LastIndex(window.title, " | ")
-	if idx == -1 {
-		window.SetTitle(window.title + fps_string)
-	} else {
-		window.SetTitle(window.title[0:idx] + fps_string)
+	if isDebugBuild() {
+		fps_string := fmt.Sprintf(" | FPS: %d", EditorSingleton.framesPerSecond)
+		idx := strings.LastIndex(window.title, " | ")
+		if idx == -1 {
+			window.SetTitle(window.title + fps_string)
+		} else {
+			window.SetTitle(window.title[0:idx] + fps_string)
+		}
 	}
 }
 

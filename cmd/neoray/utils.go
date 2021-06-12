@@ -22,10 +22,6 @@ type IntVec2 struct {
 	X, Y int
 }
 
-type I32Vec2 struct {
-	X, Y int32
-}
-
 type F32Vec2 struct {
 	X, Y float32
 }
@@ -92,7 +88,7 @@ func triangulateFRect(rect F32Rect) [4]F32Vec2 {
 	}
 }
 
-func ortho(top, left, right, bottom, near, far float32) [16]float32 {
+func orthoProjection(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
 	return [16]float32{
 		float32(2. / rml), 0, 0, 0, // 1
@@ -103,24 +99,20 @@ func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 		float32(-(far + near) / fmn), 1}
 }
 
-func hasFlagU16(val, flag uint16) bool {
-	return val&flag != 0
-}
-
 type AtomicBool struct {
-	valueBool int32
+	value int32
 }
 
-func (atomicBool *AtomicBool) SetBool(value bool) {
+func (atomicBool *AtomicBool) Set(value bool) {
 	var val int32 = 0
 	if value == true {
 		val = 1
 	}
-	atomic.StoreInt32(&atomicBool.valueBool, val)
+	atomic.StoreInt32(&atomicBool.value, val)
 }
 
-func (atomicBool *AtomicBool) GetBool() bool {
-	val := atomic.LoadInt32(&atomicBool.valueBool)
+func (atomicBool *AtomicBool) Get() bool {
+	val := atomic.LoadInt32(&atomicBool.value)
 	if val == 0 {
 		return false
 	}

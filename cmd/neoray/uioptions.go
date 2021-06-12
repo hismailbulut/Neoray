@@ -39,13 +39,13 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 		}
 		// if this is the system default font, we already loaded it
 		if name == systemFontDefault {
-			log_debug_msg("Already loaded system font.")
+			log_debug("Already loaded system font.")
 			// Unload current font. Because user wants system default.
 			EditorSingleton.renderer.SetDefaultFont(size)
 			return
 		}
 		// Create and set renderers font.
-		log_debug_msg("Loading font:", name)
+		log_debug("Loading font:", name)
 		font, ok := CreateFont(name, size)
 		if !ok {
 			return

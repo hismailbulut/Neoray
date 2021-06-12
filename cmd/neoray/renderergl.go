@@ -40,6 +40,8 @@ var (
 )
 
 func RGL_Init() {
+	defer measure_execution_time("RGL_Init")()
+
 	// Initialize opengl
 	if err := gl.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
@@ -84,10 +86,11 @@ func RGL_Init() {
 
 	gl.Enable(gl.TEXTURE_2D)
 
-	// NOTE: We don't need blending. This is only for Renderer.DebugDrawFontAtlas
-	// Disable on release build
-	// gl.Enable(gl.BLEND)
-	// gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	if isDebugBuild() {
+		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
+		gl.Enable(gl.BLEND)
+		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	}
 
 	RGL_CheckError("RGL_Init")
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
@@ -104,7 +107,7 @@ func RGL_GetUniformLocation(name string) int32 {
 
 func RGL_CreateViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
-	projection := ortho(0, 0, float32(w), float32(h), -1, 1)
+	projection := orthoProjection(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rgl_projection_uniform, 1, true, &projection[0])
 }
 
