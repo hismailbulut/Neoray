@@ -24,6 +24,8 @@ type Font struct {
 }
 
 func InitializeFontLoader() {
+	defer measure_execution_time("InitializeFontLoader")()
+
 	systemFontList = sysfont.NewFinder(nil).List()
 	switch runtime.GOOS {
 	case "windows":
