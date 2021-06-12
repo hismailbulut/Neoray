@@ -121,5 +121,5 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 
 // NOTE: Reserved
 func (grid *Grid) Destroy() {
-	log_debug_msg("Grid destroyed.")
+	log_debug("Grid destroyed.")
 }
