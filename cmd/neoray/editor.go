@@ -51,6 +51,8 @@ type Editor struct {
 	// Initializing in Editor.MainLoop
 	framesPerSecond int
 	deltaTime       float32
+	// Server for singleinstance
+	server *TCPServer
 }
 
 func (editor *Editor) Initialize() {
@@ -91,7 +93,9 @@ func (editor *Editor) MainLoop() {
 		default:
 		}
 		// Order is important!
-		ProcessSignals()
+		if editor.server != nil {
+			editor.server.Process()
+		}
 		HandleNvimRedrawEvents()
 		if !editor.waitingResize {
 			editor.window.Update()
@@ -107,6 +111,9 @@ func (editor *Editor) MainLoop() {
 			fpsTimer = time.Now()
 		}
 		<-ticker.C
+	}
+	if editor.server != nil {
+		editor.server.Close()
 	}
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 		"Program finished. Total execution time:", time.Since(programBegin))
