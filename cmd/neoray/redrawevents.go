@@ -44,10 +44,10 @@ func HandleNvimRedrawEvents() {
 			case "mouse_off":
 				break
 			case "busy_start":
-				EditorSingleton.cursor.hidden = true
+				EditorSingleton.cursor.Hide()
 				break
 			case "busy_stop":
-				EditorSingleton.cursor.hidden = false
+				EditorSingleton.cursor.Show()
 				break
 			case "suspend":
 				break
