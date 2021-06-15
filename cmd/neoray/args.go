@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/sqweek/dialog"
 )
 
 type Args struct {
@@ -17,14 +22,41 @@ type Args struct {
 
 func ParseArgs(args []string) Args {
 	options := Args{}
-	flag.StringVar(&options.file, "file", "", "Specify a filename to open in neovim. This is useful when -si flag has given.")
-	flag.IntVar(&options.line, "line", -1, "Goto line number.")
-	flag.IntVar(&options.column, "column", -1, "Goto column number.")
-	flag.BoolVar(&options.singleInstance, "singleinstance", false, "If this option has given neoray will open only one instance. All neoray commands will send all flags to already open instance and immediately close.")
-	flag.BoolVar(&options.singleInstance, "si", false, "Shortland for singleinstance")
-	flag.Parse()
+	help := false
+	fs := flag.NewFlagSet("Neoray usage", flag.ContinueOnError)
+	fs.StringVar(&options.file, "file", "", "Specify a filename to open in neovim. This is useful when -si flag has given.")
+	fs.IntVar(&options.line, "line", -1, "Goto line number.")
+	fs.IntVar(&options.column, "column", -1, "Goto column number.")
+	fs.BoolVar(&options.singleInstance, "singleinstance", false, "If this option has given neoray will open only one instance. "+
+		"All neoray commands will send all flags to already open instance and immediately close.")
+	fs.BoolVar(&options.singleInstance, "si", false, "Shortland for singleinstance")
+	fs.BoolVar(&help, "help", false, "Prints this message and quits.")
+	fs.BoolVar(&help, "h", false, "Shortland for help.")
+	err := fs.Parse(args)
+	if err != nil || help {
+		PrintHelp(fs)
+		os.Exit(0)
+	}
 	options.nvimArgs = flag.Args()
 	return options
+}
+
+func PrintHelp(fs *flag.FlagSet) {
+	buf := bytes.NewBufferString("")
+	fs.SetOutput(buf)
+	fs.PrintDefaults()
+	msg := "Neoray is an ui client of neovim.\n"
+	msg += "Author 2021 Ismail Bulut.\n"
+	msg += fmt.Sprintf("Version %d.%d.%d %s\n",
+		NEORAY_VERSION_MAJOR, NEORAY_VERSION_MINOR, NEORAY_VERSION_PATCH, getBuildTypeString())
+	msg += fmt.Sprintf("License %s\n", NEORAY_LICENSE)
+	msg += fmt.Sprintf("Webpage %s\n", NEORAY_WEBPAGE)
+	msg += "\n"
+	usage, err := buf.ReadString('\x00')
+	if err != nil {
+		log_debug(err)
+	}
+	dialog.Message(msg + usage).Title("Neoray usage").Info()
 }
 
 // Call this before starting neovim.
@@ -52,7 +84,7 @@ func (options Args) ProcessBefore() bool {
 			}
 			client.Close()
 		} else {
-			log_debug("Error when creating client:", err)
+			log_debug("No instance founded.")
 		}
 	}
 	return dontStart
