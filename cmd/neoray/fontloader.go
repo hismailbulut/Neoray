@@ -59,19 +59,34 @@ func CreateFont(fontName string, size int) (Font, bool) {
 	return font, true
 }
 
-func (font *Font) Unload() {
-	font.bold_italic.loaded = false
-	font.bold_italic.handle = nil
-	font.italic.loaded = false
-	font.italic.handle = nil
-	font.bold.loaded = false
-	font.bold.handle = nil
-	font.regular.loaded = false
-	font.regular.handle = nil
-	font.size = 0
+func (font *Font) Resize(newsize int) {
+	if newsize == font.size {
+		return
+	}
+	font.size = newsize
+	if font.bold_italic.loaded {
+		if err := font.bold_italic.Resize(newsize); err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
+		}
+	}
+	if font.italic.loaded {
+		if err := font.italic.Resize(newsize); err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
+		}
+	}
+	if font.bold.loaded {
+		if err := font.bold.Resize(newsize); err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
+		}
+	}
+	if font.regular.loaded {
+		if err := font.regular.Resize(newsize); err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
+		}
+	}
 }
 
-func (font *Font) GetSuitableFont(italic bool, bold bool) FontFace {
+func (font *Font) GetSuitableFace(italic bool, bold bool) FontFace {
 	if italic && bold && font.bold_italic.loaded {
 		return font.bold_italic
 	} else if italic && font.italic.loaded {
@@ -98,9 +113,7 @@ func (font *Font) loadDefaultFont() {
 func (font *Font) findAndLoad(fontName string) bool {
 	matched_fonts, ok := font.getMatchingFonts(fontName)
 	if !ok || !font.loadMatchingFonts(matched_fonts) {
-		// Maybe non regular fonts are loaded?
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font", fontName, "not found.")
-		font.Unload()
 		return false
 	}
 	return true
