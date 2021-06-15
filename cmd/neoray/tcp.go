@@ -112,11 +112,10 @@ func CreateServer() (*TCPServer, error) {
 	}
 	server.listener = l
 	go func() {
-		defer l.Close()
 		for {
 			c, err := l.Accept()
 			if err != nil {
-				log_debug("Failed to accept incoming connection:", err)
+				log_debug("Server closed.")
 				return
 			}
 			log_debug("New client connected:", c.RemoteAddr())
