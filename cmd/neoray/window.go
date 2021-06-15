@@ -28,6 +28,7 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.ContextVersionMinor, 3)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.Resizable, glfw.True)
+	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
 
 	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
@@ -57,6 +58,10 @@ func (window *Window) Update() {
 			window.SetTitle(window.title[0:idx] + fps_string)
 		}
 	}
+}
+
+func (window *Window) Raise() {
+
 }
 
 func (window *Window) SetTitle(title string) {
