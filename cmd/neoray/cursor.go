@@ -7,17 +7,21 @@ const (
 )
 
 type Cursor struct {
-	X            int
-	Y            int
-	anim         Animation
-	needs_redraw bool
-	hidden       bool
+	X         int
+	Y         int
+	anim      Animation
+	needsDraw bool
+	hidden    bool
 }
 
 func (cursor *Cursor) Update() {
-	if cursor.needs_redraw {
+	if cursor.needsDraw {
 		cursor.Draw()
 	}
+}
+
+func (cursor *Cursor) IsHere(x, y int) bool {
+	return x == cursor.X && y == cursor.Y
 }
 
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
@@ -29,7 +33,7 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	}
 	cursor.X = x
 	cursor.Y = y
-	cursor.needs_redraw = true
+	cursor.needsDraw = true
 }
 
 func (cursor *Cursor) GetRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bool) {
@@ -81,7 +85,7 @@ func (cursor *Cursor) GetColors(info ModeInfo) (U8Color, U8Color) {
 func (cursor *Cursor) GetAnimatedPosition() IntVec2 {
 	aPos, finished := cursor.anim.GetCurrentStep(EditorSingleton.deltaTime)
 	if finished {
-		cursor.needs_redraw = false
+		cursor.needsDraw = false
 		return IntVec2{
 			X: EditorSingleton.cellWidth * cursor.Y,
 			Y: EditorSingleton.cellHeight * cursor.X,
@@ -94,20 +98,28 @@ func (cursor *Cursor) GetAnimatedPosition() IntVec2 {
 	}
 }
 
+func (cursor *Cursor) Show() {
+	cursor.hidden = false
+	cursor.Draw()
+}
+
+func (cursor *Cursor) Hide() {
+	// Hide the cursor.
+	EditorSingleton.renderer.SetCursorData(IntRect{}, IntRect{}, U8Color{}, U8Color{})
+	cursor.hidden = true
+}
+
 func (cursor *Cursor) Draw() {
 	defer measure_execution_time("Cursor.Draw")()
-	if cursor.hidden {
-		// Hide the cursor.
-		EditorSingleton.renderer.SetCursorData(
-			IntRect{}, IntRect{}, U8Color{}, U8Color{})
-	} else {
+	if !cursor.hidden {
 		mode_info := EditorSingleton.mode.mode_infos[EditorSingleton.mode.current_mode_name]
 		fg, bg := cursor.GetColors(mode_info)
 		pos := cursor.GetAnimatedPosition()
 		rect, draw_char := cursor.GetRectangle(pos, mode_info)
-		if draw_char && !cursor.needs_redraw {
+		if draw_char && !cursor.needsDraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
 			if cell == nil {
+				log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "No cell founded at cursor position.")
 				return
 			}
 			if cell.char != "" && cell.char != " " {
@@ -120,10 +132,7 @@ func (cursor *Cursor) Draw() {
 					italic = attrib.italic
 					bold = attrib.bold
 				}
-				atlas_pos, err := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
-				if err != nil {
-					return
-				}
+				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
 				EditorSingleton.renderer.SetCursorData(rect, atlas_pos, fg, bg)
 			}
 		} else {
@@ -131,6 +140,6 @@ func (cursor *Cursor) Draw() {
 			EditorSingleton.renderer.SetCursorData(
 				rect, IntRect{}, U8Color{}, bg)
 		}
+		EditorSingleton.renderer.renderCall = true
 	}
-	EditorSingleton.renderer.renderCall = true
 }
