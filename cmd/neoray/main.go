@@ -60,3 +60,10 @@ func main() {
 func isDebugBuild() bool {
 	return BUILD_TYPE == DEBUG
 }
+
+func getBuildTypeString() string {
+	if BUILD_TYPE == DEBUG {
+		return "Debug"
+	}
+	return "Release"
+}
