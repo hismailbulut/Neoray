@@ -17,6 +17,8 @@ type UIOptions struct {
 	pumblend      int
 	showtabline   int
 	termguicolors bool
+	// parsed options for forward usage
+	guifontname string
 }
 
 func (options *UIOptions) SetGuiFont(newGuiFont string) {
@@ -37,19 +39,21 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 				}
 			}
 		}
-		// if this is the system default font, we already loaded it
 		if name == systemFontDefault {
-			log_debug("Already loaded system font.")
-			// Unload current font. Because user wants system default.
-			EditorSingleton.renderer.SetDefaultFont(size)
-			return
+			// If this is the system default font, we already have loaded
+			EditorSingleton.renderer.DisableUserFont()
+			EditorSingleton.renderer.SetFontSize(size)
+		} else if name == options.guifontname {
+			// Names are same, just resize the font
+			EditorSingleton.renderer.SetFontSize(size)
+		} else {
+			// Create and set renderers font.
+			font, ok := CreateFont(name, size)
+			if !ok {
+				return
+			}
+			EditorSingleton.renderer.SetFont(font)
 		}
-		// Create and set renderers font.
-		log_debug("Loading font:", name)
-		font, ok := CreateFont(name, size)
-		if !ok {
-			return
-		}
-		EditorSingleton.renderer.SetFont(font)
+		options.guifontname = name
 	}
 }
