@@ -69,6 +69,7 @@ func CharEventHandler(w *glfw.Window, char rune, mods glfw.ModifierKey) {
 }
 
 func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	// TODO: We can simplify this
 	if action == glfw.Press {
 		if key == glfw.KeyLeftControl || key == glfw.KeyRightControl {
 			if strings.Index(MouseModifiers, "C") == -1 {
@@ -139,9 +140,16 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 		}
 		keycode += keyname + ">"
 
-		if keycode == "<F11>" {
+		// Neoray keybindings are there.
+		switch keycode {
+		case "<F11>":
 			EditorSingleton.window.ToggleFullscreen()
 			return
+		case "<ESC>":
+			EditorSingleton.popupMenu.Hide()
+			break
+		default:
+			break
 		}
 
 		EditorSingleton.nvim.SendKeyCode(keycode)
@@ -152,11 +160,22 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 	var buttonCode string
 	switch button {
 	case glfw.MouseButtonLeft:
+		if action == glfw.Press {
+			if EditorSingleton.popupMenu.MouseClick(false, MousePos) {
+				return
+			}
+		}
 		buttonCode = "left"
+		break
 	case glfw.MouseButtonRight:
-		buttonCode = "right"
+		// We don't send right button to neovim.
+		if action == glfw.Press {
+			EditorSingleton.popupMenu.MouseClick(true, MousePos)
+		}
+		return
 	case glfw.MouseButtonMiddle:
 		buttonCode = "middle"
+		break
 	default:
 		return
 	}
@@ -168,7 +187,6 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 
 	row := MousePos.Y / EditorSingleton.cellHeight
 	col := MousePos.X / EditorSingleton.cellWidth
-	log_debug("MouseModifiers:", MouseModifiers)
 	EditorSingleton.nvim.SendButton(buttonCode, actionCode, MouseModifiers, 0, row, col)
 
 	MouseButton = buttonCode
@@ -178,11 +196,11 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 func MousePosEventHandler(w *glfw.Window, xpos, ypos float64) {
 	MousePos.X = int(xpos)
 	MousePos.Y = int(ypos)
-	// mouse moving when holding left button, drag event
+	EditorSingleton.popupMenu.MouseMove(MousePos)
+	// If mouse moving when holding left button, it's drag event
 	if MouseAction == glfw.Press {
 		row := MousePos.Y / EditorSingleton.cellHeight
 		col := MousePos.X / EditorSingleton.cellWidth
-		log_debug("MouseModifiers:", MouseModifiers)
 		EditorSingleton.nvim.SendButton(MouseButton, "drag", MouseModifiers, 0, row, col)
 	}
 }
@@ -194,7 +212,6 @@ func ScrollEventHandler(w *glfw.Window, xpos, ypos float64) {
 	}
 	row := MousePos.Y / EditorSingleton.cellHeight
 	col := MousePos.X / EditorSingleton.cellWidth
-	log_debug("MouseModifiers:", MouseModifiers)
 	EditorSingleton.nvim.SendButton("wheel", action, MouseModifiers, 0, row, col)
 }
 

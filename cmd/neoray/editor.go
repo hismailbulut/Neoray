@@ -32,6 +32,8 @@ type Editor struct {
 	renderer Renderer
 	// UIOptions is a struct, holds some user ui options like guifont.
 	options UIOptions
+	// PopupMenu is the only popup menu in this program for right click menu.
+	popupMenu PopupMenu
 	// If quitRequested is true the program will quit.
 	quitRequestedChan chan bool
 	// This is for resizing from nvim side, first we will send resize request to neovim,
@@ -71,7 +73,9 @@ func (editor *Editor) Initialize() {
 	editor.cursor = Cursor{}
 	editor.options = UIOptions{}
 
+	InitializeFontLoader() // this takes 3secs
 	editor.renderer = CreateRenderer()
+	editor.popupMenu = CreatePopupMenu()
 
 	editor.quitRequestedChan = make(chan bool)
 	editor.nvim.StartUI()
@@ -117,6 +121,12 @@ func (editor *Editor) MainLoop() {
 	}
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 		"Program finished. Total execution time:", time.Since(programBegin))
+}
+
+func (editor *Editor) CalculateCellCount() {
+	editor.columnCount = editor.window.width / editor.cellWidth
+	editor.rowCount = editor.window.height / editor.cellHeight
+	editor.cellCount = editor.columnCount * editor.rowCount
 }
 
 func (editor *Editor) Shutdown() {
