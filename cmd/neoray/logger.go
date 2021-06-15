@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime/debug"
+
+	"github.com/sqweek/dialog"
 )
 
 const (
@@ -61,9 +64,14 @@ func log_message(log_level, log_type int, message ...interface{}) {
 	}
 
 	if fatal {
-		fmt.Printf("\n")
-		debug.PrintStack()
-		log.Fatalln(log_string)
+		if isDebugBuild() {
+			fmt.Printf("\n")
+			debug.PrintStack()
+			log.Fatalln(log_string)
+		} else {
+			dialog.Message(log_string).Title("Fatal error").Error()
+			os.Exit(1)
+		}
 	} else {
 		log.Println(log_string)
 	}
