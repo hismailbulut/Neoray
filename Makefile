@@ -1,24 +1,28 @@
 SOURCEFOLDER=./cmd/neoray
-DEBUGEXEC=bin/debug/neoray_debug.exe
-RELEASEEXEC=bin/release/neoray_release.exe
+DEBUGEXE=bin/neoray_debug.exe
+RELEASEEXE=bin/neoray.exe
 
 build:
-	go build -o ${DEBUGEXEC} -race ${SOURCEFOLDER}
+	go build -o $(DEBUGEXE) -race $(SOURCEFOLDER)
 
 run: build
-	./${DEBUGEXEC}
+	./$(DEBUGEXE) $(ARGS)
 
 release:
-	go build -tags release -ldflags -H=windowsgui -o ${RELEASEEXEC} ${SOURCEFOLDER}
+	go build -tags release -ldflags -H=windowsgui -o $(RELEASEEXE) $(SOURCEFOLDER)
+
+runr: release
+	./$(RELEASEEXE) $(ARGS)
 
 test:
-	go test -race ${SOURCEFOLDER}
+	go test -race $(SOURCEFOLDER)
 
 bench:
-	go test -run=XXX -bench=. -race ${SOURCEFOLDER}
+	go test -run=XXX -bench=. -race $(SOURCEFOLDER)
 
 debug:
-	dlv debug ${SOURCEFOLDER}
+	dlv debug $(SOURCEFOLDER)
 
 clean:
-	-rm ${DEBUGEXEC}
+	-rm $(DEBUGEXE)
+	-rm $(RELEASEEXE)
