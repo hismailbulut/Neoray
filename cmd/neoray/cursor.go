@@ -120,7 +120,7 @@ func (cursor *Cursor) Hide() {
 func (cursor *Cursor) Draw() {
 	defer measure_execution_time("Cursor.Draw")()
 	if !cursor.hidden {
-		mode_info := EditorSingleton.mode.mode_infos[EditorSingleton.mode.current_mode_name]
+		mode_info := EditorSingleton.mode.CurrentModeInfo()
 		fg, bg := cursor.GetColors(mode_info)
 		pos := cursor.GetAnimatedPosition()
 		rect, draw_char := cursor.GetRectangle(pos, mode_info)
@@ -141,10 +141,10 @@ func (cursor *Cursor) Draw() {
 					bold = attrib.bold
 				}
 				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
-				cursor.vertexData.SetVertexPos(0, rect)
 				cursor.vertexData.SetVertexTexPos(0, atlas_pos)
-				cursor.vertexData.SetVertexColor(0, fg, bg)
 			}
+			cursor.vertexData.SetVertexPos(0, rect)
+			cursor.vertexData.SetVertexColor(0, fg, bg)
 		} else {
 			// No cell drawing needed. Just draw the cursor.
 			cursor.vertexData.SetVertexPos(0, rect)

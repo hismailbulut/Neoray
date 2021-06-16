@@ -138,6 +138,7 @@ func mode_info_set(args []interface{}) {
 	r := reflect.ValueOf(args).Index(0).Elem()
 	EditorSingleton.mode.cursor_style_enabled = r.Index(0).Elem().Bool()
 	t := reflect.TypeOf(int(0))
+	EditorSingleton.mode.Clear()
 	for _, infos := range r.Index(1).Interface().([]interface{}) {
 		mapIter := reflect.ValueOf(infos).MapRange()
 		info := ModeInfo{}
@@ -172,7 +173,7 @@ func mode_info_set(args []interface{}) {
 				break
 			}
 		}
-		EditorSingleton.mode.mode_infos[info.name] = info
+		EditorSingleton.mode.Add(info)
 	}
 	EditorSingleton.cursor.needsDraw = true
 }

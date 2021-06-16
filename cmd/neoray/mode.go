@@ -14,13 +14,28 @@ type ModeInfo struct {
 
 type Mode struct {
 	cursor_style_enabled bool
-	mode_infos           map[string]ModeInfo
+	mode_infos           []ModeInfo
 	current_mode_name    string
 	current_mode         int
 }
 
 func CreateMode() Mode {
-	return Mode{
-		mode_infos: make(map[string]ModeInfo),
+	return Mode{}
+}
+
+func (mode *Mode) CurrentModeInfo() ModeInfo {
+	if mode.current_mode < 0 || mode.current_mode >= len(mode.mode_infos) {
+		// For debugging
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Mode index out of bounds!")
+		return ModeInfo{}
 	}
+	return mode.mode_infos[mode.current_mode]
+}
+
+func (mode *Mode) Clear() {
+	mode.mode_infos = []ModeInfo{}
+}
+
+func (mode *Mode) Add(info ModeInfo) {
+	mode.mode_infos = append(mode.mode_infos, info)
 }
