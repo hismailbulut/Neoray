@@ -17,9 +17,6 @@ func HandleNvimRedrawEvents() {
 	for _, updates := range EditorSingleton.nvim.update_stack {
 		for _, update := range updates {
 			switch update[0] {
-			// Neoray events RESERVED
-			case "UIEnter":
-				break
 			// Global events
 			case "set_title":
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
@@ -177,6 +174,7 @@ func mode_info_set(args []interface{}) {
 		}
 		EditorSingleton.mode.mode_infos[info.name] = info
 	}
+	EditorSingleton.cursor.needsDraw = true
 }
 
 func grid_resize(args []interface{}) {

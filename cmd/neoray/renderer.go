@@ -56,7 +56,7 @@ func CreateRenderer() Renderer {
 	renderer.defaultFont, _ = CreateFont("", DEFAULT_FONT_SIZE)
 
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.CalculateCellSize()
-	EditorSingleton.CalculateCellCount()
+	EditorSingleton.calculateCellCount()
 
 	RGL_CreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
 	RGL_SetAtlasTexture(&renderer.fontAtlas.texture)
@@ -151,12 +151,8 @@ func (renderer *Renderer) CreateVertexData(rows, cols int) {
 			}
 		}
 	}
-	// prepare cursor element buffer
-	vBegin := 4 * cellCount
-	eBegin := 6 * cellCount
-	for i, e := range IndexDataOrder {
-		renderer.indexData[eBegin+i] = uint32(vBegin) + e
-	}
+	// Add cursor to data.
+	EditorSingleton.cursor.CreateVertexData()
 	// Add popup menu to data.
 	EditorSingleton.popupMenu.CreateVertexData()
 	// DEBUG: draw font atlas to top right
@@ -268,9 +264,6 @@ func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 }
 
 func (renderer *Renderer) SetCellBackgroundData(x, y int, color U8Color) {
-	if color.A != 200 {
-		log_debug("Cell:", x, y, "Color:", color)
-	}
 	c := color.ToF32Color()
 	begin := cellVertexPosition(x, y)
 	for i := 0; i < 4; i++ {
@@ -298,22 +291,6 @@ func (renderer *Renderer) ClearCellForegroundData(x, y int) {
 		renderer.vertexData[begin+i].fg.G = 0
 		renderer.vertexData[begin+i].fg.B = 0
 		renderer.vertexData[begin+i].fg.A = 0
-	}
-}
-
-func (renderer *Renderer) SetCursorData(pos IntRect, atlas_pos IntRect, fg, bg U8Color) {
-	bgc := bg.ToF32Color()
-	fgc := fg.ToF32Color()
-	positions := triangulateRect(pos)
-	atlas_pos_gl := renderer.fontAtlas.texture.GetRectGLCoordinates(atlas_pos)
-	texture_positions := triangulateFRect(atlas_pos_gl)
-	begin := 4 * EditorSingleton.cellCount
-	for i := 0; i < 4; i++ {
-		// background
-		renderer.vertexData[begin+i].pos = positions[i]
-		renderer.vertexData[begin+i].tex = texture_positions[i]
-		renderer.vertexData[begin+i].fg = fgc
-		renderer.vertexData[begin+i].bg = bgc
 	}
 }
 
@@ -418,7 +395,7 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	bg := EditorSingleton.grid.default_bg
 	sp := EditorSingleton.grid.default_sp
 	// bg transparency, this only affects default attribute backgrounds
-	bg.A = 200
+	bg.A = EditorSingleton.backgroundAlpha()
 	// set attribute colors
 	if !colorIsBlack(attrib.foreground) {
 		fg = attrib.foreground
@@ -447,7 +424,7 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 	} else {
 		// transparency
 		bg := EditorSingleton.grid.default_bg
-		bg.A = 200
+		bg.A = EditorSingleton.backgroundAlpha()
 		renderer.DrawCellCustom(x, y, cell.char, EditorSingleton.grid.default_fg, bg, false, false)
 	}
 }

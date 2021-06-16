@@ -13,7 +13,7 @@ const (
 	NEORAY_NAME          = "Neoray"
 	NEORAY_VERSION_MAJOR = 0
 	NEORAY_VERSION_MINOR = 0
-	NEORAY_VERSION_PATCH = 3
+	NEORAY_VERSION_PATCH = 4
 	NEORAY_WEBPAGE       = "github.com/hismailbulut/Neoray"
 	NEORAY_LICENSE       = "GPLv3"
 )
@@ -62,7 +62,7 @@ func isDebugBuild() bool {
 }
 
 func getBuildTypeString() string {
-	if BUILD_TYPE == DEBUG {
+	if isDebugBuild() {
 		return "Debug"
 	}
 	return "Release"

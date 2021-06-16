@@ -13,7 +13,9 @@ type Window struct {
 	width  int
 	height int
 	// This is for restoring window from fullscreen, dont use them
-	rect IntRect
+	windowedRect IntRect
+	minimized    bool
+	fullscreen   bool
 }
 
 func CreateWindow(width int, height int, title string) Window {
@@ -30,6 +32,10 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.Resizable, glfw.True)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
 
+	// NOTE: When doublebuffer is on, framebuffer transparency not working
+	// on fullscreen
+	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
+
 	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
@@ -37,9 +43,15 @@ func CreateWindow(width int, height int, title string) Window {
 	window.handle = windowHandle
 
 	window.handle.SetSizeCallback(WindowResizeHandler)
+	window.handle.SetIconifyCallback(MinimizeHandler)
+
 	window.handle.MakeContextCurrent()
 
 	return window
+}
+
+func MinimizeHandler(w *glfw.Window, minimized bool) {
+	EditorSingleton.window.minimized = minimized
 }
 
 func WindowResizeHandler(w *glfw.Window, width, height int) {
@@ -50,8 +62,9 @@ func WindowResizeHandler(w *glfw.Window, width, height int) {
 
 func (window *Window) Update() {
 	if isDebugBuild() {
-		fps_string := fmt.Sprintf(" | FPS: %d", EditorSingleton.framesPerSecond)
-		idx := strings.LastIndex(window.title, " | ")
+		fps_string := fmt.Sprintf(" | TPS: %d | Delta: %f",
+			EditorSingleton.framesPerSecond, EditorSingleton.deltaTime)
+		idx := strings.LastIndex(window.title, " | TPS:")
 		if idx == -1 {
 			window.SetTitle(window.title + fps_string)
 		} else {
@@ -61,7 +74,12 @@ func (window *Window) Update() {
 }
 
 func (window *Window) Raise() {
-
+	window.handle.SetAttrib(glfw.Floating, glfw.True)
+	if window.minimized {
+		window.handle.Restore()
+	}
+	// window.handle.Focus()
+	window.handle.SetAttrib(glfw.Floating, glfw.False)
 }
 
 func (window *Window) SetTitle(title string) {
@@ -71,13 +89,10 @@ func (window *Window) SetTitle(title string) {
 
 func (window *Window) ToggleFullscreen() {
 	if window.handle.GetMonitor() == nil {
-		// Set to fullscreen
+		// to fullscreen
 		x, y := window.handle.GetPos()
 		w, h := window.handle.GetSize()
-		window.rect.X = x
-		window.rect.Y = y
-		window.rect.W = w
-		window.rect.H = h
+		window.windowedRect = IntRect{X: x, Y: y, W: w, H: h}
 		monitor := glfw.GetPrimaryMonitor()
 		videoMode := monitor.GetVideoMode()
 		window.handle.SetMonitor(monitor, 0, 0,
@@ -85,12 +100,12 @@ func (window *Window) ToggleFullscreen() {
 	} else {
 		// restore
 		window.handle.SetMonitor(nil,
-			window.rect.X, window.rect.Y,
-			window.rect.W, window.rect.H, 0)
+			window.windowedRect.X, window.windowedRect.Y,
+			window.windowedRect.W, window.windowedRect.H, 0)
 	}
 }
 
 func (window *Window) Close() {
-	glfw.DetachCurrentContext()
+	// glfw.DetachCurrentContext()
 	window.handle.Destroy()
 }

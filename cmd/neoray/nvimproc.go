@@ -7,10 +7,18 @@ import (
 	"github.com/neovim/go-client/nvim"
 )
 
+const (
+	OPTION_CURSOR_ANIM  string = "neoray_cursor_animation_lifetime"
+	OPTION_TRANSPARENCY string = "neoray_framebuffer_transparency"
+	OPTION_TARGET_TPS   string = "neoray_target_ticks_per_second"
+)
+
 type NvimProcess struct {
 	handle       *nvim.Nvim
 	update_mutex *sync.Mutex
 	update_stack [][][]interface{}
+	option_mutex *sync.Mutex
+	option_stack [][]interface{}
 }
 
 func CreateNvimProcess() NvimProcess {
@@ -31,6 +39,7 @@ func CreateNvimProcess() NvimProcess {
 	proc.handle = nv
 	proc.requestApiInfo()
 	proc.introduce()
+	proc.initScripts()
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process created.")
 
@@ -68,20 +77,11 @@ func (proc *NvimProcess) introduce() {
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
 	}
+}
 
+func (proc *NvimProcess) initScripts() {
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
-
-	// id := proc.handle.ChannelID()
-	// proc.ExecuteVimScript("au UIEnter * call rpcnotify(%d, \"NeorayUIEnter\")\n", id)
-	// proc.handle.RegisterHandler("NeorayUIEnter", func() {
-	// proc.update_mutex.Lock()
-	// defer proc.update_mutex.Unlock()
-	// name := make([][]interface{}, 1, 1)
-	// name[0] = make([]interface{}, 1, 1)
-	// name[0][0] = "UIEnter"
-	// proc.update_stack = append(proc.update_stack, name)
-	// })
 }
 
 func (proc *NvimProcess) StartUI() {
@@ -111,12 +111,32 @@ func (proc *NvimProcess) StartUI() {
 
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM,
 		"UI Connected. Rows:", EditorSingleton.rowCount, "Cols:", EditorSingleton.columnCount)
+
+	proc.requestOptions()
+}
+
+func (proc *NvimProcess) requestOptions() {
+	var err error
+	var animlifetime float32
+	err = proc.handle.Var(OPTION_CURSOR_ANIM, &animlifetime)
+	if err == nil {
+		EditorSingleton.cursor.animLifetime = animlifetime
+	}
+	var transparency float32
+	err = proc.handle.Var(OPTION_TRANSPARENCY, &transparency)
+	if err == nil && transparency >= 0 && transparency <= 1 {
+		EditorSingleton.framebufferTransparency = transparency
+	}
+	var targetticks int
+	err = proc.handle.Var(OPTION_TARGET_TPS, &targetticks)
+	if err == nil && targetticks > 0 {
+		EditorSingleton.targetTPS = targetticks
+	}
 }
 
 func (proc *NvimProcess) ExecuteVimScript(script string, args ...interface{}) {
-	s := fmt.Sprintf(script, args...)
-	log_debug("Excuting:", s)
-	if err := proc.handle.Command(s); err != nil {
+	cmd := fmt.Sprintf(script, args...) + "\n"
+	if err := proc.handle.Command(cmd); err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute vimscript:", err)
 	}
 }
@@ -227,7 +247,7 @@ func (proc *NvimProcess) SendButton(button, action, modifier string, grid, row, 
 
 // Call CalculateCellSize before this function.
 func (proc *NvimProcess) RequestResize() {
-	EditorSingleton.CalculateCellCount()
+	EditorSingleton.calculateCellCount()
 	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
 	EditorSingleton.waitingResize = true
 }

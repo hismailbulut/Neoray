@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	MINIMUM_FONT_SIZE = 7
-	DEFAULT_FONT_SIZE = 15
-	TARGET_TPS        = 60
+	MINIMUM_FONT_SIZE                = 7
+	DEFAULT_FONT_SIZE                = 15
+	DEFAULT_FRAMEBUFFER_TRANSPARENCY = 1
+	DEFAULT_TARGET_TPS               = 60
 )
 
 type Editor struct {
@@ -53,6 +54,10 @@ type Editor struct {
 	// Initializing in Editor.MainLoop
 	framesPerSecond int
 	deltaTime       float32
+	// Transparency of window background min 0, max 1
+	framebufferTransparency float32
+	// Target ticks per second
+	targetTPS int
 	// Server for singleinstance
 	server *TCPServer
 }
@@ -60,6 +65,7 @@ type Editor struct {
 func (editor *Editor) Initialize() {
 	startupTime := time.Now()
 
+	editor.initDefaults()
 	editor.nvim = CreateNvimProcess()
 
 	if err := glfw.Init(); err != nil {
@@ -70,7 +76,7 @@ func (editor *Editor) Initialize() {
 
 	editor.grid = CreateGrid()
 	editor.mode = CreateMode()
-	editor.cursor = Cursor{}
+	editor.cursor = CreateCursor()
 	editor.options = UIOptions{}
 
 	InitializeFontLoader() // this takes 3secs
@@ -83,53 +89,72 @@ func (editor *Editor) Initialize() {
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
 }
 
-func (editor *Editor) MainLoop() {
-	programBegin := time.Now()
-	ticker := time.NewTicker(time.Millisecond * (1000 / TARGET_TPS))
-	defer ticker.Stop()
-	fpsTimer := time.Now()
-	fps := 0
-	for !editor.window.handle.ShouldClose() {
-		select {
-		case <-editor.quitRequestedChan:
-			editor.window.handle.SetShouldClose(true)
-			continue
-		default:
-		}
-		// Order is important!
-		if editor.server != nil {
-			editor.server.Process()
-		}
-		HandleNvimRedrawEvents()
-		if !editor.waitingResize {
-			editor.window.Update()
-			editor.cursor.Update()
-			editor.renderer.Update()
-		}
-		glfw.PollEvents()
-		fps++
-		if time.Since(fpsTimer) > time.Second {
-			editor.framesPerSecond = fps
-			editor.deltaTime = float32(fps) / 1000
-			fps = 0
-			fpsTimer = time.Now()
-		}
-		<-ticker.C
-	}
-	if editor.server != nil {
-		editor.server.Close()
-	}
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
-		"Program finished. Total execution time:", time.Since(programBegin))
+func (editor *Editor) initDefaults() {
+	editor.framebufferTransparency = DEFAULT_FRAMEBUFFER_TRANSPARENCY
+	editor.targetTPS = DEFAULT_TARGET_TPS
 }
 
-func (editor *Editor) CalculateCellCount() {
+func (editor *Editor) MainLoop() {
+	// For measuring total time of the program.
+	programBegin := time.Now()
+	// Ticker's interval
+	interval := time.Second / time.Duration(editor.targetTPS)
+	log_debug("Interval:", interval)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	// For measuring tps.
+	var elapsed float32
+	ticks := 0
+	// For measuring delta time
+	loopBegin := time.Now()
+	// Mainloop
+	for !editor.window.handle.ShouldClose() {
+		select {
+		case ticktime := <-ticker.C:
+			// Calculate delta time
+			editor.deltaTime = float32(ticktime.Sub(loopBegin)) / float32(time.Second)
+			loopBegin = ticktime
+			elapsed += editor.deltaTime
+			ticks++
+			// Calculate ticks per second
+			if elapsed >= 1 {
+				editor.framesPerSecond = ticks
+				ticks = 0
+				elapsed = 0
+			}
+			// Update program. Order is important!
+			if editor.server != nil {
+				editor.server.Process()
+			}
+			HandleNvimRedrawEvents()
+			if !editor.waitingResize {
+				editor.window.Update()
+				editor.cursor.Update()
+				editor.renderer.Update()
+			}
+			glfw.PollEvents()
+			// Update ticks
+		case <-editor.quitRequestedChan:
+			editor.window.handle.SetShouldClose(true)
+		}
+	}
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
+}
+
+func (editor *Editor) calculateCellCount() {
 	editor.columnCount = editor.window.width / editor.cellWidth
 	editor.rowCount = editor.window.height / editor.cellHeight
 	editor.cellCount = editor.columnCount * editor.rowCount
 }
 
+func (editor *Editor) backgroundAlpha() uint8 {
+	return uint8(editor.framebufferTransparency * 255)
+}
+
 func (editor *Editor) Shutdown() {
+	if editor.server != nil {
+		editor.server.Close()
+	}
 	editor.nvim.Close()
 	editor.grid.Destroy()
 	editor.window.Close()

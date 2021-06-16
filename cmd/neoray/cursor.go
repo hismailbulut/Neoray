@@ -3,15 +3,23 @@ package main
 import ()
 
 const (
-	CursorAnimationLifetime = 0.3
+	DefaultCursorAnimLifetime = 0.1
 )
 
 type Cursor struct {
-	X         int
-	Y         int
-	anim      Animation
-	needsDraw bool
-	hidden    bool
+	X            int
+	Y            int
+	anim         Animation
+	animLifetime float32
+	needsDraw    bool
+	hidden       bool
+	vertexData   VertexDataStorage
+}
+
+func CreateCursor() Cursor {
+	return Cursor{
+		animLifetime: DefaultCursorAnimLifetime,
+	}
 }
 
 func (cursor *Cursor) Update() {
@@ -20,16 +28,16 @@ func (cursor *Cursor) Update() {
 	}
 }
 
-func (cursor *Cursor) IsHere(x, y int) bool {
-	return x == cursor.X && y == cursor.Y
+func (cursor *Cursor) CreateVertexData() {
+	// Reserve vertex data for cursor and cursor is only one cell.
+	cursor.vertexData = EditorSingleton.renderer.ReserveVertexData(1)
 }
 
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	if !immediately {
 		cursor.anim = CreateAnimation(
 			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
-			F32Vec2{X: float32(x), Y: float32(y)},
-			CursorAnimationLifetime)
+			F32Vec2{X: float32(x), Y: float32(y)}, cursor.animLifetime)
 	}
 	cursor.X = x
 	cursor.Y = y
@@ -105,7 +113,7 @@ func (cursor *Cursor) Show() {
 
 func (cursor *Cursor) Hide() {
 	// Hide the cursor.
-	EditorSingleton.renderer.SetCursorData(IntRect{}, IntRect{}, U8Color{}, U8Color{})
+	cursor.vertexData.SetVertexPos(0, IntRect{})
 	cursor.hidden = true
 }
 
@@ -133,12 +141,15 @@ func (cursor *Cursor) Draw() {
 					bold = attrib.bold
 				}
 				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
-				EditorSingleton.renderer.SetCursorData(rect, atlas_pos, fg, bg)
+				cursor.vertexData.SetVertexPos(0, rect)
+				cursor.vertexData.SetVertexTexPos(0, atlas_pos)
+				cursor.vertexData.SetVertexColor(0, fg, bg)
 			}
 		} else {
 			// No cell drawing needed. Just draw the cursor.
-			EditorSingleton.renderer.SetCursorData(
-				rect, IntRect{}, U8Color{}, bg)
+			cursor.vertexData.SetVertexPos(0, rect)
+			cursor.vertexData.SetVertexTexPos(0, IntRect{})
+			cursor.vertexData.SetVertexColor(0, U8Color{}, bg)
 		}
 		EditorSingleton.renderer.renderCall = true
 	}

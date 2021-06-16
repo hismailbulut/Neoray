@@ -119,7 +119,7 @@ func RGL_SetAtlasTexture(atlas *Texture) {
 func RGL_ClearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	c := color.ToF32Color()
-	gl.ClearColor(c.R, c.G, c.B, c.A)
+	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.framebufferTransparency)
 }
 
 func RGL_UpdateVertexData(data []Vertex) {
