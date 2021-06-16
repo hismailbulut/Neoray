@@ -97,7 +97,6 @@ func (grid *Grid) GetCell(x, y int) *Cell {
 	return nil
 }
 
-// TODO: Find a way to speed up.
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 	defer measure_execution_time("Grid.Scroll")()
 	copyCellsAndScroll := func(dst, src, left, right int) {

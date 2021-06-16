@@ -17,7 +17,7 @@ var MenuButtonEvents = map[string]func(){
 		EditorSingleton.nvim.Copy()
 	},
 	ButtonNames[2]: func() {
-		EditorSingleton.nvim.WriteAfterCursor(glfw.GetClipboardString())
+		EditorSingleton.nvim.WriteAtCursor(glfw.GetClipboardString())
 	},
 	ButtonNames[3]: func() {
 		EditorSingleton.nvim.SelectAll()

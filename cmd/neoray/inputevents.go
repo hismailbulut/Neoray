@@ -65,7 +65,7 @@ func CharEventHandler(w *glfw.Window, char rune, mods glfw.ModifierKey) {
 	default:
 		keycode = c
 	}
-	EditorSingleton.nvim.SendKeyCode(keycode)
+	EditorSingleton.nvim.Input(keycode)
 }
 
 func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -152,7 +152,7 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 			break
 		}
 
-		EditorSingleton.nvim.SendKeyCode(keycode)
+		EditorSingleton.nvim.Input(keycode)
 	}
 }
 
@@ -187,7 +187,7 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 
 	row := MousePos.Y / EditorSingleton.cellHeight
 	col := MousePos.X / EditorSingleton.cellWidth
-	EditorSingleton.nvim.SendButton(buttonCode, actionCode, MouseModifiers, 0, row, col)
+	EditorSingleton.nvim.InputMouse(buttonCode, actionCode, MouseModifiers, 0, row, col)
 
 	MouseButton = buttonCode
 	MouseAction = action
@@ -201,7 +201,7 @@ func MousePosEventHandler(w *glfw.Window, xpos, ypos float64) {
 	if MouseAction == glfw.Press {
 		row := MousePos.Y / EditorSingleton.cellHeight
 		col := MousePos.X / EditorSingleton.cellWidth
-		EditorSingleton.nvim.SendButton(MouseButton, "drag", MouseModifiers, 0, row, col)
+		EditorSingleton.nvim.InputMouse(MouseButton, "drag", MouseModifiers, 0, row, col)
 	}
 }
 
@@ -212,7 +212,7 @@ func ScrollEventHandler(w *glfw.Window, xpos, ypos float64) {
 	}
 	row := MousePos.Y / EditorSingleton.cellHeight
 	col := MousePos.X / EditorSingleton.cellWidth
-	EditorSingleton.nvim.SendButton("wheel", action, MouseModifiers, 0, row, col)
+	EditorSingleton.nvim.InputMouse("wheel", action, MouseModifiers, 0, row, col)
 }
 
 func DropEventHandler(w *glfw.Window, names []string) {

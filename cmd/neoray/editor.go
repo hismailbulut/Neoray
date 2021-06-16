@@ -71,7 +71,7 @@ func (editor *Editor) Initialize() {
 	if err := glfw.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
 	}
-	editor.window = CreateWindow(800, 600, NEORAY_NAME)
+	editor.window = CreateWindow(800, 600, TITLE)
 	InitializeInputEvents()
 
 	editor.grid = CreateGrid()

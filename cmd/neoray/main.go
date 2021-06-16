@@ -10,12 +10,12 @@ const (
 	DEBUG   = 0
 	RELEASE = 1
 
-	NEORAY_NAME          = "Neoray"
-	NEORAY_VERSION_MAJOR = 0
-	NEORAY_VERSION_MINOR = 0
-	NEORAY_VERSION_PATCH = 4
-	NEORAY_WEBPAGE       = "github.com/hismailbulut/Neoray"
-	NEORAY_LICENSE       = "GPLv3"
+	TITLE         = "Neoray"
+	VERSION_MAJOR = 0
+	VERSION_MINOR = 0
+	VERSION_PATCH = 4
+	WEBPAGE       = "github.com/hismailbulut/Neoray"
+	LICENSE       = "GPLv3"
 )
 
 // NOTE: This source code is documented by me and I don't know English well.
@@ -41,7 +41,7 @@ func main() {
 	defer close_function_time_tracker()
 	// Parse args
 	EditorArgs = ParseArgs(os.Args[1:])
-	// If parse before returns true, we will not start neoray.
+	// If ProcessBefore returns true, neoray will not start.
 	if EditorArgs.ProcessBefore() {
 		return
 	}
@@ -61,7 +61,7 @@ func isDebugBuild() bool {
 	return BUILD_TYPE == DEBUG
 }
 
-func getBuildTypeString() string {
+func buildTypeString() string {
 	if isDebugBuild() {
 		return "Debug"
 	}

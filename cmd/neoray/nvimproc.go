@@ -8,17 +8,16 @@ import (
 )
 
 const (
-	OPTION_CURSOR_ANIM  string = "neoray_cursor_animation_lifetime"
+	OPTION_CURSOR_ANIM  string = "neoray_cursor_animation_time"
 	OPTION_TRANSPARENCY string = "neoray_framebuffer_transparency"
 	OPTION_TARGET_TPS   string = "neoray_target_ticks_per_second"
+	// OPTION_POPUP_MENU   string = "neoray_popup_menu_enabled"
 )
 
 type NvimProcess struct {
 	handle       *nvim.Nvim
 	update_mutex *sync.Mutex
 	update_stack [][][]interface{}
-	option_mutex *sync.Mutex
-	option_stack [][]interface{}
 }
 
 func CreateNvimProcess() NvimProcess {
@@ -56,12 +55,12 @@ func (proc *NvimProcess) requestApiInfo() {
 
 func (proc *NvimProcess) introduce() {
 	// Short name for the connected client
-	name := NEORAY_NAME
+	name := TITLE
 	// Dictionary describing the version
 	version := &nvim.ClientVersion{
-		Major:      NEORAY_VERSION_MAJOR,
-		Minor:      NEORAY_VERSION_MINOR,
-		Patch:      NEORAY_VERSION_PATCH,
+		Major:      VERSION_MAJOR,
+		Minor:      VERSION_MINOR,
+		Patch:      VERSION_PATCH,
 		Prerelease: "dev",
 		Commit:     "main",
 	}
@@ -71,8 +70,8 @@ func (proc *NvimProcess) introduce() {
 	methods := make(map[string]*nvim.ClientMethod, 0)
 	// Arbitrary string:string map of informal client properties
 	attributes := make(nvim.ClientAttributes, 1)
-	attributes["website"] = NEORAY_WEBPAGE
-	attributes["license"] = NEORAY_LICENSE
+	attributes["website"] = WEBPAGE
+	attributes["license"] = LICENSE
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
@@ -172,19 +171,19 @@ func (proc *NvimProcess) Copy() {
 	}
 }
 
-func (proc *NvimProcess) WriteAfterCursor(str string) {
+func (proc *NvimProcess) WriteAtCursor(str string) {
 	switch proc.Mode() {
 	case "i":
-		proc.SendKeyCode(str)
+		proc.Input(str)
 		break
 	case "n":
 		proc.FeedKeys("i")
-		proc.SendKeyCode(str)
+		proc.Input(str)
 		proc.FeedKeys("<ESC>")
 		break
 	case "v":
 		proc.FeedKeys("<ESC>i")
-		proc.SendKeyCode(str)
+		proc.Input(str)
 		proc.FeedKeys("<ESC>gv")
 		break
 	}
@@ -228,7 +227,7 @@ func (proc *NvimProcess) FeedKeys(keys string) {
 	}
 }
 
-func (proc *NvimProcess) SendKeyCode(keycode string) {
+func (proc *NvimProcess) Input(keycode string) {
 	written, err := proc.handle.Input(keycode)
 	if err != nil {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send input keys:", err)
@@ -238,7 +237,7 @@ func (proc *NvimProcess) SendKeyCode(keycode string) {
 	}
 }
 
-func (proc *NvimProcess) SendButton(button, action, modifier string, grid, row, column int) {
+func (proc *NvimProcess) InputMouse(button, action, modifier string, grid, row, column int) {
 	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
 	if err != nil {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send mouse input:", err)
