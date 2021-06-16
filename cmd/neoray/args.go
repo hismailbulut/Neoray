@@ -23,12 +23,12 @@ type Args struct {
 func ParseArgs(args []string) Args {
 	options := Args{}
 	help := false
-	fs := flag.NewFlagSet("Neoray usage", flag.ContinueOnError)
+	fs := flag.NewFlagSet("usage", flag.ContinueOnError)
 	fs.StringVar(&options.file, "file", "", "Specify a filename to open in neovim. This is useful when -si flag has given.")
 	fs.IntVar(&options.line, "line", -1, "Goto line number.")
 	fs.IntVar(&options.column, "column", -1, "Goto column number.")
-	fs.BoolVar(&options.singleInstance, "singleinstance", false, "If this option has given neoray will open only one instance. "+
-		"All neoray commands will send all flags to already open instance and immediately close.")
+	fs.BoolVar(&options.singleInstance, "singleinstance", false, "If this option has given neoray will open only one instance."+
+		" All neoray commands will send all flags to already open instance and immediately close.")
 	fs.BoolVar(&options.singleInstance, "si", false, "Shortland for singleinstance")
 	fs.BoolVar(&help, "help", false, "Prints this message and quits.")
 	fs.BoolVar(&help, "h", false, "Shortland for help.")
@@ -37,7 +37,7 @@ func ParseArgs(args []string) Args {
 		PrintHelp(fs)
 		os.Exit(0)
 	}
-	options.nvimArgs = flag.Args()
+	options.nvimArgs = fs.Args()
 	return options
 }
 
@@ -45,12 +45,12 @@ func PrintHelp(fs *flag.FlagSet) {
 	buf := bytes.NewBufferString("")
 	fs.SetOutput(buf)
 	fs.PrintDefaults()
-	msg := "Neoray is an ui client of neovim.\n"
+	msg := "Neoray is an ui client for neovim.\n"
 	msg += "Author 2021 Ismail Bulut.\n"
 	msg += fmt.Sprintf("Version %d.%d.%d %s\n",
-		NEORAY_VERSION_MAJOR, NEORAY_VERSION_MINOR, NEORAY_VERSION_PATCH, getBuildTypeString())
-	msg += fmt.Sprintf("License %s\n", NEORAY_LICENSE)
-	msg += fmt.Sprintf("Webpage %s\n", NEORAY_WEBPAGE)
+		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, buildTypeString())
+	msg += fmt.Sprintf("License %s\n", LICENSE)
+	msg += fmt.Sprintf("Webpage %s\n", WEBPAGE)
 	msg += "\n"
 	usage, err := buf.ReadString('\x00')
 	if err != nil {
@@ -71,16 +71,16 @@ func (options Args) ProcessBefore() bool {
 				if options.file != "" {
 					fullPath, err := filepath.Abs(options.file)
 					if err == nil {
-						dontStart = client.SendSignal(SIGNAL_OPEN_FILE, fullPath)
+						client.SendSignal(SIGNAL_OPEN_FILE, fullPath)
 					}
 				}
 				if options.line != -1 {
-					dontStart = client.SendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
+					client.SendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
 				}
 				if options.column != -1 {
-					dontStart = client.SendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
+					client.SendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
 				}
-
+				dontStart = true
 			}
 			client.Close()
 		} else {
