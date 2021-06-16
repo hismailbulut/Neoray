@@ -23,6 +23,7 @@ type FontAtlas struct {
 type Renderer struct {
 	userFont    Font
 	defaultFont Font
+	symbolFont  Font
 	fontSize    int
 	fontAtlas   FontAtlas
 	// Vertex data holds vertices for cells. Every cell has 4 vertice and every vertice
@@ -46,6 +47,7 @@ func CreateRenderer() Renderer {
 	defer measure_execution_time("CreateRenderer")()
 
 	RGL_Init()
+
 	renderer := Renderer{
 		fontSize: DEFAULT_FONT_SIZE,
 		fontAtlas: FontAtlas{
@@ -53,19 +55,30 @@ func CreateRenderer() Renderer {
 			characters: make(map[string]IntRect),
 		},
 	}
-	renderer.defaultFont, _ = CreateFont("", DEFAULT_FONT_SIZE)
+
+	var ok bool
+	renderer.defaultFont, ok = CreateFont(systemFontDefault, DEFAULT_FONT_SIZE)
+	if !ok {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "System default font not found!", systemFontDefault)
+	}
+	renderer.symbolFont, ok = CreateFont(systemFontSymbol, DEFAULT_FONT_SIZE)
+	if !ok {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "System symbol font not found!", systemFontSymbol)
+	}
 
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.CalculateCellSize()
 	EditorSingleton.calculateCellCount()
 
 	RGL_CreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
 	RGL_SetAtlasTexture(&renderer.fontAtlas.texture)
+
 	return renderer
 }
 
 func (renderer *Renderer) SetFontSize(size int) {
 	if size != renderer.fontSize {
 		renderer.defaultFont.Resize(size)
+		renderer.symbolFont.Resize(size)
 		if renderer.userFont.size > 0 {
 			renderer.userFont.Resize(size)
 			renderer.UpdateCellSize(&renderer.userFont)
@@ -86,6 +99,7 @@ func (renderer *Renderer) SetFont(font Font) {
 	renderer.ClearAtlas()
 	// resize default font
 	renderer.defaultFont.Resize(renderer.userFont.size)
+	renderer.symbolFont.Resize(renderer.userFont.size)
 	// update cell size if font size has changed
 	renderer.UpdateCellSize(&font)
 	// redraw all cells
@@ -327,6 +341,28 @@ func (renderer *Renderer) GetEmptyAtlasPosition(width int) IntVec2 {
 	return pos
 }
 
+func (renderer *Renderer) GetSupportedFace(char string, italic, bold bool) (*FontFace, bool) {
+	// First try the user font for this character.
+	if renderer.userFont.size > 0 {
+		face := renderer.userFont.GetSuitableFace(italic, bold)
+		if face.IsDrawable(char) {
+			return face, true
+		}
+	}
+	// Use default font if user font not supports this glyph
+	{
+		face := renderer.defaultFont.GetSuitableFace(italic, bold)
+		if face.IsDrawable(char) {
+			return face, true
+		}
+	}
+	// Use symbol font to draw the glyph. This is the last try.
+	{
+		face := renderer.symbolFont.GetSuitableFace(italic, bold)
+		return face, face.IsDrawable(char)
+	}
+}
+
 func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) IntRect {
 	var position IntRect
 	// generate specific id for this character
@@ -336,25 +372,12 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bo
 		position = pos
 	} else {
 		// Get suitable font and check for glyph
-		var fontFace FontFace
-		useDefault := true
-		if renderer.userFont.size > 0 {
-			fontFace = renderer.userFont.GetSuitableFace(italic, bold)
-			if fontFace.IsDrawable(char) {
-				useDefault = false
-			}
-		}
-		// Use default font if user font not supports this glyph
-		if useDefault {
-			fontFace = renderer.defaultFont.GetSuitableFace(italic, bold)
-			if !fontFace.IsDrawable(char) {
-				// Default font is not supports this glyph.
-				// If we drawed .notdef use it or draw it.
-				id = UNSUPPORTED_GLYPH_ID
-				pos, ok := renderer.fontAtlas.characters[id]
-				if ok {
-					return pos
-				}
+		fontFace, ok := renderer.GetSupportedFace(char, italic, bold)
+		if !ok {
+			id = UNSUPPORTED_GLYPH_ID
+			pos, ok := renderer.fontAtlas.characters[id]
+			if ok {
+				return pos
 			}
 		}
 		// Render character to an image

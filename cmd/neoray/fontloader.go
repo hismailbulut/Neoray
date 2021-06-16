@@ -9,6 +9,7 @@ import (
 
 var (
 	systemFontDefault string
+	systemFontSymbol  string
 	systemFontList    []*sysfont.Font
 )
 
@@ -30,18 +31,26 @@ func InitializeFontLoader() {
 	switch runtime.GOOS {
 	case "windows":
 		systemFontDefault = "Consolas"
+		systemFontSymbol = "Segoe UI Symbol"
 		break
 	case "linux":
 		systemFontDefault = "Noto Sans Mono"
+		systemFontSymbol = "Noto Sans Mono"
 		break
 	case "darwin":
 		systemFontDefault = "Menlo"
+		systemFontSymbol = "Apple Symbols"
 		break
 	}
 }
 
 func CreateFont(fontName string, size int) (Font, bool) {
 	defer measure_execution_time("CreateFont")()
+
+	if fontName == "" || fontName == " " {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Font name can not be empty!")
+		return Font{}, false
+	}
 
 	if size < MINIMUM_FONT_SIZE {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
@@ -50,9 +59,7 @@ func CreateFont(fontName string, size int) (Font, bool) {
 	}
 
 	font := Font{size: size}
-	if fontName == "" || fontName == " " {
-		font.loadDefaultFont()
-	} else if !font.findAndLoad(fontName) {
+	if !font.findAndLoad(fontName) {
 		return font, false
 	}
 
@@ -86,28 +93,19 @@ func (font *Font) Resize(newsize int) {
 	}
 }
 
-func (font *Font) GetSuitableFace(italic bool, bold bool) FontFace {
+func (font *Font) GetSuitableFace(italic bool, bold bool) *FontFace {
 	if italic && bold && font.bold_italic.loaded {
-		return font.bold_italic
+		return &font.bold_italic
 	} else if italic && font.italic.loaded {
-		return font.italic
+		return &font.italic
 	} else if bold && font.bold.loaded {
-		return font.bold
+		return &font.bold
 	}
-	return font.regular
+	return &font.regular
 }
 
 func (font *Font) CalculateCellSize() (int, int) {
 	return font.regular.advance, font.regular.ascent + font.regular.descent
-}
-
-func (font *Font) loadDefaultFont() {
-	matched_fonts, ok := font.getMatchingFonts(systemFontDefault)
-	if !ok || !font.loadMatchingFonts(matched_fonts) {
-		// Maybe default system font is not installed (?) or failed to access.
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY,
-			"Default system font is not found!", systemFontDefault)
-	}
 }
 
 func (font *Font) findAndLoad(fontName string) bool {
