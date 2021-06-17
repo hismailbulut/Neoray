@@ -76,16 +76,12 @@ func HandleNvimRedrawEvents() {
 				EditorSingleton.grid.ClearCells()
 				break
 			case "grid_destroy":
-				EditorSingleton.grid.Destroy()
 				break
 			case "grid_cursor_goto":
 				grid_cursor_goto(update[1:])
 				break
 			case "grid_scroll":
 				grid_scroll(update[1:])
-				break
-			default:
-				log_debug("Unknown update:", update)
 				break
 			}
 		}
