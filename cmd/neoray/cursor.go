@@ -142,6 +142,9 @@ func (cursor *Cursor) Draw() {
 				}
 				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
 				cursor.vertexData.SetVertexTexPos(0, atlas_pos)
+			} else {
+				// Clear foreground of the cursor.
+				cursor.vertexData.SetVertexTexPos(0, IntRect{})
 			}
 			cursor.vertexData.SetVertexPos(0, rect)
 			cursor.vertexData.SetVertexColor(0, fg, bg)
