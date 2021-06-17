@@ -75,8 +75,16 @@ func CreateRenderer() Renderer {
 	return renderer
 }
 
+func (renderer *Renderer) IncreaseFontSize() {
+	renderer.SetFontSize(renderer.fontSize + 1)
+}
+
+func (renderer *Renderer) DecreaseFontSize() {
+	renderer.SetFontSize(renderer.fontSize - 1)
+}
+
 func (renderer *Renderer) SetFontSize(size int) {
-	if size != renderer.fontSize {
+	if size != renderer.fontSize && size >= MINIMUM_FONT_SIZE {
 		renderer.defaultFont.Resize(size)
 		renderer.symbolFont.Resize(size)
 		if renderer.userFont.size > 0 {
@@ -89,7 +97,7 @@ func (renderer *Renderer) SetFontSize(size int) {
 		EditorSingleton.grid.MakeAllCellsChanged()
 		renderer.drawCall = true
 		renderer.fontSize = size
-		log_debug("New Font Size:", size)
+		EditorSingleton.nvim.Echo("Font Size: %d\n", size)
 	}
 }
 
@@ -105,7 +113,6 @@ func (renderer *Renderer) SetFont(font Font) {
 	// redraw all cells
 	EditorSingleton.grid.MakeAllCellsChanged()
 	renderer.drawCall = true
-	log_debug("Set Font:", font.size)
 }
 
 func (renderer *Renderer) DisableUserFont() {
@@ -357,10 +364,10 @@ func (renderer *Renderer) GetSupportedFace(char string, italic, bold bool) (*Fon
 		}
 	}
 	// Use symbol font to draw the glyph. This is the last try.
-	{
-		face := renderer.symbolFont.GetSuitableFace(italic, bold)
-		return face, face.IsDrawable(char)
-	}
+	face := renderer.symbolFont.GetSuitableFace(italic, bold)
+	return face, face.IsDrawable(char)
+
+	// TODO: Embed nerdicons.
 }
 
 func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold bool) IntRect {

@@ -11,7 +11,12 @@ const (
 	OPTION_CURSOR_ANIM  string = "neoray_cursor_animation_time"
 	OPTION_TRANSPARENCY string = "neoray_framebuffer_transparency"
 	OPTION_TARGET_TPS   string = "neoray_target_ticks_per_second"
-	// OPTION_POPUP_MENU   string = "neoray_popup_menu_enabled"
+	OPTION_POPUP_MENU   string = "neoray_popup_menu_enabled"
+
+	// Keybindings
+	OPTION_KEY_FULLSCRN string = "neoray_key_toggle_fullscreen"
+	OPTION_ZOOMIN_KEY   string = "neoray_key_increase_fontsize"
+	OPTION_ZOOMOUT_KEY  string = "neoray_key_decrease_fontsize"
 )
 
 type NvimProcess struct {
@@ -115,21 +120,35 @@ func (proc *NvimProcess) StartUI() {
 }
 
 func (proc *NvimProcess) requestOptions() {
-	var err error
-	var animlifetime float32
-	err = proc.handle.Var(OPTION_CURSOR_ANIM, &animlifetime)
-	if err == nil {
-		EditorSingleton.cursor.animLifetime = animlifetime
+	var f32var float32
+	var intvar int
+	var strvar string
+	if proc.handle.Var(OPTION_CURSOR_ANIM, &f32var) == nil {
+		EditorSingleton.cursor.animLifetime = f32var
 	}
-	var transparency float32
-	err = proc.handle.Var(OPTION_TRANSPARENCY, &transparency)
-	if err == nil && transparency >= 0 && transparency <= 1 {
-		EditorSingleton.framebufferTransparency = transparency
+	if proc.handle.Var(OPTION_TRANSPARENCY, &f32var) == nil {
+		EditorSingleton.framebufferTransparency = f32var
 	}
-	var targetticks int
-	err = proc.handle.Var(OPTION_TARGET_TPS, &targetticks)
-	if err == nil && targetticks > 0 {
-		EditorSingleton.targetTPS = targetticks
+	if proc.handle.Var(OPTION_TARGET_TPS, &intvar) == nil {
+		if intvar > 0 {
+			EditorSingleton.targetTPS = intvar
+		}
+	}
+	if proc.handle.Var(OPTION_POPUP_MENU, &intvar) == nil {
+		if intvar == 0 {
+			popupMenuEnabled = false
+		} else {
+			popupMenuEnabled = true
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_FULLSCRN, &strvar) == nil {
+		toggleFullscreenKey = strvar
+	}
+	if proc.handle.Var(OPTION_ZOOMIN_KEY, &strvar) == nil {
+		zoomInKey = strvar
+	}
+	if proc.handle.Var(OPTION_ZOOMOUT_KEY, &strvar) == nil {
+		zoomOutKey = strvar
 	}
 }
 
@@ -147,6 +166,16 @@ func (proc *NvimProcess) Mode() string {
 		return ""
 	}
 	return mode.Mode
+}
+
+func (proc *NvimProcess) Echo(text string, args ...interface{}) {
+	formatted := fmt.Sprintf(text, args...)
+	proc.ExecuteVimScript(":echomsg '%s'", formatted)
+}
+
+func (proc *NvimProcess) EchoError(text string, args ...interface{}) {
+	formatted := fmt.Sprintf(text, args...)
+	proc.handle.WritelnErr(formatted)
 }
 
 func (proc *NvimProcess) Cut() {
@@ -191,14 +220,11 @@ func (proc *NvimProcess) WriteAtCursor(str string) {
 
 func (proc *NvimProcess) SelectAll() {
 	switch proc.Mode() {
-	case "i":
+	case "i", "v":
 		proc.FeedKeys("<ESC>ggVG")
 		break
 	case "n":
 		proc.FeedKeys("ggVG")
-		break
-	case "v":
-		proc.FeedKeys("<ESC>ggVG")
 		break
 	}
 }
