@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"time"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -106,6 +107,7 @@ func (editor *Editor) MainLoop() {
 	ticks := 0
 	// For measuring delta time
 	loopBegin := time.Now()
+	// For secure quit.
 	quitRequestedFromNvim := false
 	// Mainloop
 MAINLOOP:
@@ -157,7 +159,8 @@ func (editor *Editor) calculateCellCount() {
 }
 
 func (editor *Editor) backgroundAlpha() uint8 {
-	return uint8(editor.framebufferTransparency * 255)
+	transparency := math.Min(1, math.Max(0, float64(editor.framebufferTransparency)))
+	return uint8(transparency * 255)
 }
 
 func (editor *Editor) Shutdown() {
