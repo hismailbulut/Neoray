@@ -117,8 +117,3 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X-rows, EditorSingleton.cursor.Y, true)
 	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X+rows, EditorSingleton.cursor.Y, false)
 }
-
-// NOTE: Reserved
-func (grid *Grid) Destroy() {
-	log_debug("Grid destroyed.")
-}
