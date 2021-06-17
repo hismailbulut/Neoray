@@ -99,7 +99,6 @@ func (editor *Editor) MainLoop() {
 	programBegin := time.Now()
 	// Ticker's interval
 	interval := time.Second / time.Duration(editor.targetTPS)
-	log_debug("Interval:", interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	// For measuring tps.
@@ -107,7 +106,9 @@ func (editor *Editor) MainLoop() {
 	ticks := 0
 	// For measuring delta time
 	loopBegin := time.Now()
+	quitRequestedFromNvim := false
 	// Mainloop
+MAINLOOP:
 	for !editor.window.handle.ShouldClose() {
 		select {
 		case ticktime := <-ticker.C:
@@ -133,10 +134,18 @@ func (editor *Editor) MainLoop() {
 				editor.renderer.Update()
 			}
 			glfw.PollEvents()
-			// Update ticks
 		case <-editor.quitRequestedChan:
 			editor.window.handle.SetShouldClose(true)
+			quitRequestedFromNvim = true
 		}
+	}
+	if !quitRequestedFromNvim {
+		// Maybe there is a unsaved files in neovim. Instead of immediately closing
+		// we will send simple quit command to neovim and if there is a unsaved files
+		// the neovim will handle it and user will not lose its progress.
+		editor.window.handle.SetShouldClose(false)
+		go editor.nvim.ExecuteVimScript(":qa")
+		goto MAINLOOP
 	}
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
 }
@@ -156,7 +165,6 @@ func (editor *Editor) Shutdown() {
 		editor.server.Close()
 	}
 	editor.nvim.Close()
-	editor.grid.Destroy()
 	editor.window.Close()
 	editor.renderer.Close()
 	glfw.Terminate()
