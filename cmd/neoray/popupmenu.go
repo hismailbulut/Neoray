@@ -87,7 +87,7 @@ func (pmenu *PopupMenu) CreateVertexData() {
 			cell_id := x*pmenu.width + y
 			var atlasPos IntRect
 			if char != "" && char != " " {
-				atlasPos = EditorSingleton.renderer.GetCharacterAtlasPosition(char, false, false)
+				atlasPos = EditorSingleton.renderer.GetCharacterAtlasPosition(char, false, false, false)
 			}
 			pmenu.vertexData.SetVertexTexPos(cell_id, atlasPos)
 		}

@@ -3,7 +3,7 @@ package main
 import ()
 
 const (
-	DefaultCursorAnimLifetime = 0.1
+	DefaultCursorAnimLifetime = 0.085
 )
 
 type Cursor struct {
@@ -135,12 +135,14 @@ func (cursor *Cursor) Draw() {
 				// Because cursor is not transparent.
 				italic := false
 				bold := false
+				underline := false
 				if cell.attrib_id > 0 {
 					attrib := EditorSingleton.grid.attributes[cell.attrib_id]
 					italic = attrib.italic
 					bold = attrib.bold
+					underline = attrib.underline
 				}
-				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold)
+				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold, underline)
 				cursor.vertexData.SetVertexTexPos(0, atlas_pos)
 			} else {
 				// Clear foreground of the cursor.

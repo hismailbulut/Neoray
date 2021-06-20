@@ -27,7 +27,12 @@ in vec4 bgColor;
 
 uniform sampler2D atlas;
 
+vec4 process(vec4 bg, vec4 fg, vec4 tex) {
+	vec4 res = mix(bg, fg, tex.a);
+	return res;
+}
+
 void main() {
 	vec4 texColor = texture(atlas, texCoord);
-	gl_FragColor = mix(bgColor, fgColor, texColor.a);
+	gl_FragColor = process(bgColor, fgColor, texColor);
 }

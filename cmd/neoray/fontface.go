@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
 	"os"
 
 	"golang.org/x/image/font"
@@ -12,30 +14,35 @@ import (
 )
 
 type FontFace struct {
+	size float32
+
 	handle     font.Face
 	fontHandle *sfnt.Font
 	buffer     sfnt.Buffer
 
-	loaded  bool
 	advance int
 	ascent  int
 	descent int
+	height  int
 }
 
-func CreateFontFace(fileName string, size int) (FontFace, error) {
+func CreateFontFace(fileName string, size float32) (FontFace, error) {
 	fileData, err := os.ReadFile(fileName)
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to read file: %s\n", err)
 	}
+	return CreateFontFaceMemory(fileData, size)
+}
 
-	sfont, err := opentype.Parse(fileData)
+func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
+	sfont, err := opentype.Parse(data)
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to parse font data: %s\n", err)
 	}
 
 	face, err := opentype.NewFace(sfont, &opentype.FaceOptions{
 		Size:    float64(size),
-		DPI:     72,
+		DPI:     EditorSingleton.window.dpi,
 		Hinting: font.HintingFull,
 	})
 	if err != nil {
@@ -48,21 +55,25 @@ func CreateFontFace(fileName string, size int) (FontFace, error) {
 	}
 
 	fontFace := FontFace{
+		size:       size,
 		handle:     face,
 		fontHandle: sfont,
-		loaded:     true,
 		advance:    advance.Ceil(),
 		ascent:     face.Metrics().Ascent.Floor(),
 		descent:    face.Metrics().Descent.Floor(),
+		height:     face.Metrics().Height.Floor(),
 	}
 
 	return fontFace, nil
 }
 
-func (fontFace *FontFace) Resize(newsize int) error {
+func (fontFace *FontFace) Resize(newsize float32) error {
+	if newsize == fontFace.size {
+		return fmt.Errorf("Already same size!")
+	}
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
-		DPI:     72,
+		DPI:     EditorSingleton.window.dpi,
 		Hinting: font.HintingFull,
 	})
 	if err != nil {
@@ -72,10 +83,12 @@ func (fontFace *FontFace) Resize(newsize int) error {
 	if !ok {
 		return fmt.Errorf("Failed to get glyph advance!")
 	}
+	fontFace.size = newsize
 	fontFace.handle = face
 	fontFace.advance = advance.Ceil()
 	fontFace.ascent = face.Metrics().Ascent.Floor()
 	fontFace.descent = face.Metrics().Descent.Floor()
+	fontFace.height = face.Metrics().Height.Floor()
 	return nil
 }
 
@@ -85,15 +98,48 @@ func (fontFace *FontFace) IsDrawable(c string) bool {
 	return i != 0 || err != nil
 }
 
-func (fontFace *FontFace) RenderChar(c string) *image.RGBA {
-	defer measure_execution_time("FontFace.RenderChar")()
-	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
-	drawer := font.Drawer{
-		Src:  image.White,
-		Dst:  img,
-		Face: fontFace.handle,
-		Dot:  fixed.P(0, EditorSingleton.cellHeight-fontFace.descent),
+// Use RenderChar
+func (fontFace *FontFace) renderUnderline(img *image.RGBA) {
+	y := EditorSingleton.cellHeight - fontFace.descent
+	for x := 0; x < img.Rect.Dx(); x++ {
+		img.Set(x, y, color.White)
 	}
-	drawer.DrawString(c)
+}
+
+// TODO
+func (fontFace *FontFace) renderUndercurl(img *image.RGBA) {
+	y := EditorSingleton.cellHeight - fontFace.descent
+	diff := img.Rect.Dy() - y
+	for x := 0; x < img.Rect.Dx(); x++ {
+		img.Set(x, y, color.RGBA{R: 255, G: 1, B: 1, A: 255})
+		if x%diff < diff/2 {
+			y++
+		} else if x%diff > diff/2 {
+			y--
+		}
+	}
+}
+
+// Use RenderChar
+func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
+	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
+	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, c)
+	if ok {
+		draw.DrawMask(img, dr, image.White, image.Point{}, mask, maskp, draw.Over)
+		return img
+	}
+	return nil
+}
+
+func (fontFace *FontFace) RenderChar(str string, underline bool) *image.RGBA {
+	defer measure_execution_time("FontFace.RenderChar")()
+	img := fontFace.renderGlyph([]rune(str)[0])
+	if img == nil {
+		return nil
+	}
+	if underline {
+		fontFace.renderUnderline(img)
+	}
 	return img
 }

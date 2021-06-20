@@ -19,13 +19,14 @@ type UIOptions struct {
 	termguicolors bool
 	// parsed options for forward usage
 	guifontname string
+	guifontsize float32
 }
 
 func (options *UIOptions) SetGuiFont(newGuiFont string) {
 	// Load Font
 	if newGuiFont != "" && newGuiFont != " " && newGuiFont != options.guifont {
 		options.guifont = newGuiFont
-		size := DEFAULT_FONT_SIZE
+		size := float32(DEFAULT_FONT_SIZE)
 		// treat underlines like whitespaces
 		newGuiFont = strings.ReplaceAll(newGuiFont, "_", " ")
 		// parse font options
@@ -33,17 +34,13 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 		name := fontOptions[0]
 		for _, opt := range fontOptions[1:] {
 			if opt[0] == 'h' {
-				tsize, err := strconv.Atoi(opt[1:])
+				tsize, err := strconv.ParseFloat(opt[1:], 32)
 				if err == nil {
-					size = tsize
+					size = float32(tsize)
 				}
 			}
 		}
-		if name == systemFontDefault {
-			// If this is the system default font, we already have loaded
-			EditorSingleton.renderer.DisableUserFont()
-			EditorSingleton.renderer.SetFontSize(size)
-		} else if name == options.guifontname {
+		if name == options.guifontname {
 			// Names are same, just resize the font
 			EditorSingleton.renderer.SetFontSize(size)
 		} else {
@@ -56,5 +53,6 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 			EditorSingleton.renderer.SetFont(font)
 		}
 		options.guifontname = name
+		options.guifontsize = size
 	}
 }

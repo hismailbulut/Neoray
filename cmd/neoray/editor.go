@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	MINIMUM_FONT_SIZE                = 7
-	DEFAULT_FONT_SIZE                = 15
-	DEFAULT_FRAMEBUFFER_TRANSPARENCY = 1
-	DEFAULT_TARGET_TPS               = 60
+	MINIMUM_FONT_SIZE    = 7
+	DEFAULT_FONT_SIZE    = 12
+	DEFAULT_TRANSPARENCY = 1
+	DEFAULT_TARGET_TPS   = 60
 )
 
 type Editor struct {
@@ -80,7 +80,6 @@ func (editor *Editor) Initialize() {
 	editor.cursor = CreateCursor()
 	editor.options = UIOptions{}
 
-	InitializeFontLoader() // this takes 3secs
 	editor.renderer = CreateRenderer()
 	editor.popupMenu = CreatePopupMenu()
 
@@ -91,7 +90,7 @@ func (editor *Editor) Initialize() {
 }
 
 func (editor *Editor) initDefaults() {
-	editor.framebufferTransparency = DEFAULT_FRAMEBUFFER_TRANSPARENCY
+	editor.framebufferTransparency = DEFAULT_TRANSPARENCY
 	editor.targetTPS = DEFAULT_TARGET_TPS
 }
 

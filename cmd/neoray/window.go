@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -19,6 +20,7 @@ type Window struct {
 	title  string
 	width  int
 	height int
+	dpi    float64
 	// This is for restoring window from fullscreen, dont use them
 	windowedRect IntRect
 	minimized    bool
@@ -51,6 +53,8 @@ func CreateWindow(width int, height int, title string) Window {
 
 	window.handle.SetSizeCallback(WindowResizeHandler)
 	window.handle.SetIconifyCallback(MinimizeHandler)
+
+	window.CalculateDPI()
 
 	window.handle.MakeContextCurrent()
 
@@ -85,7 +89,6 @@ func (window *Window) Raise() {
 	if window.minimized {
 		window.handle.Restore()
 	}
-	// window.handle.Focus()
 	window.handle.SetAttrib(glfw.Floating, glfw.False)
 }
 
@@ -141,6 +144,17 @@ func (window *Window) ToggleFullscreen() {
 			window.windowedRect.W, window.windowedRect.H, 0)
 		window.fullscreen = false
 	}
+}
+
+func (window *Window) CalculateDPI() {
+	monitor := glfw.GetPrimaryMonitor()
+	pWidth, pHeight := monitor.GetPhysicalSize()
+	pDiagonal := math.Sqrt(float64(pWidth*pWidth) + float64(pHeight*pHeight))
+	pDiagonalInch := pDiagonal * 0.0393700787
+	mWidth := float32(monitor.GetVideoMode().Width)
+	mHeight := float32(monitor.GetVideoMode().Height)
+	mDiagonal := math.Sqrt(float64(mWidth*mWidth) + float64(mHeight*mHeight))
+	window.dpi = mDiagonal / pDiagonalInch
 }
 
 func (window *Window) Close() {
