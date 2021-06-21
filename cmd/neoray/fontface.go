@@ -14,7 +14,7 @@ import (
 )
 
 type FontFace struct {
-	size float32
+	loaded bool
 
 	handle     font.Face
 	fontHandle *sfnt.Font
@@ -55,7 +55,7 @@ func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
 	}
 
 	fontFace := FontFace{
-		size:       size,
+		loaded:     true,
 		handle:     face,
 		fontHandle: sfont,
 		advance:    advance.Ceil(),
@@ -67,9 +67,9 @@ func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
 	return fontFace, nil
 }
 
-func (fontFace *FontFace) Resize(newsize float32) error {
-	if newsize == fontFace.size {
-		return fmt.Errorf("Already same size!")
+func (fontFace *FontFace) Resize(newsize float32) {
+	if !fontFace.loaded {
+		return
 	}
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
@@ -77,19 +77,19 @@ func (fontFace *FontFace) Resize(newsize float32) error {
 		Hinting: font.HintingFull,
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to create font face: %s\n", err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)
+		return
 	}
 	advance, ok := face.GlyphAdvance('m')
 	if !ok {
-		return fmt.Errorf("Failed to get glyph advance!")
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get glyph advance!")
+		return
 	}
-	fontFace.size = newsize
 	fontFace.handle = face
 	fontFace.advance = advance.Ceil()
 	fontFace.ascent = face.Metrics().Ascent.Floor()
 	fontFace.descent = face.Metrics().Descent.Floor()
 	fontFace.height = face.Metrics().Height.Floor()
-	return nil
 }
 
 func (fontFace *FontFace) IsDrawable(c string) bool {

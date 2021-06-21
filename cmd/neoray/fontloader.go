@@ -8,16 +8,16 @@ import (
 )
 
 var (
-	//go:embed assets/CascadiaMono-Regular.ttf
+	//go:embed fonts/CascadiaMono-Regular.ttf
 	defaultRegularData []byte
-	//go:embed assets/CascadiaMono-BoldItalic.otf
+	//go:embed fonts/CascadiaMono-BoldItalic.otf
 	defaultBoldItalicData []byte
-	//go:embed assets/CascadiaMono-Italic.otf
+	//go:embed fonts/CascadiaMono-Italic.otf
 	defaultItalicData []byte
-	//go:embed assets/CascadiaMono-Bold.otf
+	//go:embed fonts/CascadiaMono-Bold.otf
 	defaultBoldData []byte
 
-	systemFontList []*sysfont.Font
+	systemFontList []*sysfont.Font = nil
 )
 
 type Font struct {
@@ -31,7 +31,6 @@ type Font struct {
 
 func CreateDefaultFont() Font {
 	defer measure_execution_time("InitializeFontLoader")()
-	systemFontList = sysfont.NewFinder(nil).List()
 	// Load the default font.
 	font := Font{
 		size: DEFAULT_FONT_SIZE,
@@ -62,8 +61,16 @@ func CreateDefaultFont() Font {
 	return font
 }
 
+func CheckSystemFonts() {
+	defer measure_execution_time("CheckSystemFonts")()
+	if systemFontList == nil {
+		systemFontList = sysfont.NewFinder(nil).List()
+	}
+}
+
 func CreateFont(fontName string, size float32) (Font, bool) {
 	defer measure_execution_time("CreateFont")()
+	CheckSystemFonts()
 
 	if fontName == "" || fontName == " " {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Font name can not be empty!")
@@ -89,34 +96,18 @@ func (font *Font) Resize(newsize float32) {
 		return
 	}
 	font.size = newsize
-	if font.bold_italic.size > 0 {
-		if err := font.bold_italic.Resize(newsize); err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-		}
-	}
-	if font.italic.size > 0 {
-		if err := font.italic.Resize(newsize); err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-		}
-	}
-	if font.bold.size > 0 {
-		if err := font.bold.Resize(newsize); err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-		}
-	}
-	if font.regular.size > 0 {
-		if err := font.regular.Resize(newsize); err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-		}
-	}
+	font.bold_italic.Resize(newsize)
+	font.italic.Resize(newsize)
+	font.bold.Resize(newsize)
+	font.regular.Resize(newsize)
 }
 
 func (font *Font) GetSuitableFace(italic bool, bold bool) *FontFace {
-	if italic && bold && font.bold_italic.size > 0 {
+	if font.bold_italic.loaded && italic && bold {
 		return &font.bold_italic
-	} else if italic && font.italic.size > 0 {
+	} else if font.italic.loaded && italic {
 		return &font.italic
-	} else if bold && font.bold.size > 0 {
+	} else if font.bold.loaded && bold {
 		return &font.bold
 	}
 	return &font.regular
@@ -146,7 +137,6 @@ func (font *Font) getMatchingFonts(fontName string) ([]sysfont.Font, bool) {
 }
 
 func (font *Font) loadMatchingFonts(font_list []sysfont.Font) bool {
-
 	bold_italics := make([]sysfont.Font, 0)
 	italics := make([]sysfont.Font, 0)
 	bolds := make([]sysfont.Font, 0)
@@ -166,56 +156,49 @@ func (font *Font) loadMatchingFonts(font_list []sysfont.Font) bool {
 		}
 	}
 
-	var err error
-
+	var name string
+	var ok bool
 	// bold-italic
-	if font.bold_italic.size == 0 && len(bold_italics) > 0 {
-		smallest := findSmallestLengthFont(bold_italics)
-		font.bold_italic, err = CreateFontFace(smallest, font.size)
-		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load bold italic font face.")
-		} else {
-			log_debug("Font bold italic:", smallest)
-		}
+	name, ok = loadBestMatch(&font.bold_italic, bold_italics, font.size)
+	if ok {
+		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold Italic Face:", name)
 	}
-
 	// italic
-	if font.italic.size == 0 && len(italics) > 0 {
-		smallest := findSmallestLengthFont(italics)
-		font.italic, err = CreateFontFace(smallest, font.size)
-		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load italic font face.")
-		} else {
-			log_debug("Font italic:", smallest)
-		}
+	name, ok = loadBestMatch(&font.italic, italics, font.size)
+	if ok {
+		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Italic Face:", name)
 	}
-
 	//bold
-	if font.bold.size == 0 && len(bolds) > 0 {
-		smallest := findSmallestLengthFont(bolds)
-		font.bold, err = CreateFontFace(smallest, font.size)
-		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load bold font face.")
-		} else {
-			log_debug("Font bold:", smallest)
-		}
+	name, ok = loadBestMatch(&font.bold, bolds, font.size)
+	if ok {
+		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold Face:", name)
 	}
-
 	//regular
-	if font.regular.size == 0 && len(others) > 0 {
-		smallest := findSmallestLengthFont(others)
-		font.regular, err = CreateFontFace(smallest, font.size)
-		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load regular font face.")
-			return false
-		} else {
-			log_debug("Font regular:", smallest)
-		}
+	name, ok = loadBestMatch(&font.regular, others, font.size)
+	if ok {
+		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Regular Face:", name)
 	}
 
-	return font.regular.size > 0
+	return font.regular.loaded
 }
 
+func loadBestMatch(face *FontFace, list []sysfont.Font, size float32) (string, bool) {
+	if len(list) > 0 && !face.loaded {
+		smallest := findSmallestLengthFont(list)
+		var err error
+		*face, err = CreateFontFace(smallest, size)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err, "in CreateFontFace")
+			return "", false
+		}
+		return smallest, true
+	}
+	return "", false
+}
+
+// Finding smallest length is very bad idea, but works on ~half of the fonts.
+// The best we could do is native font enumerating. But I don't know if it's
+// possible to get font data or path from it's family name.
 func findSmallestLengthFont(font_list []sysfont.Font) string {
 	smallest := ""
 	smallestLen := 1000000
