@@ -24,11 +24,13 @@ func ParseArgs(args []string) Args {
 	options := Args{}
 	help := false
 	fs := flag.NewFlagSet("usage", flag.ContinueOnError)
-	fs.StringVar(&options.file, "file", "", "Specify a filename to open in neovim. This is useful when -si flag has given.")
+	fs.StringVar(&options.file, "file", "",
+		"Specify a filename to open in neovim. This is useful when -si flag has given.")
 	fs.IntVar(&options.line, "line", -1, "Goto line number.")
 	fs.IntVar(&options.column, "column", -1, "Goto column number.")
-	fs.BoolVar(&options.singleInstance, "singleinstance", false, "If this option has given neoray will open only one instance."+
-		" All neoray commands will send all flags to already open instance and immediately close.")
+	fs.BoolVar(&options.singleInstance, "singleinstance", false,
+		"If this option has given neoray will open only one instance."+
+			" All neoray commands will send all flags to already open instance and immediately close.")
 	fs.BoolVar(&options.singleInstance, "si", false, "Shortland for singleinstance")
 	fs.BoolVar(&help, "help", false, "Prints this message and quits.")
 	fs.BoolVar(&help, "h", false, "Shortland for help.")
@@ -45,6 +47,7 @@ func PrintHelp(fs *flag.FlagSet) {
 	buf := bytes.NewBufferString("")
 	fs.SetOutput(buf)
 	fs.PrintDefaults()
+	// About
 	msg := "Neoray is an ui client for neovim.\n"
 	msg += "Author 2021 Ismail Bulut.\n"
 	msg += fmt.Sprintf("Version %d.%d.%d %s\n",
@@ -52,11 +55,16 @@ func PrintHelp(fs *flag.FlagSet) {
 	msg += fmt.Sprintf("License %s\n", LICENSE)
 	msg += fmt.Sprintf("Webpage %s\n", WEBPAGE)
 	msg += "\n"
-	usage, err := buf.ReadString('\x00')
-	if err != nil {
-		log_debug(err)
-	}
-	dialog.Message(msg + usage).Title("Neoray usage").Info()
+	// Usage of the flags
+	usage, _ := buf.ReadString('\x00')
+	msg += usage + "\n"
+	msg += "All other options will send to neovim.\n"
+	// Copyrights
+	msg += "\n"
+	msg += "This program ships with some third party extensions.\n"
+	msg += "Default font is Cascadia Code, Copyright (c) 2019, Microsoft Corporation," +
+		" licensed under SIL OPEN FONT LICENSE Version 1.1\n"
+	dialog.Message(msg).Title("Neoray").Info()
 }
 
 // Call this before starting neovim.
