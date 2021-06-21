@@ -112,8 +112,11 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 			copyCellsAndScroll(y-rows, y, left, right)
 		}
 	}
-	// This is for cursor animation when scrolling. Simply we are moving cursor
-	// with scroll area immediately, and returning back to its position smoothly.
-	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X-rows, EditorSingleton.cursor.Y, true)
-	EditorSingleton.cursor.SetPosition(EditorSingleton.cursor.X+rows, EditorSingleton.cursor.Y, false)
+	cursor := &EditorSingleton.cursor
+	if cursor.IsInArea(top, left, bot-top, right-left) {
+		// This is for cursor animation when scrolling. Simply we are moving cursor
+		// with scroll area immediately, and returning back to its position smoothly.
+		cursor.SetPosition(cursor.X-rows, cursor.Y, true)
+		cursor.SetPosition(cursor.X+rows, cursor.Y, false)
+	}
 }

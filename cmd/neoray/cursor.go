@@ -44,6 +44,11 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	cursor.needsDraw = true
 }
 
+func (cursor *Cursor) IsInArea(x, y, w, h int) bool {
+	return cursor.X >= x && cursor.Y >= y &&
+		cursor.X < x+w && cursor.Y < y+h
+}
+
 func (cursor *Cursor) GetRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bool) {
 	var cursor_rect IntRect
 	var draw_char bool
@@ -113,8 +118,8 @@ func (cursor *Cursor) Show() {
 
 func (cursor *Cursor) Hide() {
 	// Hide the cursor.
-	cursor.vertexData.SetVertexPos(0, IntRect{})
 	cursor.hidden = true
+	cursor.vertexData.SetVertexPos(0, IntRect{})
 }
 
 func (cursor *Cursor) Draw() {
@@ -127,7 +132,7 @@ func (cursor *Cursor) Draw() {
 		if draw_char && !cursor.needsDraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
 			if cell == nil {
-				log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "No cell founded at cursor position.")
+				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "No cell founded at cursor position.")
 				return
 			}
 			if cell.char != "" && cell.char != " " {
