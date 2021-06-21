@@ -54,7 +54,7 @@ func CreateRenderer() Renderer {
 		},
 	}
 
-	renderer.defaultFont = CreateDefaultFont() // this takes long
+	renderer.defaultFont = CreateDefaultFont()
 
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.CalculateCellSize()
 	EditorSingleton.calculateCellCount()
@@ -359,6 +359,7 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold, u
 		// Get suitable font and check for glyph
 		fontFace, ok := renderer.GetSupportedFace(char, italic, bold)
 		if !ok {
+			log_debug("Unsupported glyph:", char, []rune(char))
 			id = UNSUPPORTED_GLYPH_ID
 			pos, ok := renderer.fontAtlas.characters[id]
 			if ok {
@@ -401,14 +402,14 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char string,
 		renderer.ClearCellForegroundData(x, y)
 		return
 	}
-	// if undercurl {
-	// Undercurl needs to be special color, and we can't give different
-	// colors to same cell.
-	// Option 1: We can render an undercurl text and than render it in front of the cell.
-	// We need to reserve extra data but we don't know it's size.
-	// We can render same cell to different positions.
-	// This aproach needs alpha blending and instancing.
-	// }
+	if undercurl {
+		// Undercurl needs to be special color, and we can't give different
+		// colors to same cell.
+		// Option 1: We can render an undercurl text and than render it in front of the cell.
+		// We need to reserve extra data but we don't know it's size.
+		// We can render same cell to different positions.
+		// This aproach needs alpha blending and instancing.
+	}
 	// get character position in atlas texture
 	atlasPos := renderer.GetCharacterAtlasPosition(char, italic, bold, underline)
 	// draw
