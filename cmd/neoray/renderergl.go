@@ -28,8 +28,8 @@ var (
 	rgl_vbo uint32
 	rgl_ebo uint32
 
-	//go:embed shaders.glsl
-	shader_sources string
+	//go:embed shader.glsl
+	rgl_shader_sources string
 
 	rgl_shader_program     uint32
 	rgl_atlas_uniform      int32
@@ -93,7 +93,7 @@ func RGL_Init() {
 	}
 
 	RGL_CheckError("RGL_Init")
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
 func RGL_GetUniformLocation(name string) int32 {
@@ -174,17 +174,17 @@ func RGL_InitShaders() {
 }
 
 func loadShaders() (string, string) {
-	vertexSourceBegin := strings.Index(shader_sources, "// Vertex Shader")
-	fragSourceBegin := strings.Index(shader_sources, "// Fragment Shader")
+	vertexSourceBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
+	fragSourceBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
 	assert(vertexSourceBegin != -1 && fragSourceBegin != -1, "Shaders are not correctly prefixed!")
 	var vertexShaderSource string
 	var fragmentShaderSource string
 	if vertexSourceBegin < fragSourceBegin {
-		vertexShaderSource = shader_sources[vertexSourceBegin:fragSourceBegin]
-		fragmentShaderSource = shader_sources[fragSourceBegin:]
+		vertexShaderSource = rgl_shader_sources[vertexSourceBegin:fragSourceBegin]
+		fragmentShaderSource = rgl_shader_sources[fragSourceBegin:]
 	} else {
-		fragmentShaderSource = shader_sources[fragSourceBegin:vertexSourceBegin]
-		vertexShaderSource = shader_sources[vertexSourceBegin:]
+		fragmentShaderSource = rgl_shader_sources[fragSourceBegin:vertexSourceBegin]
+		vertexShaderSource = rgl_shader_sources[vertexSourceBegin:]
 	}
 	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00"
 }

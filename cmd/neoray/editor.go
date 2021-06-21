@@ -86,7 +86,7 @@ func (editor *Editor) Initialize() {
 	editor.quitRequestedChan = make(chan bool)
 	editor.nvim.StartUI()
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
 }
 
 func (editor *Editor) initDefaults() {
@@ -141,14 +141,14 @@ MAINLOOP:
 		}
 	}
 	if !quitRequestedFromNvim {
-		// Maybe there is a unsaved files in neovim. Instead of immediately closing
-		// we will send simple quit command to neovim and if there is a unsaved files
-		// the neovim will handle it and user will not lose its progress.
+		// Maybe there is unsaved files in neovim. Instead of immediately closing
+		// we will send simple quit command to neovim and if there is unsaved files
+		// the neovim will handle them and user will not lose its progress.
 		editor.window.handle.SetShouldClose(false)
 		go editor.nvim.ExecuteVimScript(":qa")
 		goto MAINLOOP
 	}
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
 }
 
 func (editor *Editor) calculateCellCount() {

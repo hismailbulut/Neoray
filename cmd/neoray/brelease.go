@@ -3,7 +3,7 @@
 package main
 
 const (
-	MINIMUM_LOG_LEVEL = LOG_LEVEL_WARN
+	MINIMUM_LOG_LEVEL = LOG_LEVEL_ERROR
 	BUILD_TYPE        = RELEASE
 )
 

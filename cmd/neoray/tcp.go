@@ -47,13 +47,13 @@ func CreateClient() (*TCPClient, error) {
 			data := <-client.data
 			_, err := c.Write([]byte(data))
 			if err != nil {
-				log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "Failed to send signal:", err)
+				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Failed to send signal:", err)
 				client.resp <- false
 				continue
 			}
 			resp, err := bufio.NewReader(c).ReadString('\n')
 			if err != nil {
-				log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, "Failed to get response:", err)
+				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Failed to get response:", err)
 				client.resp <- false
 				continue
 			}

@@ -46,7 +46,7 @@ func CreateNvimProcess() NvimProcess {
 	proc.introduce()
 	proc.initScripts()
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process created.")
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process created.")
 
 	return proc
 }
@@ -110,11 +110,11 @@ func (proc *NvimProcess) StartUI() {
 			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process closed with errors:", err)
 			return
 		}
-		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Neovim child process closed.")
+		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process closed.")
 		EditorSingleton.quitRequestedChan <- true
 	}()
 
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM,
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
 		"UI Connected. Rows:", EditorSingleton.rowCount, "Cols:", EditorSingleton.columnCount)
 
 	proc.requestOptions()
