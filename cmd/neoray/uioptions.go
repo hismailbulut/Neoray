@@ -33,7 +33,8 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 		fontOptions := strings.Split(newGuiFont, ":")
 		name := fontOptions[0]
 		for _, opt := range fontOptions[1:] {
-			if opt[0] == 'h' {
+			if len(opt) > 1 && opt[0] == 'h' {
+				// Font size
 				tsize, err := strconv.ParseFloat(opt[1:], 32)
 				if err == nil {
 					size = float32(tsize)
@@ -48,9 +49,9 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 			font, ok := CreateFont(name, size)
 			if !ok {
 				EditorSingleton.nvim.EchoError("Font %s not found!", name)
-				return
+			} else {
+				EditorSingleton.renderer.SetFont(font)
 			}
-			EditorSingleton.renderer.SetFont(font)
 		}
 		options.guifontname = name
 		options.guifontsize = size
