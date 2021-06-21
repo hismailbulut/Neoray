@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"sync/atomic"
 )
 
@@ -63,13 +64,6 @@ func colorIsBlack(color U8Color) bool {
 	return color.R == 0 && color.G == 0 && color.B == 0
 }
 
-func iabs(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
-}
-
 func triangulateRect(rect IntRect) [4]F32Vec2 {
 	return [4]F32Vec2{
 		{float32(rect.X), float32(rect.Y)},                   //0
@@ -97,6 +91,37 @@ func orthoProjection(top, left, right, bottom, near, far float32) [16]float32 {
 		float32(-(right + left) / rml), // 4
 		float32(-(top + bottom) / tmb),
 		float32(-(far + near) / fmn), 1}
+}
+
+type Animation struct {
+	current  F32Vec2
+	target   F32Vec2
+	lifeTime float32
+}
+
+const ANIM_FINISH_TOLERANCE = 0.1
+
+// Lifetime is the life of the animation. Animation speed is depends of the
+// delta time and lifetime. For lifeTime parameter, 1.0 value is 1 seconds
+func CreateAnimation(from, to F32Vec2, lifeTime float32) Animation {
+	return Animation{
+		current:  from,
+		target:   to,
+		lifeTime: lifeTime,
+	}
+}
+
+// Returns current position of animation as x and y position
+// If animation is finishe, returned bool value will be true
+func (anim *Animation) GetCurrentStep(deltaTime float32) (F32Vec2, bool) {
+	if anim.lifeTime > 0 && deltaTime > 0 {
+		anim.current.X += (anim.target.X - anim.current.X) / (anim.lifeTime / deltaTime)
+		anim.current.Y += (anim.target.Y - anim.current.Y) / (anim.lifeTime / deltaTime)
+		finishedX := math.Abs(float64(anim.target.X-anim.current.X)) < ANIM_FINISH_TOLERANCE
+		finishedY := math.Abs(float64(anim.target.Y-anim.current.Y)) < ANIM_FINISH_TOLERANCE
+		return anim.current, finishedX && finishedY
+	}
+	return anim.target, true
 }
 
 type AtomicBool struct {
