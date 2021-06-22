@@ -19,7 +19,7 @@ run: build
 release:
 	go build -tags release $(LDFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
 
-runr: release
+release-run: release
 	./$(RELEASEEXE) $(ARGS)
 
 test:
