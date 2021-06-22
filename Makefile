@@ -3,9 +3,11 @@ SOURCEFOLDER=./cmd/neoray
 ifeq ($(OS),Windows_NT)
 	DEBUGEXE=bin/neoray_debug.exe
 	RELEASEEXE=bin/neoray.exe
+	LDFLAGS=-ldflags -H=windowsgui
 else
 	DEBUGEXE=bin/neoray_debug
 	RELEASEEXE=bin/neoray
+	LDFLAGS=
 endif
 
 build:
@@ -15,11 +17,7 @@ run: build
 	./$(DEBUGEXE) $(ARGS)
 
 release:
-	ifeq ($(OS),Windows_NT)
-		go build -tags release -ldflags -H=windowsgui -o $(RELEASEEXE) $(SOURCEFOLDER)
-	else
-		go build -tags release -o $(RELEASEEXE) $(SOURCEFOLDER)
-	endif
+	go build -tags release $(LDFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
 
 runr: release
 	./$(RELEASEEXE) $(ARGS)
