@@ -9,7 +9,7 @@ import (
 )
 
 // NOTE: All functions, types, constants and variables must exist in brelease.go,
-// Add empty ones to release file if they not local.
+// Add empty ones to release file if they are not local.
 
 const (
 	MINIMUM_LOG_LEVEL = LOG_LEVEL_DEBUG
@@ -57,7 +57,7 @@ func measure_execution_time(name string) func() {
 
 func close_function_time_tracker() {
 	for key, val := range trackerAverages {
-		log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE,
+		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 			key, "Calls:", val.totalCall, "Time:", val.totalTime, "Average:", val.totalTime/time.Duration(val.totalCall))
 	}
 }
