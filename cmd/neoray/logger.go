@@ -30,35 +30,35 @@ func log_message(log_level, log_type int, message ...interface{}) {
 
 	fatal := false
 	log_string := " "
-	if log_type == LOG_LEVEL_DEBUG {
+
+	switch log_type {
+	case LOG_TYPE_NVIM:
+		log_string += "[NEOVIM]"
+	case LOG_TYPE_NEORAY:
+		log_string += "[NEORAY]"
+	case LOG_TYPE_RENDERER:
+		log_string += "[RENDERER]"
+	case LOG_TYPE_PERFORMANCE:
+		log_string += "[PERFORMANCE]"
+	default:
+		return
+	}
+
+	log_string += " "
+	switch log_level {
+	case LOG_LEVEL_DEBUG:
 		log_string += ">>"
-	} else {
-		switch log_type {
-		case LOG_TYPE_NVIM:
-			log_string += "[NVIM]"
-		case LOG_TYPE_NEORAY:
-			log_string += "[NEORAY]"
-		case LOG_TYPE_RENDERER:
-			log_string += "[RENDERER]"
-		case LOG_TYPE_PERFORMANCE:
-			log_string += "[PERFORMANCE]"
-		default:
-			return
-		}
-		log_string += " "
-		switch log_level {
-		case LOG_LEVEL_TRACE:
-			log_string += "TRACE:"
-		case LOG_LEVEL_WARN:
-			log_string += "WARNING:"
-		case LOG_LEVEL_ERROR:
-			log_string += "ERROR:"
-		case LOG_LEVEL_FATAL:
-			log_string += "FATAL:"
-			fatal = true
-		default:
-			return
-		}
+	case LOG_LEVEL_TRACE:
+		log_string += "TRACE:"
+	case LOG_LEVEL_WARN:
+		log_string += "WARNING:"
+	case LOG_LEVEL_ERROR:
+		log_string += "ERROR:"
+	case LOG_LEVEL_FATAL:
+		log_string += "FATAL:"
+		fatal = true
+	default:
+		return
 	}
 
 	log_string += " "
