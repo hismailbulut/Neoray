@@ -7,7 +7,7 @@ import (
 	"github.com/go-gl/gl/v3.3-core/gl"
 )
 
-const VertexStructSize = 12 * 4
+const VertexStructSize = 16 * 4
 
 type Vertex struct {
 	// These are vertex positions. May not be changed for
@@ -20,6 +20,8 @@ type Vertex struct {
 	fg F32Color // layout 2
 	// background color
 	bg F32Color // layout 3
+	// special color
+	sp F32Color
 }
 
 // render subsystem global variables
@@ -82,6 +84,11 @@ func RGL_Init() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
 	gl.VertexAttribPointerWithOffset(3, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	// special color
+	offset += 4 * 4
+	gl.EnableVertexAttribArray(4)
+	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+
 	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
 
 	gl.Enable(gl.TEXTURE_2D)
@@ -114,6 +121,11 @@ func RGL_CreateViewport(w, h int) {
 func RGL_SetAtlasTexture(atlas *Texture) {
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, atlas.id)
+}
+
+func RGL_SetUndercurlRect(val F32Rect) {
+	loc := RGL_GetUniformLocation("undercurlRect")
+	gl.Uniform4f(loc, val.X, val.Y, val.W, val.H)
 }
 
 func RGL_ClearScreen(color U8Color) {

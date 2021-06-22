@@ -51,6 +51,8 @@ func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
 
 	advance, ok := face.GlyphAdvance('m')
 	if !ok {
+		// Maybe we should check for other glyphs
+		// but I think every font has 'm'
 		return FontFace{}, fmt.Errorf("Failed to get glyph advance!")
 	}
 
@@ -98,29 +100,33 @@ func (fontFace *FontFace) IsDrawable(c string) bool {
 	return i != 0 || err != nil
 }
 
-// Use RenderChar
-func (fontFace *FontFace) renderUnderline(img *image.RGBA) {
-	y := EditorSingleton.cellHeight - fontFace.descent
+// This function draws horizontal line at given y coord.
+// Don't use this function directly, use RenderChar instead.
+func (fontFace *FontFace) drawLine(img *image.RGBA, y int) {
 	for x := 0; x < img.Rect.Dx(); x++ {
 		img.Set(x, y, color.White)
 	}
 }
 
-// TODO
-func (fontFace *FontFace) renderUndercurl(img *image.RGBA) {
+// This function renders an undercurl to an empty image and returns it.
+// The undercurl drawing job is done in the shaders.
+// Feel free to change this function howewer you want to draw undercurl.
+func (fontFace *FontFace) renderUndercurl() *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
 	y := EditorSingleton.cellHeight - fontFace.descent
-	diff := img.Rect.Dy() - y
 	for x := 0; x < img.Rect.Dx(); x++ {
-		img.Set(x, y, color.RGBA{R: 255, G: 1, B: 1, A: 255})
-		if x%diff < diff/2 {
+		img.Set(x, y, color.White)
+		if x%fontFace.descent < fontFace.descent/2 {
 			y++
-		} else if x%diff > diff/2 {
+		} else if x%fontFace.descent > fontFace.descent/2 {
 			y--
 		}
 	}
+	return img
 }
 
-// Use RenderChar
+// Renders given rune and returns rendered RGBA image.
+// Use RenderChar instead.
 func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
 	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
@@ -132,14 +138,17 @@ func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
 	return nil
 }
 
-func (fontFace *FontFace) RenderChar(str string, underline bool) *image.RGBA {
+func (fontFace *FontFace) RenderChar(str string, underline, strikethrough bool) *image.RGBA {
 	defer measure_execution_time("FontFace.RenderChar")()
 	img := fontFace.renderGlyph([]rune(str)[0])
 	if img == nil {
 		return nil
 	}
 	if underline {
-		fontFace.renderUnderline(img)
+		fontFace.drawLine(img, EditorSingleton.cellHeight-fontFace.descent)
+	}
+	if strikethrough {
+		fontFace.drawLine(img, EditorSingleton.cellHeight/2)
 	}
 	return img
 }

@@ -119,7 +119,7 @@ func (cursor *Cursor) Show() {
 func (cursor *Cursor) Hide() {
 	// Hide the cursor.
 	cursor.hidden = true
-	cursor.vertexData.SetVertexPos(0, IntRect{})
+	cursor.vertexData.SetCellPos(0, IntRect{})
 }
 
 func (cursor *Cursor) Draw() {
@@ -131,35 +131,39 @@ func (cursor *Cursor) Draw() {
 		rect, draw_char := cursor.GetRectangle(pos, mode_info)
 		if draw_char && !cursor.needsDraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
-			if cell == nil {
-				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "No cell founded at cursor position.")
-				return
-			}
 			if cell.char != "" && cell.char != " " {
 				// We need to draw cell character to the cursor foreground.
-				// Because cursor is not transparent.
 				italic := false
 				bold := false
 				underline := false
+				strikethrough := false
 				if cell.attrib_id > 0 {
 					attrib := EditorSingleton.grid.attributes[cell.attrib_id]
 					italic = attrib.italic
 					bold = attrib.bold
 					underline = attrib.underline
+					strikethrough = attrib.strikethrough
+					if attrib.undercurl {
+						cursor.vertexData.SetCellSpColor(0, fg)
+					}
 				}
-				atlas_pos := EditorSingleton.renderer.GetCharacterAtlasPosition(cell.char, italic, bold, underline)
-				cursor.vertexData.SetVertexTexPos(0, atlas_pos)
+				atlas_pos := EditorSingleton.renderer.GetCharPos(
+					cell.char, italic, bold, underline, strikethrough)
+				cursor.vertexData.SetCellTexPos(0, atlas_pos)
 			} else {
 				// Clear foreground of the cursor.
-				cursor.vertexData.SetVertexTexPos(0, IntRect{})
+				cursor.vertexData.SetCellTexPos(0, IntRect{})
+				cursor.vertexData.SetCellSpColor(0, U8Color{})
 			}
-			cursor.vertexData.SetVertexPos(0, rect)
-			cursor.vertexData.SetVertexColor(0, fg, bg)
+			cursor.vertexData.SetCellPos(0, rect)
+			cursor.vertexData.SetCellColor(0, fg, bg)
 		} else {
 			// No cell drawing needed. Just draw the cursor.
-			cursor.vertexData.SetVertexPos(0, rect)
-			cursor.vertexData.SetVertexTexPos(0, IntRect{})
-			cursor.vertexData.SetVertexColor(0, U8Color{}, bg)
+			cursor.vertexData.SetCellPos(0, rect)
+			// Clear other ares
+			cursor.vertexData.SetCellTexPos(0, IntRect{})
+			cursor.vertexData.SetCellColor(0, U8Color{}, bg)
+			cursor.vertexData.SetCellSpColor(0, U8Color{})
 		}
 		EditorSingleton.renderer.renderCall = true
 	}

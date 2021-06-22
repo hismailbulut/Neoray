@@ -6,6 +6,7 @@ import (
 
 const (
 	UNSUPPORTED_GLYPH_ID    = "Unsupported"
+	UNDERCURL_GLYPH_ID      = "Undercurl"
 	FONT_ATLAS_DEFAULT_SIZE = 512
 )
 
@@ -65,12 +66,18 @@ func CreateRenderer() Renderer {
 	return renderer
 }
 
-func (renderer *Renderer) IncreaseFontSize() {
-	renderer.SetFontSize(renderer.fontSize + 0.5)
-}
-
-func (renderer *Renderer) DecreaseFontSize() {
-	renderer.SetFontSize(renderer.fontSize - 0.5)
+func (renderer *Renderer) SetFont(font Font) {
+	renderer.userFont = font
+	// reset atlas
+	renderer.ClearAtlas()
+	// resize default fonts
+	renderer.defaultFont.Resize(renderer.userFont.size)
+	renderer.fontSize = renderer.userFont.size
+	// update cell size if font size has changed
+	renderer.UpdateCellSize(&font)
+	// redraw all cells
+	EditorSingleton.grid.MakeAllCellsChanged()
+	renderer.drawCall = true
 }
 
 func (renderer *Renderer) SetFontSize(size float32) {
@@ -90,18 +97,12 @@ func (renderer *Renderer) SetFontSize(size float32) {
 	}
 }
 
-func (renderer *Renderer) SetFont(font Font) {
-	renderer.userFont = font
-	// reset atlas
-	renderer.ClearAtlas()
-	// resize default fonts
-	renderer.defaultFont.Resize(renderer.userFont.size)
-	renderer.fontSize = renderer.userFont.size
-	// update cell size if font size has changed
-	renderer.UpdateCellSize(&font)
-	// redraw all cells
-	EditorSingleton.grid.MakeAllCellsChanged()
-	renderer.drawCall = true
+func (renderer *Renderer) IncreaseFontSize() {
+	renderer.SetFontSize(renderer.fontSize + 0.5)
+}
+
+func (renderer *Renderer) DecreaseFontSize() {
+	renderer.SetFontSize(renderer.fontSize - 0.5)
 }
 
 func (renderer *Renderer) UpdateCellSize(font *Font) bool {
@@ -139,13 +140,13 @@ func (renderer *Renderer) CreateVertexData(rows, cols int) {
 		for x := 0; x < cols; x++ {
 			cell_rect := cellRect(y, x)
 			positions := triangulateRect(cell_rect)
-			vBegin := cellVertexPosition(y, x)
+			vBegin := cellVertexPos(y, x)
 			// prepare vertex buffer
 			for i, pos := range positions {
 				renderer.vertexData[vBegin+i].pos = pos
 			}
 			// prepare element buffer
-			eBegin := cellElementPosition(y, x)
+			eBegin := cellElementPos(y, x)
 			for i, e := range IndexDataOrder {
 				renderer.indexData[eBegin+i] = uint32(vBegin) + e
 			}
@@ -175,30 +176,30 @@ func (renderer *Renderer) DebugDrawFontAtlas() {
 	renderer.AppendRectData(positions, texture_positions, F32Color{R: 1, G: 1, B: 1, A: 1}, F32Color{})
 }
 
-func (storage VertexDataStorage) SetVertexPos(index int, pos IntRect) {
+func (storage VertexDataStorage) SetCellPos(index int, pos IntRect) {
 	cBegin := storage.begin + (index * 4)
 	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to set not owned data. Index:", index, "Begin:", storage.begin, "End:", storage.end)
+		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	positions := triangulateRect(pos)
 	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].pos = positions[i]
 	}
 }
 
-func (storage VertexDataStorage) SetVertexTexPos(index int, texPos IntRect) {
+func (storage VertexDataStorage) SetCellTexPos(index int, texPos IntRect) {
 	cBegin := storage.begin + (index * 4)
 	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to set not owned data. Index:", index, "Begin:", storage.begin, "End:", storage.end)
+		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	texPositions := triangulateFRect(storage.renderer.fontAtlas.texture.GetRectGLCoordinates(texPos))
 	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].tex = texPositions[i]
 	}
 }
 
-func (storage VertexDataStorage) SetVertexColor(index int, fg, bg U8Color) {
+func (storage VertexDataStorage) SetCellColor(index int, fg, bg U8Color) {
 	cBegin := storage.begin + (index * 4)
 	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to set not owned data. Index:", index, "Begin:", storage.begin, "End:", storage.end)
+		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	fgc := fg.ToF32Color()
 	bgc := bg.ToF32Color()
 	for i := 0; i < 4; i++ {
@@ -207,7 +208,17 @@ func (storage VertexDataStorage) SetVertexColor(index int, fg, bg U8Color) {
 	}
 }
 
-func (storage VertexDataStorage) SetAllVertexColors(fg, bg U8Color) {
+func (storage VertexDataStorage) SetCellSpColor(index int, sp U8Color) {
+	cBegin := storage.begin + (index * 4)
+	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
+	spc := sp.ToF32Color()
+	for i := 0; i < 4; i++ {
+		storage.renderer.vertexData[cBegin+i].sp = spc
+	}
+}
+
+func (storage VertexDataStorage) SetAllCellsColors(fg, bg U8Color) {
 	fgc := fg.ToF32Color()
 	bgc := bg.ToF32Color()
 	for i := storage.begin; i < storage.end; i++ {
@@ -251,46 +262,52 @@ func (renderer *Renderer) AppendRectData(positions [4]F32Vec2, texPositions [4]F
 // and used for scroll acceleration
 func (renderer *Renderer) CopyRowData(dst, src, left, right int) {
 	defer measure_execution_time("Renderer.CopyRowData")()
-	dst_begin := cellVertexPosition(dst, left)
-	src_begin := cellVertexPosition(src, left)
-	src_end := cellVertexPosition(src, right)
+	dst_begin := cellVertexPos(dst, left)
+	src_begin := cellVertexPos(src, left)
+	src_end := cellVertexPos(src, right)
 	for i := 0; i < src_end-src_begin; i++ {
 		dst_data := &renderer.vertexData[dst_begin+i]
 		src_data := renderer.vertexData[src_begin+i]
 		dst_data.tex = src_data.tex
 		dst_data.fg = src_data.fg
 		dst_data.bg = src_data.bg
+		dst_data.sp = src_data.sp
 	}
 }
 
-func (renderer *Renderer) SetCellBackgroundData(x, y int, color U8Color) {
+func (renderer *Renderer) SetCellBgColor(x, y int, color U8Color) {
 	c := color.ToF32Color()
-	begin := cellVertexPosition(x, y)
+	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].bg = c
 	}
 }
 
-func (renderer *Renderer) SetCellForegroundData(x, y int, src IntRect, dest IntRect, color U8Color) {
+func (renderer *Renderer) SetCellFgColor(x, y int, src IntRect, dest IntRect, color U8Color) {
 	c := color.ToF32Color()
 	area := renderer.fontAtlas.texture.GetRectGLCoordinates(src)
 	texture_coords := triangulateFRect(area)
-	begin := cellVertexPosition(x, y)
+	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].tex = texture_coords[i]
 		renderer.vertexData[begin+i].fg = c
 	}
 }
 
-func (renderer *Renderer) ClearCellForegroundData(x, y int) {
-	begin := cellVertexPosition(x, y)
+func (renderer *Renderer) SetCellSpColor(x, y int, color U8Color) {
+	c := color.ToF32Color()
+	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].tex.X = 0
-		renderer.vertexData[begin+i].tex.Y = 0
-		renderer.vertexData[begin+i].fg.R = 0
-		renderer.vertexData[begin+i].fg.G = 0
-		renderer.vertexData[begin+i].fg.B = 0
-		renderer.vertexData[begin+i].fg.A = 0
+		renderer.vertexData[begin+i].sp = c
+	}
+}
+
+func (renderer *Renderer) ClearCellFgColor(x, y int) {
+	begin := cellVertexPos(x, y)
+	for i := 0; i < 4; i++ {
+		renderer.vertexData[begin+i].tex = F32Vec2{}
+		renderer.vertexData[begin+i].fg = F32Color{}
+		renderer.vertexData[begin+i].sp = F32Color{}
 	}
 }
 
@@ -303,15 +320,15 @@ func cellRect(x, y int) IntRect {
 	}
 }
 
-func cellVertexPosition(x, y int) int {
+func cellVertexPos(x, y int) int {
 	return (x*EditorSingleton.columnCount + y) * 4
 }
 
-func cellElementPosition(x, y int) int {
+func cellElementPos(x, y int) int {
 	return (x*EditorSingleton.columnCount + y) * 6
 }
 
-func (renderer *Renderer) GetEmptyAtlasPosition(width int) IntVec2 {
+func (renderer *Renderer) NextAtlasPosition(width int) IntVec2 {
 	atlas := &renderer.fontAtlas
 	pos := atlas.pos
 	atlas.pos.X += width
@@ -335,7 +352,7 @@ func (renderer *Renderer) GetSupportedFace(char string, italic, bold bool) (*Fon
 			return face, true
 		}
 	}
-	// İf this is not regular font, try with default non regular fonts.
+	// If this is not regular font, try with default non regular fonts.
 	if italic || bold {
 		face := renderer.defaultFont.GetSuitableFace(italic, bold)
 		if face.IsDrawable(char) {
@@ -348,13 +365,33 @@ func (renderer *Renderer) GetSupportedFace(char string, italic, bold bool) (*Fon
 	return face, face.IsDrawable(char)
 }
 
-func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold, underline bool) IntRect {
-	var position IntRect
+func (renderer *Renderer) CheckUndercurlPos() {
+	if _, ok := renderer.fontAtlas.characters[UNDERCURL_GLYPH_ID]; ok == false {
+		// Create and update needed texture
+		textImage := renderer.defaultFont.regular.renderUndercurl()
+		textPos := renderer.NextAtlasPosition(EditorSingleton.cellWidth)
+		rect := IntRect{
+			X: textPos.X,
+			Y: textPos.Y,
+			W: EditorSingleton.cellWidth,
+			H: EditorSingleton.cellHeight,
+		}
+		// Draw text to empty position of atlas texture
+		renderer.fontAtlas.texture.UpdatePartFromImage(textImage, rect)
+		// Add this font to character list for further use
+		renderer.fontAtlas.characters[UNDERCURL_GLYPH_ID] = rect
+		// Set uniform
+		RGL_SetUndercurlRect(renderer.fontAtlas.texture.GetRectGLCoordinates(rect))
+	}
+}
+
+// Returns given character position at the font atlas.
+func (renderer *Renderer) GetCharPos(char string, italic, bold, underline, strikethrough bool) IntRect {
 	// generate specific id for this character
-	id := fmt.Sprintf("%s%t%t%t", char, italic, bold, underline)
+	id := fmt.Sprintf("%s%t%t%t%t", char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
 		// use stored texture
-		position = pos
+		return pos
 	} else {
 		// Get suitable font and check for glyph
 		fontFace, ok := renderer.GetSupportedFace(char, italic, bold)
@@ -367,7 +404,7 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold, u
 			}
 		}
 		// Render character to an image
-		textImage := fontFace.RenderChar(char, underline)
+		textImage := fontFace.RenderChar(char, underline, strikethrough)
 		if textImage == nil {
 			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph", char)
 			id = UNSUPPORTED_GLYPH_ID
@@ -377,8 +414,8 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold, u
 			}
 		}
 		// Get empty atlas position for this character
-		text_pos := renderer.GetEmptyAtlasPosition(EditorSingleton.cellWidth)
-		position = IntRect{
+		text_pos := renderer.NextAtlasPosition(EditorSingleton.cellWidth)
+		position := IntRect{
 			X: text_pos.X,
 			Y: text_pos.Y,
 			W: EditorSingleton.cellWidth,
@@ -388,32 +425,30 @@ func (renderer *Renderer) GetCharacterAtlasPosition(char string, italic, bold, u
 		renderer.fontAtlas.texture.UpdatePartFromImage(textImage, position)
 		// Add this font to character list for further use
 		renderer.fontAtlas.characters[id] = position
+		return position
 	}
-	return position
 }
 
 func (renderer *Renderer) DrawCellCustom(x, y int, char string,
 	fg, bg, sp U8Color,
-	italic, bold, underline, undercurl bool) {
+	italic, bold, underline, undercurl, strikethrough bool) {
 	// draw Background
-	renderer.SetCellBackgroundData(x, y, bg)
+	renderer.SetCellBgColor(x, y, bg)
 	if char == "" || char == " " {
 		// this is an empty cell, clear the text vertex data
-		renderer.ClearCellForegroundData(x, y)
+		renderer.ClearCellFgColor(x, y)
 		return
 	}
 	if undercurl {
-		// Undercurl needs to be special color, and we can't give different
-		// colors to same cell.
-		// Option 1: We can render an undercurl text and than render it in front of the cell.
-		// We need to reserve extra data but we don't know it's size.
-		// We can render same cell to different positions.
-		// This aproach needs alpha blending and instancing.
+		renderer.CheckUndercurlPos()
+		renderer.SetCellSpColor(x, y, sp)
+	} else {
+		renderer.SetCellSpColor(x, y, U8Color{})
 	}
 	// get character position in atlas texture
-	atlasPos := renderer.GetCharacterAtlasPosition(char, italic, bold, underline)
+	atlasPos := renderer.GetCharPos(char, italic, bold, underline, strikethrough)
 	// draw
-	renderer.SetCellForegroundData(x, y, atlasPos, cellRect(x, y), fg)
+	renderer.SetCellFgColor(x, y, atlasPos, cellRect(x, y), fg)
 }
 
 func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute) {
@@ -437,10 +472,9 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	if attrib.reverse {
 		fg, bg = bg, fg
 	}
-	// NOTE: The undercurl has special color
 	// Draw cell
 	renderer.DrawCellCustom(x, y, cell.char, fg, bg, sp,
-		attrib.italic, attrib.bold, attrib.underline, attrib.undercurl)
+		attrib.italic, attrib.bold, attrib.underline, attrib.undercurl, attrib.strikethrough)
 }
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
@@ -452,10 +486,12 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 		bg.A = EditorSingleton.backgroundAlpha()
 		renderer.DrawCellCustom(x, y, cell.char,
 			EditorSingleton.grid.default_fg, bg, EditorSingleton.grid.default_sp,
-			false, false, false, false)
+			false, false, false, false, false)
 	}
 }
 
+// Don't call this function directly. Set drawCall value to true in the renderer.
+// This function sets renderCall to true and draws cursor one more time.
 func (renderer *Renderer) DrawAllChangedCells() {
 	// Set changed cells vertex data
 	rendered := 0
@@ -487,7 +523,7 @@ func (renderer *Renderer) Update() {
 	}
 }
 
-// Don't call this function directly. Call SetRender instead.
+// Don't call this function directly. Set renderCall value to true in the renderer.
 func (renderer *Renderer) Render() {
 	RGL_ClearScreen(EditorSingleton.grid.default_bg)
 	RGL_UpdateVertexData(renderer.vertexData)
