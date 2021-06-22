@@ -66,7 +66,6 @@ func CreatePopupMenu() PopupMenu {
 // Only call this function at initializing.
 func (pmenu *PopupMenu) CreateCells() {
 	// Loop through all cells and give them correct characters
-	log_debug("Width:", pmenu.width, "Height:", pmenu.height)
 	for x, row := range pmenu.cells {
 		for y := range row {
 			c := ' '
@@ -87,9 +86,10 @@ func (pmenu *PopupMenu) CreateVertexData() {
 			cell_id := x*pmenu.width + y
 			var atlasPos IntRect
 			if char != "" && char != " " {
-				atlasPos = EditorSingleton.renderer.GetCharacterAtlasPosition(char, false, false, false)
+				atlasPos = EditorSingleton.renderer.GetCharPos(
+					char, false, false, false, false)
 			}
-			pmenu.vertexData.SetVertexTexPos(cell_id, atlasPos)
+			pmenu.vertexData.SetCellTexPos(cell_id, atlasPos)
 		}
 	}
 }
@@ -107,8 +107,8 @@ func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 				W: EditorSingleton.cellWidth,
 				H: EditorSingleton.cellHeight,
 			}
-			pmenu.vertexData.SetVertexPos(cell_id, rect)
-			pmenu.vertexData.SetVertexColor(cell_id, fg, bg)
+			pmenu.vertexData.SetCellPos(cell_id, rect)
+			pmenu.vertexData.SetCellColor(cell_id, fg, bg)
 		}
 	}
 	pmenu.hidden = false
@@ -119,7 +119,7 @@ func (pmenu *PopupMenu) Hide() {
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
-			pmenu.vertexData.SetVertexPos(cell_id, IntRect{})
+			pmenu.vertexData.SetCellPos(cell_id, IntRect{})
 		}
 	}
 	pmenu.hidden = true
@@ -162,7 +162,7 @@ func (pmenu *PopupMenu) MouseMove(pos IntVec2) {
 	if !pmenu.hidden {
 		ok, index := pmenu.Intersects(pos)
 		if ok {
-			pmenu.vertexData.SetAllVertexColors(
+			pmenu.vertexData.SetAllCellsColors(
 				EditorSingleton.grid.default_bg, EditorSingleton.grid.default_fg)
 			if index != -1 {
 				row := index
@@ -170,7 +170,7 @@ func (pmenu *PopupMenu) MouseMove(pos IntVec2) {
 				if row < len(pmenu.cells) {
 					for col := 1; col < pmenu.width-1; col++ {
 						cell_id := row*pmenu.width + col
-						pmenu.vertexData.SetVertexColor(
+						pmenu.vertexData.SetCellColor(
 							cell_id, EditorSingleton.grid.default_fg, EditorSingleton.grid.default_bg)
 					}
 				}
