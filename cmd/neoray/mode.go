@@ -24,11 +24,6 @@ func CreateMode() Mode {
 }
 
 func (mode *Mode) CurrentModeInfo() ModeInfo {
-	if mode.current_mode < 0 || mode.current_mode >= len(mode.mode_infos) {
-		// For debugging
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Mode index out of bounds!")
-		return ModeInfo{}
-	}
 	return mode.mode_infos[mode.current_mode]
 }
 
