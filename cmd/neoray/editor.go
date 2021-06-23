@@ -53,8 +53,8 @@ type Editor struct {
 	columnCount int
 	cellCount   int
 	// Initializing in Editor.MainLoop
-	framesPerSecond int
-	deltaTime       float32
+	updatesPerSecond int
+	deltaTime        float32
 	// Transparency of window background min 0, max 1
 	framebufferTransparency float32
 	// Target ticks per second
@@ -120,7 +120,7 @@ MAINLOOP:
 			ticks++
 			// Calculate ticks per second
 			if elapsed >= 1 {
-				editor.framesPerSecond = ticks
+				editor.updatesPerSecond = ticks
 				ticks = 0
 				elapsed = 0
 			}
