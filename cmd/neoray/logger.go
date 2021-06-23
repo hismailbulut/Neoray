@@ -47,7 +47,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 	log_string += " "
 	switch log_level {
 	case LOG_LEVEL_DEBUG:
-		log_string += ">>"
+		log_string += "DEBUG:"
 	case LOG_LEVEL_TRACE:
 		log_string += "TRACE:"
 	case LOG_LEVEL_WARN:
