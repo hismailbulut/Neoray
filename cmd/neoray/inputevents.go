@@ -69,12 +69,13 @@ func InitializeInputEvents() {
 	toggleFullscreenKey = "<F11>"
 	popupMenuEnabled = true
 	// Initialize callbacks
-	EditorSingleton.window.handle.SetCharModsCallback(CharEventHandler)
-	EditorSingleton.window.handle.SetKeyCallback(KeyEventHandler)
-	EditorSingleton.window.handle.SetMouseButtonCallback(ButtonEventHandler)
-	EditorSingleton.window.handle.SetCursorPosCallback(MousePosEventHandler)
-	EditorSingleton.window.handle.SetScrollCallback(ScrollEventHandler)
-	EditorSingleton.window.handle.SetDropCallback(DropEventHandler)
+	whandle := EditorSingleton.window.handle
+	whandle.SetCharModsCallback(CharEventHandler)
+	whandle.SetKeyCallback(KeyEventHandler)
+	whandle.SetMouseButtonCallback(ButtonEventHandler)
+	whandle.SetCursorPosCallback(MousePosEventHandler)
+	whandle.SetScrollCallback(ScrollEventHandler)
+	whandle.SetDropCallback(DropEventHandler)
 }
 
 func CharEventHandler(w *glfw.Window, char rune, mods glfw.ModifierKey) {

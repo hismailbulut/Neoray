@@ -97,7 +97,7 @@ func (fontFace *FontFace) Resize(newsize float32) {
 func (fontFace *FontFace) IsDrawable(c string) bool {
 	char := []rune(c)[0]
 	i, err := fontFace.fontHandle.GlyphIndex(&fontFace.buffer, char)
-	return i != 0 || err != nil
+	return i != 0 && err == nil
 }
 
 // This function draws horizontal line at given y coord.

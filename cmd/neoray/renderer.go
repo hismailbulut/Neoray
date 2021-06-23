@@ -67,20 +67,17 @@ func CreateRenderer() Renderer {
 
 func (renderer *Renderer) SetFont(font Font) {
 	renderer.userFont = font
-	// reset atlas
-	renderer.ClearAtlas()
 	// resize default fonts
-	renderer.defaultFont.Resize(renderer.userFont.size)
-	renderer.fontSize = renderer.userFont.size
+	renderer.defaultFont.Resize(font.size)
 	// update cell size if font size has changed
 	renderer.UpdateCellSize(&font)
-	// redraw all cells
-	EditorSingleton.grid.MakeAllCellsChanged()
-	renderer.drawCall = true
+	// reset atlas
+	renderer.ClearFontData()
+	renderer.fontSize = font.size
 }
 
 func (renderer *Renderer) SetFontSize(size float32) {
-	if size >= MINIMUM_FONT_SIZE {
+	if size >= MINIMUM_FONT_SIZE && size != renderer.fontSize {
 		renderer.defaultFont.Resize(size)
 		if renderer.userFont.size > 0 {
 			renderer.userFont.Resize(size)
@@ -88,9 +85,7 @@ func (renderer *Renderer) SetFontSize(size float32) {
 		} else {
 			renderer.UpdateCellSize(&renderer.defaultFont)
 		}
-		renderer.ClearAtlas()
-		EditorSingleton.grid.MakeAllCellsChanged()
-		renderer.drawCall = true
+		renderer.ClearFontData()
 		renderer.fontSize = size
 		EditorSingleton.nvim.Echo("Font Size: %.1f\n", size)
 	}
@@ -102,6 +97,13 @@ func (renderer *Renderer) IncreaseFontSize() {
 
 func (renderer *Renderer) DecreaseFontSize() {
 	renderer.SetFontSize(renderer.fontSize - 0.5)
+}
+
+func (renderer *Renderer) ClearFontData() {
+	renderer.ClearAtlas()
+	EditorSingleton.grid.MakeAllCellsChanged()
+	EditorSingleton.popupMenu.UpdateChars()
+	renderer.drawCall = true
 }
 
 func (renderer *Renderer) UpdateCellSize(font *Font) bool {
@@ -116,7 +118,7 @@ func (renderer *Renderer) UpdateCellSize(font *Font) bool {
 	return false
 }
 
-// Call CalculateCellCount before this function.
+// This function will only be called from neovim.
 func (renderer *Renderer) Resize(rows, cols int) {
 	renderer.CreateVertexData(rows, cols)
 	RGL_CreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)

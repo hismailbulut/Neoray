@@ -81,6 +81,10 @@ func (pmenu *PopupMenu) CreateCells() {
 
 func (pmenu *PopupMenu) CreateVertexData() {
 	pmenu.vertexData = EditorSingleton.renderer.ReserveVertexData(pmenu.width * pmenu.height)
+	pmenu.UpdateChars()
+}
+
+func (pmenu *PopupMenu) UpdateChars() {
 	for x, row := range pmenu.cells {
 		for y, char := range row {
 			cell_id := x*pmenu.width + y
