@@ -159,7 +159,8 @@ func (proc *NvimProcess) requestOptions() {
 func (proc *NvimProcess) ExecuteVimScript(script string, args ...interface{}) {
 	cmd := fmt.Sprintf(script, args...) + "\n"
 	if err := proc.handle.Command(cmd); err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute vimscript:", err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
+			"Failed to execute vimscript:", cmd, err)
 	}
 }
 
@@ -274,7 +275,6 @@ func (proc *NvimProcess) InputMouse(button, action, modifier string, grid, row, 
 	}
 }
 
-// Call CalculateCellSize before this function.
 func (proc *NvimProcess) RequestResize() {
 	EditorSingleton.calculateCellCount()
 	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
