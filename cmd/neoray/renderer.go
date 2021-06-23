@@ -56,7 +56,6 @@ func CreateRenderer() Renderer {
 	}
 
 	renderer.defaultFont = CreateDefaultFont()
-
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.CalculateCellSize()
 	EditorSingleton.calculateCellCount()
 
@@ -161,7 +160,7 @@ func (renderer *Renderer) CreateVertexData(rows, cols int) {
 		renderer.DebugDrawFontAtlas()
 	}
 	// Update element buffer
-	RGL_UpdateElementData(renderer.indexData)
+	RGL_UpdateIndices(renderer.indexData)
 }
 
 func (renderer *Renderer) DebugDrawFontAtlas() {
@@ -396,7 +395,7 @@ func (renderer *Renderer) GetCharPos(char string, italic, bold, underline, strik
 		// Get suitable font and check for glyph
 		fontFace, ok := renderer.GetSupportedFace(char, italic, bold)
 		if !ok {
-			log_debug("Unsupported glyph:", char, []rune(char))
+			// log_debug("Unsupported glyph:", char, []rune(char))
 			id = UNSUPPORTED_GLYPH_ID
 			pos, ok := renderer.fontAtlas.characters[id]
 			if ok {
@@ -406,7 +405,7 @@ func (renderer *Renderer) GetCharPos(char string, italic, bold, underline, strik
 		// Render character to an image
 		textImage := fontFace.RenderChar(char, underline, strikethrough)
 		if textImage == nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph", char)
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph", char, []rune(char))
 			id = UNSUPPORTED_GLYPH_ID
 			pos, ok := renderer.fontAtlas.characters[id]
 			if ok {
@@ -526,7 +525,7 @@ func (renderer *Renderer) Update() {
 // Don't call this function directly. Set renderCall value to true in the renderer.
 func (renderer *Renderer) Render() {
 	RGL_ClearScreen(EditorSingleton.grid.default_bg)
-	RGL_UpdateVertexData(renderer.vertexData)
+	RGL_UpdateVertices(renderer.vertexData)
 	RGL_Render()
 	EditorSingleton.window.handle.SwapBuffers()
 }
