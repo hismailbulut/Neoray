@@ -45,7 +45,7 @@ func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest IntRect) {
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0,
 		int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
-	RGL_CheckError("Texture.UpdatePartFromSurface")
+	RGL_CheckError("Texture.UpdatePartFromImage")
 }
 
 func (texture *Texture) GetRectGLCoordinates(rect IntRect) F32Rect {
