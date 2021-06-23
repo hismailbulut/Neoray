@@ -74,7 +74,7 @@ func WindowResizeHandler(w *glfw.Window, width, height int) {
 func (window *Window) Update() {
 	if isDebugBuild() {
 		fps_string := fmt.Sprintf(" | TPS: %d | Delta: %f",
-			EditorSingleton.framesPerSecond, EditorSingleton.deltaTime)
+			EditorSingleton.updatesPerSecond, EditorSingleton.deltaTime)
 		idx := strings.LastIndex(window.title, " | TPS:")
 		if idx == -1 {
 			window.SetTitle(window.title + fps_string)
@@ -85,10 +85,10 @@ func (window *Window) Update() {
 }
 
 func (window *Window) Raise() {
-	window.handle.SetAttrib(glfw.Floating, glfw.True)
 	if window.minimized {
 		window.handle.Restore()
 	}
+	window.handle.SetAttrib(glfw.Floating, glfw.True)
 	window.handle.SetAttrib(glfw.Floating, glfw.False)
 }
 
