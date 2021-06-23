@@ -53,6 +53,8 @@ func RGL_Init() {
 	RGL_InitShaders()
 	gl.UseProgram(rgl_shader_program)
 
+	RGL_CheckError("gl use program")
+
 	rgl_atlas_uniform = RGL_GetUniformLocation("atlas")
 	rgl_projection_uniform = RGL_GetUniformLocation("projection")
 
@@ -67,6 +69,8 @@ func RGL_Init() {
 	// Initialize ebo
 	gl.GenBuffers(1, &rgl_ebo)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rgl_ebo)
+
+	RGL_CheckError("gl bind buffers")
 
 	// position
 	offset := 0
@@ -89,17 +93,19 @@ func RGL_Init() {
 	gl.EnableVertexAttribArray(4)
 	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
+	RGL_CheckError("gl enable attributes")
 	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
 
-	gl.Enable(gl.TEXTURE_2D)
+	// gl.Enable(gl.TEXTURE_2D)
+	// RGL_CheckError("gl enable texture")
 
 	if isDebugBuild() {
 		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
 		gl.Enable(gl.BLEND)
 		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+		RGL_CheckError("gl enable blending")
 	}
 
-	RGL_CheckError("RGL_Init")
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
@@ -134,31 +140,29 @@ func RGL_ClearScreen(color U8Color) {
 	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.framebufferTransparency)
 }
 
-func RGL_UpdateVertexData(data []Vertex) {
+func RGL_UpdateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*VertexStructSize, gl.Ptr(data), gl.STATIC_DRAW)
-		RGL_CheckError("RGL_UpdateVertexData.BufferData")
+		RGL_CheckError("RGL_UpdateVertices.BufferData")
 		rgl_vertex_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*VertexStructSize, gl.Ptr(data))
-		RGL_CheckError("RGL_UpdateVertexData.BufferSubData")
+		RGL_CheckError("RGL_UpdateVertices.BufferSubData")
 	}
 }
 
-func RGL_UpdateElementData(data []uint32) {
+func RGL_UpdateIndices(data []uint32) {
 	if rgl_element_buffer_len != len(data) {
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(data)*4, gl.Ptr(data), gl.STATIC_DRAW)
-		RGL_CheckError("RGL_UpdateElementData.BufferData")
+		RGL_CheckError("RGL_UpdateIndices.BufferData")
 		rgl_element_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, len(data)*4, gl.Ptr(data))
-		RGL_CheckError("RGL_UpdateElementData.BufferSubData")
+		RGL_CheckError("RGL_UpdateIndices.BufferSubData")
 	}
 }
 
 func RGL_Render() {
-	// gl.DrawArrays(gl.TRIANGLES, 0, int32(rgl_vertex_buffer_len))
-	// RGL_CheckError("RGL_Render.DrawArrays")
 	gl.DrawElements(gl.TRIANGLES, int32(rgl_element_buffer_len), gl.UNSIGNED_INT, nil)
 	RGL_CheckError("RGL_Render.DrawElements")
 }
@@ -167,10 +171,12 @@ func RGL_InitShaders() {
 	vertexShaderSource, fragmentShaderSource := loadShaders()
 	vertexShader := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
 	fragmentShader := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+
 	rgl_shader_program = gl.CreateProgram()
 	gl.AttachShader(rgl_shader_program, vertexShader)
 	gl.AttachShader(rgl_shader_program, fragmentShader)
 	gl.LinkProgram(rgl_shader_program)
+
 	var status int32
 	gl.GetProgramiv(rgl_shader_program, gl.LINK_STATUS, &status)
 	if status == gl.FALSE {
@@ -181,6 +187,7 @@ func RGL_InitShaders() {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER,
 			"Failed to link shader program:", log)
 	}
+
 	gl.DeleteShader(vertexShader)
 	gl.DeleteShader(fragmentShader)
 }
@@ -189,6 +196,7 @@ func loadShaders() (string, string) {
 	vertexSourceBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
 	fragSourceBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
 	assert(vertexSourceBegin != -1 && fragSourceBegin != -1, "Shaders are not correctly prefixed!")
+
 	var vertexShaderSource string
 	var fragmentShaderSource string
 	if vertexSourceBegin < fragSourceBegin {
@@ -198,15 +206,17 @@ func loadShaders() (string, string) {
 		fragmentShaderSource = rgl_shader_sources[fragSourceBegin:vertexSourceBegin]
 		vertexShaderSource = rgl_shader_sources[vertexSourceBegin:]
 	}
+
 	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00"
 }
 
 func compileShader(source string, shader_type uint32) uint32 {
 	shader := gl.CreateShader(shader_type)
 	cstr, free := gl.Strs(source)
+	defer free()
 	gl.ShaderSource(shader, 1, cstr, nil)
-	free()
 	gl.CompileShader(shader)
+
 	var result int32
 	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &result)
 	if result == gl.FALSE {
@@ -217,6 +227,7 @@ func compileShader(source string, shader_type uint32) uint32 {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER,
 			"Shader compilation failed:", source, log)
 	}
+
 	return shader
 }
 
