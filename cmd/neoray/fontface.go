@@ -116,10 +116,18 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 	y := EditorSingleton.cellHeight - fontFace.descent
 	for x := 0; x < img.Rect.Dx(); x++ {
 		img.Set(x, y, color.White)
-		if x%fontFace.descent < fontFace.descent/2 {
-			y++
-		} else if x%fontFace.descent > fontFace.descent/2 {
-			y--
+		// This evaluation will be true when x is not
+		// center of a part (there are 4 parts) and x is not divisible by 3.
+		// The 3 is for reducing count, we will do it for 2 of 3 times.
+		// This makes curls more softer.
+		if (x%4)%3 != 0 {
+			// Divide image to 4 parts to get the number of the part.
+			// If the part number is 0 or 2, then increase y, otherwise decrease it.
+			if ((x/4)%4)%2 == 0 {
+				y++
+			} else {
+				y--
+			}
 		}
 	}
 	return img
