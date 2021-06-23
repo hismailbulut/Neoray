@@ -22,6 +22,11 @@ const (
 	SIGNAL_GOTO_COLUMN = "GOTOCOLUMN"
 )
 
+// This is a tcp server/client implementation of neoray.
+// We are using tcp for communicating between neoray instances.
+// This implementation may has security issues. If you are a
+// pro socket programmer please review this source code.
+
 // Signals must end with newline
 // Signal and args must be separated with null character
 
@@ -41,26 +46,26 @@ func CreateClient() (*TCPClient, error) {
 		return nil, err
 	}
 	client.connection = c
-	log_debug("Connected to", c.RemoteAddr())
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Connected to", c.RemoteAddr())
 	go func() {
 		for {
 			data := <-client.data
 			_, err := c.Write([]byte(data))
 			if err != nil {
-				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Failed to send signal:", err)
+				log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send signal:", err)
 				client.resp <- false
 				continue
 			}
 			resp, err := bufio.NewReader(c).ReadString('\n')
 			if err != nil {
-				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Failed to get response:", err)
+				log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to get response:", err)
 				client.resp <- false
 				continue
 			}
 			if resp == SIGNAL_CLOSE_CONNECTION {
 				client.connection.Close()
 				client.resp <- true
-				log_debug("Disconnected from server.")
+				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Disconnected from server.")
 				return
 			}
 			client.resp <- true
@@ -84,7 +89,7 @@ func (client *TCPClient) SendSignal(signal string, args ...string) bool {
 		}
 		break
 	case <-time.Tick(time.Second):
-		log_debug("Signal timeout.")
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Signal timeout.")
 		return false
 	}
 	return true
@@ -115,10 +120,10 @@ func CreateServer() (*TCPServer, error) {
 		for {
 			c, err := l.Accept()
 			if err != nil {
-				log_debug("Server closed.")
+				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Server closed.")
 				return
 			}
-			log_debug("New client connected:", c.RemoteAddr())
+			log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "New client connected:", c.RemoteAddr())
 			// handle connection concurrently
 			go func() {
 				defer c.Close()
@@ -126,7 +131,7 @@ func CreateServer() (*TCPServer, error) {
 					var resp string
 					data, err := bufio.NewReader(c).ReadString('\n')
 					if err != nil {
-						log_debug("Failed to read client data:", err)
+						log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to read client data:", err)
 						break
 					}
 					switch data {
@@ -149,10 +154,10 @@ func CreateServer() (*TCPServer, error) {
 					}
 					_, err = c.Write([]byte(resp))
 					if err != nil {
-						log_debug("Failed to send response to client.")
+						log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send response to client.")
 					}
 					if resp == SIGNAL_CLOSE_CONNECTION {
-						log_debug("Client disconnected.")
+						log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Client disconnected.")
 						return
 					}
 				}
@@ -183,9 +188,6 @@ func (server *TCPServer) Process() {
 				if err == nil {
 					EditorSingleton.nvim.GotoLine(cl)
 				}
-				break
-			default:
-				log_debug("Unknown signal:", args[0])
 				break
 			}
 		}
