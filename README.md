@@ -18,7 +18,7 @@ The cursor is moving smoothly in neoray and you can specify
 how long it's move takes. Default is 0.08 (1.0 is one second)
 You can disable it by setting to 0.
 
-```
+```vim
 let neoray_framebuffer_transparency=1
 ```
 Transparency of the window background. Default is 1 means
@@ -26,42 +26,49 @@ no transparency, and 0 is fully transparent. Only background
 colors will be transparent, and statusline, tabline and texts
 are fully opaque.
 
-- neoray_target_ticks_per_second (int)
-    The target update time in one second. Like FPS but neoray
-    doesn't render screen in every frame. Default is 60.
+```vim
+let neoray_target_ticks_per_second=60
+```
+The target update time in one second. Like FPS but neoray
+doesn't render screen in every frame. Default is 60.
 
-- neoray_popup_menu_enabled (bool)
-    Neoray has a simple right click menu that gives you some abilities
-    like copying, cutting to system clipboard and pasting. It has a
-    open file functionality that opens system file dialog. Menu text
-    is same as the font and the colors are from your colorscheme. This
-    makes it look and feel like terminal. You can disable it by setting
-    this option to 0. Default is 1 which means enabled.
+```vim
+let neoray_popup_menu_enabled=1
+```
+Neoray has a simple right click menu that gives you some abilities
+like copying, cutting to system clipboard and pasting. It has a
+open file functionality that opens system file dialog. Menu text
+is same as the font and the colors are from your colorscheme. This
+makes it look and feel like terminal. You can disable it by setting
+this option to 0. Default is 1 which means enabled.
 
-- neoray_window_startup_state (string)
-    You can specify how the neoray window will be shown. The possible
-    values are "minimized", "maximized", "fullscreen", "centered".
-    Default is none.
+```vim
+let neoray_window_startup_state=''
+```
+You can specify how the neoray window will be shown. The possible
+values are 'minimized', 'maximized', 'fullscreen', 'centered'.
+Default is none.
 
 Neoray uses some key combinations for switching between fullscreen and
 windowed mode, zoom in and out eg. You can set these keys and also
 disable as you wish. All options here are strings contains vim style
-keybindings.
-
-- neoray_key_toggle_fullscreen (default \<F11>)
-- neoray_key_increase_fontsize (default \<C-+>)
-- neoray_key_decrease_fontsize (default \<C-->)
+keybindings and set to defaults.
+```vim
+let neoray_key_toggle_fullscreen='<F11>'
+let neoray_key_increase_fontsize='<C-+>'
+let neoray_key_decrease_fontsize='<C-->'
+```
 
 ### font
 Neoray respects your guifont option, finds the font and loads it.
 But it hasn't got platform specific font enumerating. You can load
 known fonts as its family name like 'Consolas', but for other fonts
 you need to specify font file name. Examples:
-
+```vim
 set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
-
-Also you can write underscore instead of escaping space. eg: Ubuntu_Mono
+set guifont=Ubuntu_Mono:h12
+```
 
 ### exaple init.vim
 ```vim
