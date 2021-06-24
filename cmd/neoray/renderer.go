@@ -34,6 +34,7 @@ type Renderer struct {
 	// and updated only when initializing and resizing.
 	indexData []uint32
 	// If this is true, the Render function will be called from Update.
+	// You can give render call and draw call from editor singleton.
 	renderCall bool
 	drawCall   bool
 }
@@ -56,7 +57,7 @@ func CreateRenderer() Renderer {
 	}
 
 	renderer.defaultFont = CreateDefaultFont()
-	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.CalculateCellSize()
+	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.GetCellSize()
 	EditorSingleton.calculateCellCount()
 
 	RGL_CreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
@@ -72,7 +73,7 @@ func (renderer *Renderer) SetFont(font Font) {
 	// update cell size if font size has changed
 	renderer.UpdateCellSize(&font)
 	// reset atlas
-	renderer.ClearFontData()
+	renderer.ClearAtlas()
 	renderer.fontSize = font.size
 }
 
@@ -85,7 +86,7 @@ func (renderer *Renderer) SetFontSize(size float32) {
 		} else {
 			renderer.UpdateCellSize(&renderer.defaultFont)
 		}
-		renderer.ClearFontData()
+		renderer.ClearAtlas()
 		renderer.fontSize = size
 		EditorSingleton.nvim.Echo("Font Size: %.1f\n", size)
 	}
@@ -99,15 +100,8 @@ func (renderer *Renderer) DecreaseFontSize() {
 	renderer.SetFontSize(renderer.fontSize - 0.5)
 }
 
-func (renderer *Renderer) ClearFontData() {
-	renderer.ClearAtlas()
-	EditorSingleton.grid.MakeAllCellsChanged()
-	EditorSingleton.popupMenu.UpdateChars()
-	renderer.drawCall = true
-}
-
 func (renderer *Renderer) UpdateCellSize(font *Font) bool {
-	w, h := font.CalculateCellSize()
+	w, h := font.GetCellSize()
 	// Only resize if font metrics are different
 	if w != EditorSingleton.cellWidth || h != EditorSingleton.cellHeight {
 		EditorSingleton.cellWidth = w
@@ -128,6 +122,9 @@ func (renderer *Renderer) ClearAtlas() {
 	renderer.fontAtlas.texture.Clear()
 	renderer.fontAtlas.characters = make(map[string]IntRect)
 	renderer.fontAtlas.pos = IntVec2{}
+	EditorSingleton.grid.MakeAllCellsChanged()
+	EditorSingleton.popupMenu.UpdateChars()
+	renderer.drawCall = true
 }
 
 func (renderer *Renderer) CreateVertexData(rows, cols int) {

@@ -21,7 +21,7 @@ type Vertex struct {
 	// background color
 	bg F32Color // layout 3
 	// special color
-	sp F32Color
+	sp F32Color // layout 4
 }
 
 // render subsystem global variables

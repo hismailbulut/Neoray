@@ -88,13 +88,12 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 	}
 }
 
-// This function gives secure access to grid cells.
-// Just check if the cell is nil or not.
-func (grid *Grid) GetCell(x, y int) *Cell {
+// This function returns a copy of the cell.
+func (grid *Grid) GetCell(x, y int) Cell {
 	if x < len(grid.cells) && y < len(grid.cells[x]) {
-		return &grid.cells[x][y]
+		return grid.cells[x][y]
 	}
-	return nil
+	return Cell{}
 }
 
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {

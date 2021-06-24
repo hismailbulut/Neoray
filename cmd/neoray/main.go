@@ -13,9 +13,9 @@ const (
 	TITLE         = "Neoray"
 	VERSION_MAJOR = 0
 	VERSION_MINOR = 0
-	VERSION_PATCH = 4
+	VERSION_PATCH = 5
 	WEBPAGE       = "github.com/hismailbulut/Neoray"
-	LICENSE       = "GPLv3"
+	LICENSE       = "MIT"
 )
 
 // NOTE: This source code is documented by me and I don't know English well.

@@ -116,7 +116,7 @@ func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 		}
 	}
 	pmenu.hidden = false
-	EditorSingleton.renderer.renderCall = true
+	EditorSingleton.render()
 }
 
 func (pmenu *PopupMenu) Hide() {
@@ -127,7 +127,7 @@ func (pmenu *PopupMenu) Hide() {
 		}
 	}
 	pmenu.hidden = true
-	EditorSingleton.renderer.renderCall = true
+	EditorSingleton.render()
 }
 
 func (pmenu *PopupMenu) GlobalRect() IntRect {
@@ -178,7 +178,7 @@ func (pmenu *PopupMenu) MouseMove(pos IntVec2) {
 							cell_id, EditorSingleton.grid.default_fg, EditorSingleton.grid.default_bg)
 					}
 				}
-				EditorSingleton.renderer.renderCall = true
+				EditorSingleton.render()
 			}
 		} else {
 			pmenu.Hide()

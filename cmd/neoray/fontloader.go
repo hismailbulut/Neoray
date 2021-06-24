@@ -31,7 +31,6 @@ type Font struct {
 
 func CreateDefaultFont() Font {
 	defer measure_execution_time("InitializeFontLoader")()
-	// Load the default font.
 	font := Font{
 		size: DEFAULT_FONT_SIZE,
 	}
@@ -62,6 +61,8 @@ func CreateDefaultFont() Font {
 }
 
 func CheckSystemFonts() {
+	// On windows systems this takes long (2-3 secs)
+	// We could do it on beginning in another goroutine
 	defer measure_execution_time("CheckSystemFonts")()
 	if systemFontList == nil {
 		systemFontList = sysfont.NewFinder(nil).List()
@@ -113,7 +114,7 @@ func (font *Font) GetSuitableFace(italic bool, bold bool) *FontFace {
 	return &font.regular
 }
 
-func (font *Font) CalculateCellSize() (int, int) {
+func (font *Font) GetCellSize() (int, int) {
 	return font.regular.advance, font.regular.height
 }
 
@@ -184,7 +185,7 @@ func (font *Font) loadMatchingFonts(font_list []sysfont.Font) bool {
 
 func loadBestMatch(face *FontFace, list []sysfont.Font, size float32) (string, bool) {
 	if len(list) > 0 && !face.loaded {
-		smallest := findSmallestLengthFont(list)
+		smallest := findSmallestFontName(list)
 		var err error
 		*face, err = CreateFontFace(smallest, size)
 		if err != nil {
@@ -199,7 +200,7 @@ func loadBestMatch(face *FontFace, list []sysfont.Font, size float32) (string, b
 // Finding smallest length is very bad idea, but works on ~half of the fonts.
 // The best we could do is native font enumerating. But I don't know if it's
 // possible to get font data or path from it's family name.
-func findSmallestLengthFont(font_list []sysfont.Font) string {
+func findSmallestFontName(font_list []sysfont.Font) string {
 	smallest := ""
 	smallestLen := 1000000
 	for _, f := range font_list {

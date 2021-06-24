@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,59 +9,106 @@ import (
 	"github.com/sqweek/dialog"
 )
 
+var usageTemplate = `
+Neoray is an ui client for neovim.
+Copyright (c) 2021 Ismail Bulut.
+Version %d.%d.%d %s
+License %s
+Webpage %s
+
+Options:
+
+--file
+	Filename to open
+--line
+	Goto line number
+--column
+	Goto column number
+--singleinstance, -si
+	Only accept one instance of neoray and send all flags to it.
+--verbose
+	Specify a file to verbose debug output in cwd
+--help, -h
+	Prints this message and quits
+
+All other flags will be send to neovim.
+
+Copyrights:
+
+Default font is Cascadia Code, Copyright (c) 2019 - Present,
+Microsoft Corporation, licensed under SIL OPEN FONT LICENSE Version 1.1
+`
+
+var argUsages = map[string]string{}
+
 type Args struct {
 	file           string
 	line           int
 	column         int
 	singleInstance bool
-
-	nvimArgs []string
+	nvimArgs       []string
 }
 
 func ParseArgs(args []string) Args {
-	options := Args{}
-	help := false
-	fs := flag.NewFlagSet("usage", flag.ContinueOnError)
-	fs.StringVar(&options.file, "file", "",
-		"Specify a filename to open in neovim. This is useful when -si flag has given.")
-	fs.IntVar(&options.line, "line", -1, "Goto line number.")
-	fs.IntVar(&options.column, "column", -1, "Goto column number.")
-	fs.BoolVar(&options.singleInstance, "singleinstance", false,
-		"If this option has given neoray will open only one instance."+
-			" All neoray commands will send all flags to already open instance and immediately close.")
-	fs.BoolVar(&options.singleInstance, "si", false, "Shortland for singleinstance")
-	fs.BoolVar(&help, "help", false, "Prints this message and quits.")
-	fs.BoolVar(&help, "h", false, "Shortland for help.")
-	err := fs.Parse(args)
-	if err != nil || help {
-		PrintHelp(fs)
+	// Init defaults
+	options := Args{
+		file:           "",
+		line:           -1,
+		column:         -1,
+		singleInstance: false,
+	}
+	printHelp := false
+	var err error
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--file":
+			flagAssert(len(args) > i+1, "specify filename after flag")
+			options.file = args[i+1]
+			i++
+			break
+		case "--line":
+			flagAssert(len(args) > i+1, "specify line number after flag")
+			options.line, err = strconv.Atoi(args[i+1])
+			flagAssert(err == nil, "invalid number")
+			i++
+			break
+		case "--column":
+			flagAssert(len(args) > i+1, "specify column number after flag")
+			options.column, err = strconv.Atoi(args[i+1])
+			flagAssert(err == nil, "invalid number")
+			i++
+			break
+		case "--singleinstance", "-si":
+			options.singleInstance = true
+			break
+		case "--help", "-h":
+			printHelp = true
+			break
+		default:
+			options.nvimArgs = append(options.nvimArgs, args[i])
+			break
+		}
+	}
+	if printHelp {
+		PrintHelp()
 		os.Exit(0)
 	}
-	options.nvimArgs = fs.Args()
 	return options
 }
 
-func PrintHelp(fs *flag.FlagSet) {
-	buf := bytes.NewBufferString("")
-	fs.SetOutput(buf)
-	fs.PrintDefaults()
+func flagAssert(cond bool, msgs ...interface{}) {
+	if !cond {
+		msg := fmt.Sprint(msgs...)
+		dialog.Message(msg).Error()
+		os.Exit(-1)
+	}
+}
+
+func PrintHelp() {
 	// About
-	msg := "Neoray is an ui client for neovim.\n"
-	msg += "Author 2021 Ismail Bulut.\n"
-	msg += fmt.Sprintf("Version %d.%d.%d %s\n",
-		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, buildTypeString())
-	msg += fmt.Sprintf("License %s\n", LICENSE)
-	msg += fmt.Sprintf("Webpage %s\n", WEBPAGE)
-	msg += "\n"
-	// Usage of the flags
-	usage, _ := buf.ReadString('\x00')
-	msg += usage + "\n"
-	msg += "All other options will send to neovim.\n"
-	// Copyrights
-	msg += "\n"
-	msg += "This program ships with some third party extensions.\n"
-	msg += "Default font is Cascadia Code, Copyright (c) 2019, Microsoft Corporation," +
-		" licensed under SIL OPEN FONT LICENSE Version 1.1\n"
+	msg := fmt.Sprintf(usageTemplate,
+		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
+		buildTypeString(), LICENSE, WEBPAGE)
 	dialog.Message(msg).Title("Neoray").Info()
 }
 

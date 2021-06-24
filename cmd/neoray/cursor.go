@@ -3,7 +3,7 @@ package main
 import ()
 
 const (
-	DefaultCursorAnimLifetime = 0.085
+	DefaultCursorAnimLifetime = 0.08
 )
 
 type Cursor struct {
@@ -95,7 +95,9 @@ func (cursor *Cursor) GetColors(info ModeInfo) (U8Color, U8Color) {
 	return fg, bg
 }
 
-func (cursor *Cursor) GetAnimatedPosition() IntVec2 {
+// GetPosition returns the current rendering position of the cursor
+// Not cell position.
+func (cursor *Cursor) GetPosition() IntVec2 {
 	aPos, finished := cursor.anim.GetCurrentStep(EditorSingleton.deltaTime)
 	if finished {
 		cursor.needsDraw = false
@@ -117,9 +119,28 @@ func (cursor *Cursor) Show() {
 }
 
 func (cursor *Cursor) Hide() {
-	// Hide the cursor.
 	cursor.hidden = true
 	cursor.vertexData.SetCellPos(0, IntRect{})
+}
+
+func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
+	italic := false
+	bold := false
+	underline := false
+	strikethrough := false
+	if cell.attrib_id > 0 {
+		attrib := EditorSingleton.grid.attributes[cell.attrib_id]
+		italic = attrib.italic
+		bold = attrib.bold
+		underline = attrib.underline
+		strikethrough = attrib.strikethrough
+		if attrib.undercurl {
+			cursor.vertexData.SetCellSpColor(0, fg)
+		}
+	}
+	atlas_pos := EditorSingleton.renderer.GetCharPos(
+		cell.char, italic, bold, underline, strikethrough)
+	cursor.vertexData.SetCellTexPos(0, atlas_pos)
 }
 
 func (cursor *Cursor) Draw() {
@@ -127,44 +148,26 @@ func (cursor *Cursor) Draw() {
 	if !cursor.hidden {
 		mode_info := EditorSingleton.mode.CurrentModeInfo()
 		fg, bg := cursor.GetColors(mode_info)
-		pos := cursor.GetAnimatedPosition()
+		pos := cursor.GetPosition()
 		rect, draw_char := cursor.GetRectangle(pos, mode_info)
 		if draw_char && !cursor.needsDraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
 			if cell.char != "" && cell.char != " " {
 				// We need to draw cell character to the cursor foreground.
-				italic := false
-				bold := false
-				underline := false
-				strikethrough := false
-				if cell.attrib_id > 0 {
-					attrib := EditorSingleton.grid.attributes[cell.attrib_id]
-					italic = attrib.italic
-					bold = attrib.bold
-					underline = attrib.underline
-					strikethrough = attrib.strikethrough
-					if attrib.undercurl {
-						cursor.vertexData.SetCellSpColor(0, fg)
-					}
-				}
-				atlas_pos := EditorSingleton.renderer.GetCharPos(
-					cell.char, italic, bold, underline, strikethrough)
-				cursor.vertexData.SetCellTexPos(0, atlas_pos)
+				cursor.drawWithCell(cell, fg)
 			} else {
 				// Clear foreground of the cursor.
 				cursor.vertexData.SetCellTexPos(0, IntRect{})
 				cursor.vertexData.SetCellSpColor(0, U8Color{})
 			}
-			cursor.vertexData.SetCellPos(0, rect)
 			cursor.vertexData.SetCellColor(0, fg, bg)
 		} else {
-			// No cell drawing needed. Just draw the cursor.
-			cursor.vertexData.SetCellPos(0, rect)
-			// Clear other ares
+			// No cell drawing needed. Clear foreground.
 			cursor.vertexData.SetCellTexPos(0, IntRect{})
 			cursor.vertexData.SetCellColor(0, U8Color{}, bg)
 			cursor.vertexData.SetCellSpColor(0, U8Color{})
 		}
-		EditorSingleton.renderer.renderCall = true
+		cursor.vertexData.SetCellPos(0, rect)
+		EditorSingleton.render()
 	}
 }

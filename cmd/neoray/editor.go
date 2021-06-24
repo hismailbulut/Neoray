@@ -17,24 +17,27 @@ const (
 type Editor struct {
 	// Neovim child process, nvim_process.go
 	nvim NvimProcess
-	// Window, window.go
+	// Main window of this program. window.go
 	window Window
 	// Grid is a neovim window if multigrid option is enabled, otherwise full screen.
 	// Grid has cells and it's attributes, and contains all information how cells and fonts will be rendered.
+	// grid.go
 	// TODO: support multigrid
 	grid Grid
 	// Cursor represents a neovim cursor and all it's information, cursor.go
 	cursor Cursor
 	// Mode is current nvim mode information struct (normal, visual etc.)
-	// We need for cursor rendering and some other stuff, more may future
+	// We need for cursor rendering mode.go
 	mode Mode
-	// Renderer is a struct that holds sdl and ttf rendering information,
-	// and has direct rendering abilities.
-	// NOTE: renderer is very slow
+	// Renderer is responsible for holding and oragnizing rendering data and
+	// sending them to opengl. renderer.go
+	// The opengl calls are encapsulated under renderergl.go
 	renderer Renderer
 	// UIOptions is a struct, holds some user ui options like guifont.
+	// uioptions.go
 	options UIOptions
 	// PopupMenu is the only popup menu in this program for right click menu.
+	// popupmenu.go
 	popupMenu PopupMenu
 	// If quitRequested is true the program will quit.
 	quitRequestedChan chan bool
@@ -48,14 +51,14 @@ type Editor struct {
 	// Initializing in CreateRenderer
 	cellWidth  int
 	cellHeight int
-	// Initializing in CalculateCellCount
+	// Initializing in Editor.calculateCellCount
 	rowCount    int
 	columnCount int
 	cellCount   int
 	// Initializing in Editor.MainLoop
 	updatesPerSecond int
 	deltaTime        float32
-	// Transparency of window background min 0, max 1
+	// Transparency of window background min 0, max 1, default 1
 	framebufferTransparency float32
 	// Target ticks per second
 	targetTPS int
@@ -141,8 +144,8 @@ MAINLOOP:
 		}
 	}
 	if !quitRequestedFromNvim {
-		// Maybe there is unsaved files in neovim. Instead of immediately closing
-		// we will send simple quit command to neovim and if there is unsaved files
+		// Maybe there are unsaved files in neovim. Instead of immediately closing
+		// we will send simple quit command to neovim and if there are unsaved files
 		// the neovim will handle them and user will not lose its progress.
 		editor.window.handle.SetShouldClose(false)
 		go editor.nvim.ExecuteVimScript(":qa")
@@ -160,6 +163,14 @@ func (editor *Editor) calculateCellCount() {
 func (editor *Editor) backgroundAlpha() uint8 {
 	transparency := math.Min(1, math.Max(0, float64(editor.framebufferTransparency)))
 	return uint8(transparency * 255)
+}
+
+func (editor *Editor) render() {
+	editor.renderer.renderCall = true
+}
+
+func (editor *Editor) draw() {
+	editor.renderer.drawCall = true
 }
 
 func (editor *Editor) Shutdown() {

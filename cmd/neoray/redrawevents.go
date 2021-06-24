@@ -55,7 +55,7 @@ func HandleNvimRedrawEvents() {
 			case "visual_bell":
 				break
 			case "flush":
-				EditorSingleton.renderer.drawCall = true
+				EditorSingleton.draw()
 				break
 			// Grid Events (line-based)
 			case "grid_resize":
