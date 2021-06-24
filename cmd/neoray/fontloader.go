@@ -1,26 +1,24 @@
-package neoray
+package main
 
 import (
+	_ "embed"
 	"strings"
 
 	"github.com/adrg/sysfont"
 )
 
 var (
-	defaultRegularData    []byte
+	//go:embed fonts/CascadiaMono-Regular.ttf
+	defaultRegularData []byte
+	//go:embed fonts/CascadiaMono-BoldItalic.otf
 	defaultBoldItalicData []byte
-	defaultItalicData     []byte
-	defaultBoldData       []byte
-	systemFontList        []*sysfont.Font = nil
+	//go:embed fonts/CascadiaMono-Italic.otf
+	defaultItalicData []byte
+	//go:embed fonts/CascadiaMono-Bold.otf
+	defaultBoldData []byte
+	// List of installed system fonts.
+	systemFontList []*sysfont.Font = nil
 )
-
-// This function is calling from main package before Main
-func SetDefaultFontData(regular, bold_italic, italic, bold []byte) {
-	defaultRegularData = regular
-	defaultBoldItalicData = bold_italic
-	defaultItalicData = italic
-	defaultBoldData = bold
-}
 
 type Font struct {
 	// If you want to disable a font, just set size to 0.

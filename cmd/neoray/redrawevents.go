@@ -1,4 +1,4 @@
-package neoray
+package main
 
 import (
 	"reflect"

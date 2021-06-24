@@ -1,6 +1,6 @@
 // +build !debug
 
-package neoray
+package main
 
 const (
 	MINIMUM_LOG_LEVEL = LOG_LEVEL_ERROR

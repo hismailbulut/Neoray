@@ -1,3 +1,5 @@
+SOURCEFOLDER=./cmd/neoray
+
 ifeq ($(OS),Windows_NT)
 	DEBUGEXE=bin/neoray_debug.exe
 	RELEASEEXE=bin/neoray.exe
@@ -9,26 +11,26 @@ else
 endif
 
 build:
-	go build -tags debug -o $(DEBUGEXE) -race
+	go build -tags debug -race -o $(DEBUGEXE) $(SOURCEFOLDER)
 
 run: build
 	./$(DEBUGEXE) $(ARGS)
 
 release:
-	go build $(RELEASEFLAGS) -o $(RELEASEEXE)
+	go build $(RELEASEFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
 
 release-run: release
 	./$(RELEASEEXE) $(ARGS)
 
 test:
-	go test -race
+	go test -race $(SOURCEFOLDER)
 
 bench:
-	go test -run=XXX -bench=. -race
+	go test -run=XXX -bench=. -race $(SOURCEFOLDER)
 
 debug:
-	dlv debug
+	dlv debug $(SOURCEFOLDER)
 
 clean:
-	-rm $(DEBUGEXE)
-	-rm $(RELEASEEXE)
+	del $(DEBUGEXE)
+	del $(RELEASEEXE)
