@@ -1,6 +1,6 @@
 // +build debug
 
-package main
+package neoray
 
 import (
 	"net/http"

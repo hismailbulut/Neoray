@@ -1,35 +1,33 @@
-SOURCEFOLDER=./cmd/neoray
-
 ifeq ($(OS),Windows_NT)
 	DEBUGEXE=bin/neoray_debug.exe
 	RELEASEEXE=bin/neoray.exe
-	LDFLAGS=-ldflags -H=windowsgui
+	RELEASEFLAGS=-ldflags -H=windowsgui
 else
 	DEBUGEXE=bin/neoray_debug
 	RELEASEEXE=bin/neoray
-	LDFLAGS=
+	RELEASEFLAGS=
 endif
 
 build:
-	go build -tags debug -o $(DEBUGEXE) -race $(SOURCEFOLDER)
+	go build -tags debug -o $(DEBUGEXE) -race
 
 run: build
 	./$(DEBUGEXE) $(ARGS)
 
 release:
-	go build $(LDFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
+	go build $(RELEASEFLAGS) -o $(RELEASEEXE)
 
 release-run: release
 	./$(RELEASEEXE) $(ARGS)
 
 test:
-	go test -race $(SOURCEFOLDER)
+	go test -race
 
 bench:
-	go test -run=XXX -bench=. -race $(SOURCEFOLDER)
+	go test -run=XXX -bench=. -race
 
 debug:
-	dlv debug $(SOURCEFOLDER)
+	dlv debug
 
 clean:
 	-rm $(DEBUGEXE)

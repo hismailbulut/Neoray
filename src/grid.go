@@ -1,4 +1,4 @@
-package main
+package neoray
 
 type Cell struct {
 	char         string

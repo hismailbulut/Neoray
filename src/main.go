@@ -1,4 +1,4 @@
-package main
+package neoray
 
 import (
 	"log"
@@ -36,7 +36,7 @@ var EditorSingleton Editor
 // Given arguments when starting this editor.
 var EditorParsedArgs ParsedArgs
 
-func main() {
+func Main() {
 	// If --verbose flag is set then new file will be created with given name
 	// and we need to close this file. This function will check if the file is open
 	// and than closes it.

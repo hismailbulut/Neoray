@@ -1,4 +1,4 @@
-package main
+package neoray
 
 type ModeInfo struct {
 	cursor_shape    string
