@@ -58,7 +58,7 @@ let neoray_key_toggle_fullscreen='<F11>'
 let neoray_key_increase_fontsize='<C-+>'
 let neoray_key_decrease_fontsize='<C-->'
 ```
-
+___
 ### font
 Neoray respects your guifont option, finds the font and loads it.
 But it hasn't got platform specific font enumerating. You can load
@@ -69,7 +69,7 @@ set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
 set guifont=Ubuntu_Mono:h12
 ```
-
+___
 ### exaple init.vim
 ```vim
 if exists('g:neoray')
@@ -96,7 +96,7 @@ if exists('g:neoray')
     let neoray_key_decrease_fontsize=''
 endif
 ```
-
+___
 ### flags
 Neoray has taken some of the flags has given on startup.
 Other flags are used for creating neovim. You may look all
@@ -104,31 +104,31 @@ of them as starting neoray with -h option.
 
 Some of them are very important (at least for me)
 
---single-instance, -si
-    When this option has given, neoray opens only one instance.
-    Others will send all flags to already open instance and
-    immediately quits. This is usefull for game engine like
-    programs that you can use neovim as an external editor.
-    The godot engine example is here:
+#### --single-instance, -si
+When this option has given, neoray opens only one instance.
+Others will send all flags to already open instance and
+immediately quits. This is usefull for game engine like
+programs that you can use neovim as an external editor.
+The godot engine example is here:
 
-    Set the external editor exec path to neoray executable and
-    exec flags to this: -si --file {file} --line {line} --column {col}
+Set the external editor exec path to neoray executable and
+exec flags to this: -si --file {file} --line {line} --column {col}
 
-    Now, everytime you open a script in godot, this will open in the
-    same neoray, and cursor goes to {line} and {column}
-
+Now, everytime you open a script in godot, this will open in the
+same neoray, and cursor goes to {line} and {column}
+___
 ### contributing
 All types of contributing as welcomed. If you want to be a part of this
 project you can open issue when you find something not working, or help
 development by solving issues and implementing some features what you want,
 and also you can buy me a coffee.
-
+___
 ### development
 The source code is well documented enough. I try to make everything
 understandable. Neoray has no external dependencies. You need to clone
 this repository and perform a go get command. Everything will be installed
 and you will ready to fly.
-
+___
 ### copyright
 Neoray is licensed under MIT license. You can use, change, distribute
 it however you want. It ships with Cascadia Mono as default font (my best)
