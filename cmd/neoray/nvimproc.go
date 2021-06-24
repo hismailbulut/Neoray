@@ -8,12 +8,12 @@ import (
 )
 
 const (
+	// Options
 	OPTION_CURSOR_ANIM  string = "neoray_cursor_animation_time"
 	OPTION_TRANSPARENCY string = "neoray_framebuffer_transparency"
 	OPTION_TARGET_TPS   string = "neoray_target_ticks_per_second"
 	OPTION_POPUP_MENU   string = "neoray_popup_menu_enabled"
 	OPTION_WINDOW_STATE string = "neoray_window_startup_state"
-
 	// Keybindings
 	OPTION_KEY_FULLSCRN string = "neoray_key_toggle_fullscreen"
 	OPTION_ZOOMIN_KEY   string = "neoray_key_increase_fontsize"

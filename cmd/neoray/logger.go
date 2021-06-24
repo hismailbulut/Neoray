@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"runtime/debug"
+	"path/filepath"
+	"time"
 
 	"github.com/sqweek/dialog"
 )
@@ -23,8 +24,36 @@ const (
 	LOG_TYPE_PERFORMANCE
 )
 
+var (
+	verbose_output bool
+	log_file       *os.File
+)
+
+func init_log_file(name string) {
+	assert(!verbose_output, "log file already initialized")
+	path, err := filepath.Abs(name)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
+		return
+	}
+	log_file, err = os.Create(path)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create log file:", err)
+		return
+	}
+	verbose_output = true
+	// Print time to log file
+	log_file.WriteString(fmt.Sprintln("\nNEORAY LOG", time.Now()))
+}
+
+func close_log_file() {
+	if verbose_output {
+		log_file.Close()
+	}
+}
+
 func log_message(log_level, log_type int, message ...interface{}) {
-	if log_level < MINIMUM_LOG_LEVEL {
+	if log_level < MINIMUM_LOG_LEVEL && !verbose_output {
 		return
 	}
 
@@ -67,17 +96,13 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		log_string += " "
 	}
 
+	if verbose_output {
+		log_file.WriteString(log_string + "\n")
+	}
+	log.Println(log_string)
 	if fatal {
-		if isDebugBuild() {
-			fmt.Printf("\n")
-			debug.PrintStack()
-			log.Fatalln(log_string)
-		} else {
-			dialog.Message(log_string).Title("Fatal error").Error()
-			os.Exit(1)
-		}
-	} else {
-		log.Println(log_string)
+		dialog.Message(log_string).Title("Fatal error").Error()
+		os.Exit(1)
 	}
 }
 

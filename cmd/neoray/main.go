@@ -37,6 +37,12 @@ var EditorSingleton Editor
 var EditorArgs Args
 
 func main() {
+	// If --verbose flag is set then new file will be created with given name
+	// and we need to close this file. This function will check if the file is open
+	// and than closes it.
+	defer close_log_file()
+	// Trackers are debug functions and collects data about what function
+	// called how many times and it's execution time. Only debug build
 	init_function_time_tracker()
 	defer close_function_time_tracker()
 	// Parse args

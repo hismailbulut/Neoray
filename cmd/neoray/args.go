@@ -27,7 +27,7 @@ Options:
 --singleinstance, -si
 	Only accept one instance of neoray and send all flags to it.
 --verbose
-	Specify a file to verbose debug output in cwd
+	Specify a file in cwd to verbose debug output
 --help, -h
 	Prints this message and quits
 
@@ -62,24 +62,29 @@ func ParseArgs(args []string) Args {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--file":
-			flagAssert(len(args) > i+1, "specify filename after flag")
+			flagAssert(len(args) > i+1, "specify filename after --file")
 			options.file = args[i+1]
 			i++
 			break
 		case "--line":
-			flagAssert(len(args) > i+1, "specify line number after flag")
+			flagAssert(len(args) > i+1, "specify line number after --line")
 			options.line, err = strconv.Atoi(args[i+1])
-			flagAssert(err == nil, "invalid number")
+			flagAssert(err == nil, "invalid number after --line")
 			i++
 			break
 		case "--column":
-			flagAssert(len(args) > i+1, "specify column number after flag")
+			flagAssert(len(args) > i+1, "specify column number after --column")
 			options.column, err = strconv.Atoi(args[i+1])
-			flagAssert(err == nil, "invalid number")
+			flagAssert(err == nil, "invalid number after --column")
 			i++
 			break
 		case "--singleinstance", "-si":
 			options.singleInstance = true
+			break
+		case "--verbose":
+			flagAssert(len(args) > i+1, "specify filename after --verbose")
+			init_log_file(args[i+1])
+			i++
 			break
 		case "--help", "-h":
 			printHelp = true
@@ -98,9 +103,7 @@ func ParseArgs(args []string) Args {
 
 func flagAssert(cond bool, msgs ...interface{}) {
 	if !cond {
-		msg := fmt.Sprint(msgs...)
-		dialog.Message(msg).Error()
-		os.Exit(-1)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, msgs...)
 	}
 }
 
