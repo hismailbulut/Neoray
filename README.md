@@ -48,7 +48,7 @@ keybindings.
 - neoray_key_increase_fontsize (default <C-+>)
 - neoray_key_decrease_fontsize (default <C-->)
 
-####guifont
+#### guifont
 Neoray respects your guifont option, finds the font and loads it.
 But it hasn't got platform specific font enumerating. You can load
 known fonts as its family name like 'Consolas', but for other fonts
@@ -59,7 +59,7 @@ set guifont=Ubuntu\ Mono:h12
 
 Also you can write underscore instead of escaping space. eg: Ubuntu_Mono
 
-####exaple init.vim
+#### exaple init.vim
 ```
 if exists('g:neoray')
     set guifont=Go_Mono:h11
@@ -86,7 +86,7 @@ if exists('g:neoray')
 endif
 ```
 
-####flags
+#### flags
 Neoray has taken some of the flags has given on startup.
 Other flags are used for creating neovim. You may look all
 of them as starting neoray with -h option.
@@ -106,19 +106,19 @@ Some of them are very important (at least for me)
     Now, everytime you open a script in godot, this will open in the
     same neoray, and cursor goes to {line} and {column}
 
-####contributing
+#### contributing
 All types of contributing as welcomed. If you want to be a part of this
 project you can open issue when you find something not working, or help
 development by solving issues and implementing some features what you want,
 and also you can buy me a coffee.
 
-####development
+#### development
 The source code is well documented enough. I try to make everything
 understandable. Neoray has no external dependencies. You need to clone
 this repository and perform a go get command. Everything will be installed
 and you will ready to fly.
 
-####copyright
+#### copyright
 Neoray is licensed under MIT license. You can use, change, distribute
 it however you want. It ships with Cascadia Mono as default font (my best)
 and Cascadia Mono is powered by Microsoft Corporation, licensed under SFL v1.1
