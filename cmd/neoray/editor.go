@@ -87,7 +87,7 @@ func (editor *Editor) Initialize() {
 	editor.popupMenu = CreatePopupMenu()
 
 	editor.quitRequestedChan = make(chan bool)
-	editor.nvim.StartUI()
+	editor.nvim.startUI()
 
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
 }
@@ -148,7 +148,7 @@ MAINLOOP:
 		// we will send simple quit command to neovim and if there are unsaved files
 		// the neovim will handle them and user will not lose its progress.
 		editor.window.handle.SetShouldClose(false)
-		go editor.nvim.ExecuteVimScript(":qa")
+		go editor.nvim.executeVimScript(":qa")
 		goto MAINLOOP
 	}
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))

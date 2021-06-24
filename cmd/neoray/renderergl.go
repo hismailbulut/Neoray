@@ -41,7 +41,7 @@ var (
 	rgl_element_buffer_len int
 )
 
-func RGL_Init() {
+func rgl_init() {
 	defer measure_execution_time("RGL_Init")()
 
 	// Initialize opengl
@@ -50,13 +50,13 @@ func RGL_Init() {
 	}
 
 	// Init shaders
-	RGL_InitShaders()
+	rgl_initShaders()
 	gl.UseProgram(rgl_shader_program)
 
-	RGL_CheckError("gl use program")
+	rgl_checkError("gl use program")
 
-	rgl_atlas_uniform = RGL_GetUniformLocation("atlas")
-	rgl_projection_uniform = RGL_GetUniformLocation("projection")
+	rgl_atlas_uniform = rgl_getUniformLocation("atlas")
+	rgl_projection_uniform = rgl_getUniformLocation("projection")
 
 	// Initialize vao
 	gl.CreateVertexArrays(1, &rgl_vao)
@@ -70,7 +70,7 @@ func RGL_Init() {
 	gl.GenBuffers(1, &rgl_ebo)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rgl_ebo)
 
-	RGL_CheckError("gl bind buffers")
+	rgl_checkError("gl bind buffers")
 
 	// position
 	offset := 0
@@ -93,23 +93,20 @@ func RGL_Init() {
 	gl.EnableVertexAttribArray(4)
 	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
-	RGL_CheckError("gl enable attributes")
+	rgl_checkError("gl enable attributes")
 	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
-
-	// gl.Enable(gl.TEXTURE_2D)
-	// RGL_CheckError("gl enable texture")
 
 	if isDebugBuild() {
 		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
 		gl.Enable(gl.BLEND)
 		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-		RGL_CheckError("gl enable blending")
+		rgl_checkError("gl enable blending")
 	}
 
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
-func RGL_GetUniformLocation(name string) int32 {
+func rgl_getUniformLocation(name string) int32 {
 	uniform_name := gl.Str(name + "\x00")
 	loc := gl.GetUniformLocation(rgl_shader_program, uniform_name)
 	if loc < 0 {
@@ -118,59 +115,59 @@ func RGL_GetUniformLocation(name string) int32 {
 	return loc
 }
 
-func RGL_CreateViewport(w, h int) {
+func rgl_createViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
 	projection := orthoProjection(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rgl_projection_uniform, 1, true, &projection[0])
 }
 
-func RGL_SetAtlasTexture(atlas *Texture) {
+func rgl_setAtlasTexture(atlas *Texture) {
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, atlas.id)
 }
 
-func RGL_SetUndercurlRect(val F32Rect) {
-	loc := RGL_GetUniformLocation("undercurlRect")
+func rgl_setUndercurlRect(val F32Rect) {
+	loc := rgl_getUniformLocation("undercurlRect")
 	gl.Uniform4f(loc, val.X, val.Y, val.W, val.H)
 }
 
-func RGL_ClearScreen(color U8Color) {
+func rgl_clearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	c := color.ToF32Color()
 	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.framebufferTransparency)
 }
 
-func RGL_UpdateVertices(data []Vertex) {
+func rgl_updateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*VertexStructSize, gl.Ptr(data), gl.STATIC_DRAW)
-		RGL_CheckError("RGL_UpdateVertices.BufferData")
+		rgl_checkError("RGL_UpdateVertices.BufferData")
 		rgl_vertex_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*VertexStructSize, gl.Ptr(data))
-		RGL_CheckError("RGL_UpdateVertices.BufferSubData")
+		rgl_checkError("RGL_UpdateVertices.BufferSubData")
 	}
 }
 
-func RGL_UpdateIndices(data []uint32) {
+func rgl_updateIndices(data []uint32) {
 	if rgl_element_buffer_len != len(data) {
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(data)*4, gl.Ptr(data), gl.STATIC_DRAW)
-		RGL_CheckError("RGL_UpdateIndices.BufferData")
+		rgl_checkError("RGL_UpdateIndices.BufferData")
 		rgl_element_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, len(data)*4, gl.Ptr(data))
-		RGL_CheckError("RGL_UpdateIndices.BufferSubData")
+		rgl_checkError("RGL_UpdateIndices.BufferSubData")
 	}
 }
 
-func RGL_Render() {
+func rgl_render() {
 	gl.DrawElements(gl.TRIANGLES, int32(rgl_element_buffer_len), gl.UNSIGNED_INT, nil)
-	RGL_CheckError("RGL_Render.DrawElements")
+	rgl_checkError("RGL_Render.DrawElements")
 }
 
-func RGL_InitShaders() {
-	vertexShaderSource, fragmentShaderSource := loadShaders()
-	vertexShader := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
-	fragmentShader := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+func rgl_initShaders() {
+	vertexShaderSource, fragmentShaderSource := rgl_loadShaders()
+	vertexShader := rgl_compileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	fragmentShader := rgl_compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
 
 	rgl_shader_program = gl.CreateProgram()
 	gl.AttachShader(rgl_shader_program, vertexShader)
@@ -192,7 +189,7 @@ func RGL_InitShaders() {
 	gl.DeleteShader(fragmentShader)
 }
 
-func loadShaders() (string, string) {
+func rgl_loadShaders() (string, string) {
 	vertexSourceBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
 	fragSourceBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
 	assert(vertexSourceBegin != -1 && fragSourceBegin != -1, "Shaders are not correctly prefixed!")
@@ -210,7 +207,7 @@ func loadShaders() (string, string) {
 	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00"
 }
 
-func compileShader(source string, shader_type uint32) uint32 {
+func rgl_compileShader(source string, shader_type uint32) uint32 {
 	shader := gl.CreateShader(shader_type)
 	cstr, free := gl.Strs(source)
 	defer free()
@@ -231,7 +228,7 @@ func compileShader(source string, shader_type uint32) uint32 {
 	return shader
 }
 
-func RGL_CheckError(callerName string) {
+func rgl_checkError(callerName string) {
 	if err := gl.GetError(); err != gl.NO_ERROR {
 		var errName string
 		switch err {
@@ -257,7 +254,7 @@ func RGL_CheckError(callerName string) {
 	}
 }
 
-func RGL_Close() {
+func rgl_close() {
 	gl.DeleteProgram(rgl_shader_program)
 	gl.DeleteBuffers(1, &rgl_vbo)
 	gl.DeleteVertexArrays(1, &rgl_vao)

@@ -175,18 +175,18 @@ func (server *TCPServer) Process() {
 			args := strings.Split(strings.Split(sig, "\n")[0], "\x00")
 			switch args[0] {
 			case SIGNAL_OPEN_FILE:
-				EditorSingleton.nvim.OpenFile(args[1])
+				EditorSingleton.nvim.openFile(args[1])
 				break
 			case SIGNAL_GOTO_LINE:
 				ln, err := strconv.Atoi(args[1])
 				if err == nil {
-					EditorSingleton.nvim.GotoLine(ln)
+					EditorSingleton.nvim.gotoLine(ln)
 				}
 				break
 			case SIGNAL_GOTO_COLUMN:
 				cl, err := strconv.Atoi(args[1])
 				if err == nil {
-					EditorSingleton.nvim.GotoLine(cl)
+					EditorSingleton.nvim.gotoLine(cl)
 				}
 				break
 			}

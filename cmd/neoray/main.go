@@ -34,7 +34,7 @@ func init() {
 var EditorSingleton Editor
 
 // Given arguments when starting this editor.
-var EditorArgs Args
+var EditorParsedArgs ParsedArgs
 
 func main() {
 	// If --verbose flag is set then new file will be created with given name
@@ -46,9 +46,9 @@ func main() {
 	init_function_time_tracker()
 	defer close_function_time_tracker()
 	// Parse args
-	EditorArgs = ParseArgs(os.Args[1:])
+	EditorParsedArgs = ParseArgs(os.Args[1:])
 	// If ProcessBefore returns true, neoray will not start.
-	if EditorArgs.ProcessBefore() {
+	if EditorParsedArgs.ProcessBefore() {
 		return
 	}
 	start_pprof()
@@ -58,7 +58,7 @@ func main() {
 	// And shutdown will frees resources and closes neovim.
 	defer EditorSingleton.Shutdown()
 	// Some arguments must be processed after initializing.
-	EditorArgs.ProcessAfter()
+	EditorParsedArgs.ProcessAfter()
 	// MainLoop is main loop of the neoray.
 	EditorSingleton.MainLoop()
 }

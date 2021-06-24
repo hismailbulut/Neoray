@@ -185,7 +185,9 @@ func grid_resize(args []interface{}) {
 	EditorSingleton.cellCount = rows * cols
 
 	EditorSingleton.grid.Resize(rows, cols)
-	EditorSingleton.renderer.Resize(rows, cols)
+
+	log_debug("Grid resized:", rows, cols)
+	EditorSingleton.renderer.resize(rows, cols)
 
 	EditorSingleton.waitingResize = false
 }

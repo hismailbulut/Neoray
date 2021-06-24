@@ -48,7 +48,7 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 			// Create and set renderers font.
 			font, ok := CreateFont(name, size)
 			if !ok {
-				EditorSingleton.nvim.EchoError("Font %s not found!", name)
+				EditorSingleton.nvim.echoErr("Font %s not found!", name)
 			} else {
 				EditorSingleton.renderer.SetFont(font)
 			}

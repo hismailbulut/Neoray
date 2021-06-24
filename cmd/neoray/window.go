@@ -68,7 +68,7 @@ func MinimizeHandler(w *glfw.Window, minimized bool) {
 func WindowResizeHandler(w *glfw.Window, width, height int) {
 	EditorSingleton.window.width = width
 	EditorSingleton.window.height = height
-	EditorSingleton.nvim.RequestResize()
+	EditorSingleton.nvim.requestResize()
 }
 
 func (window *Window) Update() {

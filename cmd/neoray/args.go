@@ -41,48 +41,48 @@ Microsoft Corporation, licensed under SIL OPEN FONT LICENSE Version 1.1
 
 var argUsages = map[string]string{}
 
-type Args struct {
-	file           string
-	line           int
-	column         int
-	singleInstance bool
-	nvimArgs       []string
+type ParsedArgs struct {
+	file       string
+	line       int
+	column     int
+	singleinst bool
+	others     []string
 }
 
-func ParseArgs(args []string) Args {
+func ParseArgs(args []string) ParsedArgs {
 	// Init defaults
-	options := Args{
-		file:           "",
-		line:           -1,
-		column:         -1,
-		singleInstance: false,
+	options := ParsedArgs{
+		file:       "",
+		line:       -1,
+		column:     -1,
+		singleinst: false,
 	}
 	printHelp := false
 	var err error
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--file":
-			flagAssert(len(args) > i+1, "specify filename after --file")
+			assert(len(args) > i+1, "specify filename after --file")
 			options.file = args[i+1]
 			i++
 			break
 		case "--line":
-			flagAssert(len(args) > i+1, "specify line number after --line")
+			assert(len(args) > i+1, "specify line number after --line")
 			options.line, err = strconv.Atoi(args[i+1])
-			flagAssert(err == nil, "invalid number after --line")
+			assert(err == nil, "invalid number after --line")
 			i++
 			break
 		case "--column":
-			flagAssert(len(args) > i+1, "specify column number after --column")
+			assert(len(args) > i+1, "specify column number after --column")
 			options.column, err = strconv.Atoi(args[i+1])
-			flagAssert(err == nil, "invalid number after --column")
+			assert(err == nil, "invalid number after --column")
 			i++
 			break
 		case "--singleinstance", "-si":
-			options.singleInstance = true
+			options.singleinst = true
 			break
 		case "--verbose":
-			flagAssert(len(args) > i+1, "specify filename after --verbose")
+			assert(len(args) > i+1, "specify filename after --verbose")
 			init_log_file(args[i+1])
 			i++
 			break
@@ -90,7 +90,7 @@ func ParseArgs(args []string) Args {
 			printHelp = true
 			break
 		default:
-			options.nvimArgs = append(options.nvimArgs, args[i])
+			options.others = append(options.others, args[i])
 			break
 		}
 	}
@@ -99,12 +99,6 @@ func ParseArgs(args []string) Args {
 		os.Exit(0)
 	}
 	return options
-}
-
-func flagAssert(cond bool, msgs ...interface{}) {
-	if !cond {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, msgs...)
-	}
 }
 
 func PrintHelp() {
@@ -116,9 +110,9 @@ func PrintHelp() {
 }
 
 // Call this before starting neovim.
-func (options Args) ProcessBefore() bool {
+func (options ParsedArgs) ProcessBefore() bool {
 	dontStart := false
-	if options.singleInstance {
+	if options.singleinst {
 		// First we will check only once because sending and
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
@@ -147,8 +141,8 @@ func (options Args) ProcessBefore() bool {
 }
 
 // Call this after connected neovim as ui.
-func (options Args) ProcessAfter() {
-	if options.singleInstance {
+func (options ParsedArgs) ProcessAfter() {
+	if options.singleinst {
 		server, err := CreateServer()
 		if err != nil {
 			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create TCP listener.")
@@ -157,12 +151,12 @@ func (options Args) ProcessAfter() {
 		}
 	}
 	if options.file != "" {
-		EditorSingleton.nvim.OpenFile(options.file)
+		EditorSingleton.nvim.openFile(options.file)
 	}
 	if options.line != -1 {
-		EditorSingleton.nvim.GotoLine(options.line)
+		EditorSingleton.nvim.gotoLine(options.line)
 	}
 	if options.column != -1 {
-		EditorSingleton.nvim.GotoColumn(options.column)
+		EditorSingleton.nvim.gotoColumn(options.column)
 	}
 }

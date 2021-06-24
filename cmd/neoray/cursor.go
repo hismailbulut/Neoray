@@ -28,9 +28,9 @@ func (cursor *Cursor) Update() {
 	}
 }
 
-func (cursor *Cursor) CreateVertexData() {
+func (cursor *Cursor) createVertexData() {
 	// Reserve vertex data for cursor and cursor is only one cell.
-	cursor.vertexData = EditorSingleton.renderer.ReserveVertexData(1)
+	cursor.vertexData = EditorSingleton.renderer.reserveVertexData(1)
 }
 
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
@@ -44,12 +44,12 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	cursor.needsDraw = true
 }
 
-func (cursor *Cursor) IsInArea(x, y, w, h int) bool {
+func (cursor *Cursor) isInArea(x, y, w, h int) bool {
 	return cursor.X >= x && cursor.Y >= y &&
 		cursor.X < x+w && cursor.Y < y+h
 }
 
-func (cursor *Cursor) GetRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bool) {
+func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bool) {
 	var cursor_rect IntRect
 	var draw_char bool
 	switch info.cursor_shape {
@@ -83,7 +83,7 @@ func (cursor *Cursor) GetRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bo
 	return cursor_rect, draw_char
 }
 
-func (cursor *Cursor) GetColors(info ModeInfo) (U8Color, U8Color) {
+func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	// initialize swapped
 	fg := EditorSingleton.grid.default_bg
 	bg := EditorSingleton.grid.default_fg
@@ -95,9 +95,9 @@ func (cursor *Cursor) GetColors(info ModeInfo) (U8Color, U8Color) {
 	return fg, bg
 }
 
-// GetPosition returns the current rendering position of the cursor
-// Not cell position.
-func (cursor *Cursor) GetPosition() IntVec2 {
+// animPosition returns the current rendering position of the cursor
+// Not grid position.
+func (cursor *Cursor) animPosition() IntVec2 {
 	aPos, finished := cursor.anim.GetCurrentStep(EditorSingleton.deltaTime)
 	if finished {
 		cursor.needsDraw = false
@@ -120,7 +120,7 @@ func (cursor *Cursor) Show() {
 
 func (cursor *Cursor) Hide() {
 	cursor.hidden = true
-	cursor.vertexData.SetCellPos(0, IntRect{})
+	cursor.vertexData.setCellPos(0, IntRect{})
 }
 
 func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
@@ -135,21 +135,21 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 		underline = attrib.underline
 		strikethrough = attrib.strikethrough
 		if attrib.undercurl {
-			cursor.vertexData.SetCellSpColor(0, fg)
+			cursor.vertexData.setCellSpColor(0, fg)
 		}
 	}
-	atlas_pos := EditorSingleton.renderer.GetCharPos(
+	atlas_pos := EditorSingleton.renderer.getCharPos(
 		cell.char, italic, bold, underline, strikethrough)
-	cursor.vertexData.SetCellTexPos(0, atlas_pos)
+	cursor.vertexData.setCellTexPos(0, atlas_pos)
 }
 
 func (cursor *Cursor) Draw() {
 	defer measure_execution_time("Cursor.Draw")()
 	if !cursor.hidden {
 		mode_info := EditorSingleton.mode.CurrentModeInfo()
-		fg, bg := cursor.GetColors(mode_info)
-		pos := cursor.GetPosition()
-		rect, draw_char := cursor.GetRectangle(pos, mode_info)
+		fg, bg := cursor.modeColors(mode_info)
+		pos := cursor.animPosition()
+		rect, draw_char := cursor.modeRectangle(pos, mode_info)
 		if draw_char && !cursor.needsDraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
 			if cell.char != "" && cell.char != " " {
@@ -157,17 +157,17 @@ func (cursor *Cursor) Draw() {
 				cursor.drawWithCell(cell, fg)
 			} else {
 				// Clear foreground of the cursor.
-				cursor.vertexData.SetCellTexPos(0, IntRect{})
-				cursor.vertexData.SetCellSpColor(0, U8Color{})
+				cursor.vertexData.setCellTexPos(0, IntRect{})
+				cursor.vertexData.setCellSpColor(0, U8Color{})
 			}
-			cursor.vertexData.SetCellColor(0, fg, bg)
+			cursor.vertexData.setCellColor(0, fg, bg)
 		} else {
 			// No cell drawing needed. Clear foreground.
-			cursor.vertexData.SetCellTexPos(0, IntRect{})
-			cursor.vertexData.SetCellColor(0, U8Color{}, bg)
-			cursor.vertexData.SetCellSpColor(0, U8Color{})
+			cursor.vertexData.setCellTexPos(0, IntRect{})
+			cursor.vertexData.setCellColor(0, U8Color{}, bg)
+			cursor.vertexData.setCellSpColor(0, U8Color{})
 		}
-		cursor.vertexData.SetCellPos(0, rect)
+		cursor.vertexData.setCellPos(0, rect)
 		EditorSingleton.render()
 	}
 }

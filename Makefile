@@ -11,13 +11,13 @@ else
 endif
 
 build:
-	go build -o $(DEBUGEXE) -race $(SOURCEFOLDER)
+	go build -tags debug -o $(DEBUGEXE) -race $(SOURCEFOLDER)
 
 run: build
 	./$(DEBUGEXE) $(ARGS)
 
 release:
-	go build -tags release $(LDFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
+	go build $(LDFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
 
 release-run: release
 	./$(RELEASEEXE) $(ARGS)

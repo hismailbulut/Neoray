@@ -98,9 +98,9 @@ endif
 ```
 ___
 ### flags
-Neoray has taken some of the flags has given on startup.
-Other flags are used for creating neovim. You may look all
-of them as starting neoray with -h option.
+Neoray accepts some flags for startup options and more.
+Other flags are used for creating neovim. You can look all
+of them starting neoray with -h option.
 
 Some of them are very important (at least for me)
 
@@ -109,11 +109,11 @@ When this option has given, neoray opens only one instance.
 Others will send all flags to already open instance and
 immediately quits. This is usefull for game engine like
 programs that you can use neovim as an external editor.
-The godot engine example is here:
-
-Set the external editor exec path to neoray executable and
-exec flags to this: -si --file {file} --line {line} --column {col}
-
+For examle if you are using godot engine you can set external
+editor exec path to neoray executable and exec flags to this:
+```
+-si --file {file} --line {line} --column {col}
+```
 Now, everytime you open a script in godot, this will open in the
 same neoray, and cursor goes to {line} and {column}
 ___

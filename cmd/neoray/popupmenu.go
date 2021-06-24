@@ -11,21 +11,21 @@ var ButtonNames = []string{
 
 var MenuButtonEvents = map[string]func(){
 	ButtonNames[0]: func() {
-		EditorSingleton.nvim.Cut()
+		EditorSingleton.nvim.cutSelected()
 	},
 	ButtonNames[1]: func() {
-		EditorSingleton.nvim.Copy()
+		EditorSingleton.nvim.copySelected()
 	},
 	ButtonNames[2]: func() {
-		EditorSingleton.nvim.WriteAtCursor(glfw.GetClipboardString())
+		EditorSingleton.nvim.writeAtCursor(glfw.GetClipboardString())
 	},
 	ButtonNames[3]: func() {
-		EditorSingleton.nvim.SelectAll()
+		EditorSingleton.nvim.selectAll()
 	},
 	ButtonNames[4]: func() {
 		filename, err := dialog.File().Load()
 		if err == nil && filename != "" && filename != " " {
-			EditorSingleton.nvim.OpenFile(filename)
+			EditorSingleton.nvim.openFile(filename)
 		}
 	},
 }
@@ -59,12 +59,12 @@ func CreatePopupMenu() PopupMenu {
 	for i := range pmenu.cells {
 		pmenu.cells[i] = make([]string, pmenu.width, pmenu.width)
 	}
-	pmenu.CreateCells()
+	pmenu.createCells()
 	return pmenu
 }
 
 // Only call this function at initializing.
-func (pmenu *PopupMenu) CreateCells() {
+func (pmenu *PopupMenu) createCells() {
 	// Loop through all cells and give them correct characters
 	for x, row := range pmenu.cells {
 		for y := range row {
@@ -79,21 +79,21 @@ func (pmenu *PopupMenu) CreateCells() {
 	}
 }
 
-func (pmenu *PopupMenu) CreateVertexData() {
-	pmenu.vertexData = EditorSingleton.renderer.ReserveVertexData(pmenu.width * pmenu.height)
-	pmenu.UpdateChars()
+func (pmenu *PopupMenu) createVertexData() {
+	pmenu.vertexData = EditorSingleton.renderer.reserveVertexData(pmenu.width * pmenu.height)
+	pmenu.updateChars()
 }
 
-func (pmenu *PopupMenu) UpdateChars() {
+func (pmenu *PopupMenu) updateChars() {
 	for x, row := range pmenu.cells {
 		for y, char := range row {
 			cell_id := x*pmenu.width + y
 			var atlasPos IntRect
 			if char != "" && char != " " {
-				atlasPos = EditorSingleton.renderer.GetCharPos(
+				atlasPos = EditorSingleton.renderer.getCharPos(
 					char, false, false, false, false)
 			}
-			pmenu.vertexData.SetCellTexPos(cell_id, atlasPos)
+			pmenu.vertexData.setCellTexPos(cell_id, atlasPos)
 		}
 	}
 }
@@ -111,8 +111,8 @@ func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 				W: EditorSingleton.cellWidth,
 				H: EditorSingleton.cellHeight,
 			}
-			pmenu.vertexData.SetCellPos(cell_id, rect)
-			pmenu.vertexData.SetCellColor(cell_id, fg, bg)
+			pmenu.vertexData.setCellPos(cell_id, rect)
+			pmenu.vertexData.setCellColor(cell_id, fg, bg)
 		}
 	}
 	pmenu.hidden = false
@@ -123,14 +123,14 @@ func (pmenu *PopupMenu) Hide() {
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
-			pmenu.vertexData.SetCellPos(cell_id, IntRect{})
+			pmenu.vertexData.setCellPos(cell_id, IntRect{})
 		}
 	}
 	pmenu.hidden = true
 	EditorSingleton.render()
 }
 
-func (pmenu *PopupMenu) GlobalRect() IntRect {
+func (pmenu *PopupMenu) globalRect() IntRect {
 	return IntRect{
 		X: pmenu.pos.X,
 		Y: pmenu.pos.Y,
@@ -141,8 +141,8 @@ func (pmenu *PopupMenu) GlobalRect() IntRect {
 
 // Returns true if given position intersects with menu,
 // and if the position is on the button, returns button index.
-func (pmenu *PopupMenu) Intersects(pos IntVec2) (bool, int) {
-	menuRect := pmenu.GlobalRect()
+func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
+	menuRect := pmenu.globalRect()
 	if pos.X >= menuRect.X && pos.Y >= menuRect.Y &&
 		pos.X < menuRect.X+menuRect.W && pos.Y < menuRect.Y+menuRect.H {
 		// Areas are intersecting. Now we need to find button under the cursor.
@@ -162,11 +162,11 @@ func (pmenu *PopupMenu) Intersects(pos IntVec2) (bool, int) {
 }
 
 // Call this function when mouse moved.
-func (pmenu *PopupMenu) MouseMove(pos IntVec2) {
+func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 	if !pmenu.hidden {
-		ok, index := pmenu.Intersects(pos)
+		ok, index := pmenu.intersects(pos)
 		if ok {
-			pmenu.vertexData.SetAllCellsColors(
+			pmenu.vertexData.setAllCellsColors(
 				EditorSingleton.grid.default_bg, EditorSingleton.grid.default_fg)
 			if index != -1 {
 				row := index
@@ -174,7 +174,7 @@ func (pmenu *PopupMenu) MouseMove(pos IntVec2) {
 				if row < len(pmenu.cells) {
 					for col := 1; col < pmenu.width-1; col++ {
 						cell_id := row*pmenu.width + col
-						pmenu.vertexData.SetCellColor(
+						pmenu.vertexData.setCellColor(
 							cell_id, EditorSingleton.grid.default_fg, EditorSingleton.grid.default_bg)
 					}
 				}
@@ -190,10 +190,10 @@ func (pmenu *PopupMenu) MouseMove(pos IntVec2) {
 // If rightbutton is false (left button is pressed) and positions are
 // intersecting, this function returns true. This means if this function
 // returns true than you shouldn't send button event to neovim.
-func (pmenu *PopupMenu) MouseClick(rightbutton bool, pos IntVec2) bool {
+func (pmenu *PopupMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
 	if !rightbutton && !pmenu.hidden {
 		// If positions intersects than call button click event, hide popup menu otherwise.
-		ok, index := pmenu.Intersects(pos)
+		ok, index := pmenu.intersects(pos)
 		if ok {
 			if index != -1 {
 				MenuButtonEvents[ButtonNames[index]]()

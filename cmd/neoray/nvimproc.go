@@ -34,7 +34,7 @@ func CreateNvimProcess() NvimProcess {
 	}
 
 	args := []string{"--embed"}
-	args = append(args, EditorArgs.nvimArgs...)
+	args = append(args, EditorParsedArgs.others...)
 
 	nv, err := nvim.NewChildProcess(nvim.ChildProcessArgs(args...))
 	if err != nil {
@@ -89,7 +89,7 @@ func (proc *NvimProcess) initScripts() {
 	proc.handle.SetVar("neoray", 1)
 }
 
-func (proc *NvimProcess) StartUI() {
+func (proc *NvimProcess) startUI() {
 	defer measure_execution_time("StartUI")()
 
 	options := make(map[string]interface{})
@@ -156,7 +156,7 @@ func (proc *NvimProcess) requestOptions() {
 	}
 }
 
-func (proc *NvimProcess) ExecuteVimScript(script string, args ...interface{}) {
+func (proc *NvimProcess) executeVimScript(script string, args ...interface{}) {
 	cmd := fmt.Sprintf(script, args...) + "\n"
 	if err := proc.handle.Command(cmd); err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
@@ -164,7 +164,7 @@ func (proc *NvimProcess) ExecuteVimScript(script string, args ...interface{}) {
 	}
 }
 
-func (proc *NvimProcess) Mode() string {
+func (proc *NvimProcess) currentMode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get mode name:", mode)
@@ -173,80 +173,80 @@ func (proc *NvimProcess) Mode() string {
 	return mode.Mode
 }
 
-func (proc *NvimProcess) Echo(text string, args ...interface{}) {
+func (proc *NvimProcess) echoMsg(text string, args ...interface{}) {
 	formatted := fmt.Sprintf(text, args...)
-	proc.ExecuteVimScript(":echomsg '%s'", formatted)
+	proc.executeVimScript(":echomsg '%s'", formatted)
 }
 
-func (proc *NvimProcess) EchoError(text string, args ...interface{}) {
+func (proc *NvimProcess) echoErr(text string, args ...interface{}) {
 	formatted := fmt.Sprintf(text, args...)
 	proc.handle.WritelnErr(formatted)
 }
 
-func (proc *NvimProcess) Cut() {
-	switch proc.Mode() {
+func (proc *NvimProcess) cutSelected() {
+	switch proc.currentMode() {
 	case "n":
-		proc.FeedKeys("v\"*yx")
+		proc.feedKeys("v\"*yx")
 		break
 	case "v":
-		proc.FeedKeys("\"*ygvd")
+		proc.feedKeys("\"*ygvd")
 		break
 	}
 }
 
-func (proc *NvimProcess) Copy() {
-	switch proc.Mode() {
+func (proc *NvimProcess) copySelected() {
+	switch proc.currentMode() {
 	case "n":
-		proc.FeedKeys("v\"*y")
+		proc.feedKeys("v\"*y")
 		break
 	case "v":
-		proc.FeedKeys("\"*y")
+		proc.feedKeys("\"*y")
 		break
 	}
 }
 
-func (proc *NvimProcess) WriteAtCursor(str string) {
-	switch proc.Mode() {
+func (proc *NvimProcess) writeAtCursor(str string) {
+	switch proc.currentMode() {
 	case "i":
-		proc.Input(str)
+		proc.input(str)
 		break
 	case "n":
-		proc.FeedKeys("i")
-		proc.Input(str)
-		proc.FeedKeys("<ESC>")
+		proc.feedKeys("i")
+		proc.input(str)
+		proc.feedKeys("<ESC>")
 		break
 	case "v":
-		proc.FeedKeys("<ESC>i")
-		proc.Input(str)
-		proc.FeedKeys("<ESC>gv")
+		proc.feedKeys("<ESC>i")
+		proc.input(str)
+		proc.feedKeys("<ESC>gv")
 		break
 	}
 }
 
-func (proc *NvimProcess) SelectAll() {
-	switch proc.Mode() {
+func (proc *NvimProcess) selectAll() {
+	switch proc.currentMode() {
 	case "i", "v":
-		proc.FeedKeys("<ESC>ggVG")
+		proc.feedKeys("<ESC>ggVG")
 		break
 	case "n":
-		proc.FeedKeys("ggVG")
+		proc.feedKeys("ggVG")
 		break
 	}
 }
 
-func (proc *NvimProcess) OpenFile(file string) {
-	proc.ExecuteVimScript(":edit %s", file)
+func (proc *NvimProcess) openFile(file string) {
+	proc.executeVimScript(":edit %s", file)
 }
 
-func (proc *NvimProcess) GotoLine(line int) {
-	proc.ExecuteVimScript("call cursor(%d, 0)", line)
+func (proc *NvimProcess) gotoLine(line int) {
+	proc.executeVimScript("call cursor(%d, 0)", line)
 }
 
-func (proc *NvimProcess) GotoColumn(col int) {
-	proc.ExecuteVimScript("call cursor(0, %d)", col)
+func (proc *NvimProcess) gotoColumn(col int) {
+	proc.executeVimScript("call cursor(0, %d)", col)
 }
 
-func (proc *NvimProcess) FeedKeys(keys string) {
+func (proc *NvimProcess) feedKeys(keys string) {
 	keycode, err := proc.handle.ReplaceTermcodes(keys, true, true, true)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to replace termcodes:", err)
@@ -258,7 +258,7 @@ func (proc *NvimProcess) FeedKeys(keys string) {
 	}
 }
 
-func (proc *NvimProcess) Input(keycode string) {
+func (proc *NvimProcess) input(keycode string) {
 	written, err := proc.handle.Input(keycode)
 	if err != nil {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send input keys:", err)
@@ -268,14 +268,14 @@ func (proc *NvimProcess) Input(keycode string) {
 	}
 }
 
-func (proc *NvimProcess) InputMouse(button, action, modifier string, grid, row, column int) {
+func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, column int) {
 	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
 	if err != nil {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send mouse input:", err)
 	}
 }
 
-func (proc *NvimProcess) RequestResize() {
+func (proc *NvimProcess) requestResize() {
 	EditorSingleton.calculateCellCount()
 	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
 	EditorSingleton.waitingResize = true

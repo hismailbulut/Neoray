@@ -100,7 +100,7 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 	defer measure_execution_time("Grid.Scroll")()
 	copyCellsAndScroll := func(dst, src, left, right int) {
 		copy(grid.cells[dst][left:right], grid.cells[src][left:right])
-		EditorSingleton.renderer.CopyRowData(dst, src, left, right)
+		EditorSingleton.renderer.copyRowData(dst, src, left, right)
 	}
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ {
@@ -112,7 +112,7 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 		}
 	}
 	cursor := &EditorSingleton.cursor
-	if cursor.IsInArea(top, left, bot-top, right-left) {
+	if cursor.isInArea(top, left, bot-top, right-left) {
 		// This is for cursor animation when scrolling. Simply we are moving cursor
 		// with scroll area immediately, and returning back to its position smoothly.
 		cursor.SetPosition(cursor.X-rows, cursor.Y, true)
