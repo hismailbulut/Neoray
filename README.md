@@ -6,48 +6,53 @@ Neoray is easy to use and binary size is small. Supports
 most of the neovim features. Uses small amount of ram and
 leaves no footprints on your computer.
 
+You can install neoray with go install command.
+```
+go install github.com/hismailbulut/neoray/cmd/neoray@latest
+```
+
 Neoray doesn't need any additional configuration, but you
 can customize it however you want in your init.vim.
 
 These are some options you can specify for now:
 
-```vim
-let neoray_cursor_animation_time=0.08
-```
 The cursor is moving smoothly in neoray and you can specify
 how long it's move takes. Default is 0.08 (1.0 is one second)
 You can disable it by setting to 0.
-
 ```vim
-let neoray_framebuffer_transparency=1
+let neoray_cursor_animation_time=0.08
 ```
+
 Transparency of the window background. Default is 1 means
 no transparency, and 0 is fully transparent. Only background
 colors will be transparent, and statusline, tabline and texts
 are fully opaque.
+```vim
+let neoray_framebuffer_transparency=1
+```
 
+The target update time in one second. Like FPS but neoray
+doesn't render screen in every frame. Default is 60.
 ```vim
 let neoray_target_ticks_per_second=60
 ```
-The target update time in one second. Like FPS but neoray
-doesn't render screen in every frame. Default is 60.
 
-```vim
-let neoray_popup_menu_enabled=1
-```
 Neoray has a simple right click menu that gives you some abilities
 like copying, cutting to system clipboard and pasting. It has a
 open file functionality that opens system file dialog. Menu text
 is same as the font and the colors are from your colorscheme. This
 makes it look and feel like terminal. You can disable it by setting
 this option to 0. Default is 1 which means enabled.
-
 ```vim
-let neoray_window_startup_state=''
+let neoray_popup_menu_enabled=1
 ```
+
 You can specify how the neoray window will be shown. The possible
 values are 'minimized', 'maximized', 'fullscreen', 'centered'.
 Default is none.
+```vim
+let neoray_window_startup_state=''
+```
 
 Neoray uses some key combinations for switching between fullscreen and
 windowed mode, zoom in and out eg. You can set these keys and also
