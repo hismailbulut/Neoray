@@ -1,6 +1,6 @@
-# Neoray
+# neoray
 
-Neoray is a simple and lightweight gui client for neovim.
+neoray is a simple and lightweight gui client for neovim.
 It's written in golang using glfw and opengl bindings.
 Neoray is easy to use and binary size is small. Supports
 most of the neovim features. Uses small amount of ram and
