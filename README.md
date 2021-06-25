@@ -12,7 +12,7 @@ go install github.com/hismailbulut/neoray/cmd/neoray@latest
 ```
 
 Neoray doesn't need any additional configuration, but you
-can customize it however you want in your init.vim.
+can customize it in your init.vim.
 
 These are some options you can specify for now:
 
@@ -125,8 +125,7 @@ ___
 ### contributing
 All types of contributing as welcomed. If you want to be a part of this
 project you can open issue when you find something not working, or help
-development by solving issues and implementing some features what you want,
-and also you can buy me a coffee.
+development by solving issues and implementing some features what you want.
 ___
 ### development
 The source code is well documented enough. I try to make everything
