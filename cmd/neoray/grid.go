@@ -1,7 +1,7 @@
 package main
 
 type Cell struct {
-	char         string
+	char         rune
 	attrib_id    int
 	needs_redraw bool
 }
@@ -49,7 +49,7 @@ func (grid *Grid) Resize(rows, cols int) {
 func (grid *Grid) ClearCells() {
 	for _, row := range grid.cells {
 		for _, cell := range row {
-			cell.char = ""
+			cell.char = 0
 			cell.attrib_id = 0
 			cell.needs_redraw = true
 		}
@@ -74,7 +74,7 @@ func (grid *Grid) MakeAllCellsChanged() {
 // you should create an alternative function.
 // If `repeat` is present, the cell should be
 // repeated `repeat` times (including the first time)
-func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
+func (grid *Grid) SetCells(x int, y *int, char rune, hl_id int, repeat int) {
 	cell_count := 1
 	if repeat > 0 {
 		cell_count = repeat
@@ -90,10 +90,7 @@ func (grid *Grid) SetCell(x int, y *int, char string, hl_id int, repeat int) {
 
 // This function returns a copy of the cell.
 func (grid *Grid) GetCell(x, y int) Cell {
-	if x < len(grid.cells) && y < len(grid.cells[x]) {
-		return grid.cells[x][y]
-	}
-	return Cell{}
+	return grid.cells[x][y]
 }
 
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {

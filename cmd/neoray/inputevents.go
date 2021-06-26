@@ -56,17 +56,19 @@ var (
 	lastMouseAction    glfw.Action
 
 	// Options
-	zoomInKey           string
-	zoomOutKey          string
-	toggleFullscreenKey string
-	popupMenuEnabled    bool
+	popupMenuEnabled bool
+
+	// Keybindings
+	KEYIncreaseFontSize string
+	KEYDecreaseFontSize string
+	KEYToggleFullscreen string
 )
 
 func InitializeInputEvents() {
 	// Initialize defaults
-	zoomInKey = "<C-+>"
-	zoomOutKey = "<C-->"
-	toggleFullscreenKey = "<F11>"
+	KEYIncreaseFontSize = "<C-+>"
+	KEYDecreaseFontSize = "<C-->"
+	KEYToggleFullscreen = "<F11>"
 	popupMenuEnabled = true
 	// Initialize callbacks
 	wh := EditorSingleton.window.handle
@@ -145,21 +147,20 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 
 		// Handle neoray keybindings
 		switch keycode {
-		case zoomInKey:
+		case KEYIncreaseFontSize:
 			EditorSingleton.renderer.IncreaseFontSize()
 			return
-		case zoomOutKey:
+		case KEYDecreaseFontSize:
 			EditorSingleton.renderer.DecreaseFontSize()
 			return
-		case toggleFullscreenKey:
+		case KEYToggleFullscreen:
 			EditorSingleton.window.ToggleFullscreen()
 			return
 		case "<ESC>":
-			if popupMenuEnabled {
+			if popupMenuEnabled && !EditorSingleton.popupMenu.hidden {
 				EditorSingleton.popupMenu.Hide()
+				return
 			}
-			break
-		default:
 			break
 		}
 

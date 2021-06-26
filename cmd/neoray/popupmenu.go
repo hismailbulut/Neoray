@@ -36,7 +36,7 @@ type PopupMenu struct {
 	hidden     bool
 	width      int
 	height     int
-	cells      [][]string
+	cells      [][]rune
 }
 
 // Popup menu is mostly hardcoded.
@@ -55,9 +55,9 @@ func CreatePopupMenu() PopupMenu {
 	// Create cells
 	pmenu.width = longest + 2
 	pmenu.height = len(ButtonNames)
-	pmenu.cells = make([][]string, pmenu.height, pmenu.height)
+	pmenu.cells = make([][]rune, pmenu.height, pmenu.height)
 	for i := range pmenu.cells {
-		pmenu.cells[i] = make([]string, pmenu.width, pmenu.width)
+		pmenu.cells[i] = make([]rune, pmenu.width, pmenu.width)
 	}
 	pmenu.createCells()
 	return pmenu
@@ -74,7 +74,7 @@ func (pmenu *PopupMenu) createCells() {
 					c = rune(ButtonNames[x][y-1])
 				}
 			}
-			pmenu.cells[x][y] = string(c)
+			pmenu.cells[x][y] = c
 		}
 	}
 }
@@ -89,7 +89,7 @@ func (pmenu *PopupMenu) updateChars() {
 		for y, char := range row {
 			cell_id := x*pmenu.width + y
 			var atlasPos IntRect
-			if char != "" && char != " " {
+			if char != 0 {
 				atlasPos = EditorSingleton.renderer.getCharPos(
 					char, false, false, false, false)
 			}
@@ -181,7 +181,7 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 				EditorSingleton.render()
 			}
 		} else {
-			pmenu.Hide()
+			// pmenu.Hide()
 		}
 	}
 }

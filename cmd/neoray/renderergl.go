@@ -2,7 +2,9 @@ package main
 
 import (
 	_ "embed"
+	"image"
 	"strings"
+	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 )
@@ -39,10 +41,13 @@ var (
 
 	rgl_vertex_buffer_len  int
 	rgl_element_buffer_len int
+
+	rgl_width  int
+	rgl_height int
 )
 
 func rgl_init() {
-	defer measure_execution_time("RGL_Init")()
+	defer measure_execution_time("rgl_init")()
 
 	// Initialize opengl
 	if err := gl.Init(); err != nil {
@@ -119,6 +124,8 @@ func rgl_createViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
 	projection := orthoProjection(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rgl_projection_uniform, 1, true, &projection[0])
+	rgl_width = w
+	rgl_height = h
 }
 
 func rgl_setAtlasTexture(atlas *Texture) {
@@ -137,31 +144,50 @@ func rgl_clearScreen(color U8Color) {
 	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.framebufferTransparency)
 }
 
+func rgl_readPixelsToImage() *image.RGBA {
+	defer measure_execution_time("rgl_readPixelsToImage")()
+	img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
+	gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
+	rgl_checkError("read pixels")
+	// The image is upside down, we need to flip.
+	for y := 0; y < rgl_height/2; y++ {
+		k := (rgl_height - 1) - y
+		yBegin := img.PixOffset(0, y)
+		yEnd := img.PixOffset(0, y+1)
+		kBegin := img.PixOffset(0, k)
+		kEnd := img.PixOffset(0, k+1)
+		temp := append([]uint8(nil), img.Pix[yBegin:yEnd]...)
+		copy(img.Pix[yBegin:yEnd], img.Pix[kBegin:kEnd])
+		copy(img.Pix[kBegin:kEnd], temp)
+	}
+	return img
+}
+
 func rgl_updateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*VertexStructSize, gl.Ptr(data), gl.STATIC_DRAW)
-		rgl_checkError("RGL_UpdateVertices.BufferData")
+		rgl_checkError("vertex buffer data")
 		rgl_vertex_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*VertexStructSize, gl.Ptr(data))
-		rgl_checkError("RGL_UpdateVertices.BufferSubData")
+		rgl_checkError("vertex buffer subdata")
 	}
 }
 
 func rgl_updateIndices(data []uint32) {
 	if rgl_element_buffer_len != len(data) {
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(data)*4, gl.Ptr(data), gl.STATIC_DRAW)
-		rgl_checkError("RGL_UpdateIndices.BufferData")
+		rgl_checkError("index buffer data")
 		rgl_element_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, len(data)*4, gl.Ptr(data))
-		rgl_checkError("RGL_UpdateIndices.BufferSubData")
+		rgl_checkError("index buffer subdata")
 	}
 }
 
 func rgl_render() {
 	gl.DrawElements(gl.TRIANGLES, int32(rgl_element_buffer_len), gl.UNSIGNED_INT, nil)
-	rgl_checkError("RGL_Render.DrawElements")
+	rgl_checkError("draw elements")
 }
 
 func rgl_initShaders() {

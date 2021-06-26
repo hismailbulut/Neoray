@@ -342,7 +342,7 @@ func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
 	return pos
 }
 
-func (renderer *Renderer) getSupportedFace(char string, italic, bold bool) (*FontFace, bool) {
+func (renderer *Renderer) getSupportedFace(char rune, italic, bold bool) (*FontFace, bool) {
 	// First try the user font for this character.
 	if renderer.userFont.size > 0 {
 		face := renderer.userFont.GetSuitableFace(italic, bold)
@@ -384,9 +384,9 @@ func (renderer *Renderer) checkUndercurlPos() {
 }
 
 // Returns given character position at the font atlas.
-func (renderer *Renderer) getCharPos(char string, italic, bold, underline, strikethrough bool) IntRect {
+func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) IntRect {
 	// generate specific id for this character
-	id := fmt.Sprintf("%s%t%t%t%t", char, italic, bold, underline, strikethrough)
+	id := fmt.Sprintf("%d%t%t%t%t", char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
 		// use stored texture
 		return pos
@@ -394,18 +394,20 @@ func (renderer *Renderer) getCharPos(char string, italic, bold, underline, strik
 		// Get suitable font and check for glyph
 		fontFace, ok := renderer.getSupportedFace(char, italic, bold)
 		if !ok {
-			id = UNSUPPORTED_GLYPH_ID
-			pos, ok := renderer.fontAtlas.characters[id]
-			if ok {
-				return pos
+			if isDebugBuild() {
+				log_debug("Unsupported glyph:", string(char), char)
 			} else {
-				log_debug("Unsupported glyph:", char, []rune(char))
+				id = UNSUPPORTED_GLYPH_ID
+				pos, ok := renderer.fontAtlas.characters[id]
+				if ok {
+					return pos
+				}
 			}
 		}
 		// Render character to an image
 		textImage := fontFace.RenderChar(char, underline, strikethrough)
 		if textImage == nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph", char, []rune(char))
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph:", string(char), char)
 			id = UNSUPPORTED_GLYPH_ID
 			pos, ok := renderer.fontAtlas.characters[id]
 			if ok {
@@ -428,12 +430,12 @@ func (renderer *Renderer) getCharPos(char string, italic, bold, underline, strik
 	}
 }
 
-func (renderer *Renderer) DrawCellCustom(x, y int, char string,
+func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
 	fg, bg, sp U8Color,
 	italic, bold, underline, undercurl, strikethrough bool) {
 	// draw Background
 	renderer.setCellBgColor(x, y, bg)
-	if char == "" || char == " " {
+	if char == 0 {
 		// this is an empty cell, clear the text vertex data
 		renderer.clearCellFgColor(x, y)
 		return
@@ -524,6 +526,7 @@ func (renderer *Renderer) drawAllChangedCells() {
 
 // Don't call this function directly. Set renderCall value to true in the renderer.
 func (renderer *Renderer) render() {
+	fmt.Println()
 	rgl_clearScreen(EditorSingleton.grid.default_bg)
 	rgl_updateVertices(renderer.vertexData)
 	rgl_render()

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math"
 	"time"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -161,8 +160,7 @@ func (editor *Editor) calculateCellCount() {
 }
 
 func (editor *Editor) backgroundAlpha() uint8 {
-	transparency := math.Min(1, math.Max(0, float64(editor.framebufferTransparency)))
-	return uint8(transparency * 255)
+	return uint8(editor.framebufferTransparency * 255)
 }
 
 func (editor *Editor) render() {

@@ -36,7 +36,7 @@ func init_log_file(name string) {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
 		return
 	}
-	log_file, err = os.Create(path)
+	log_file, err = os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_SYNC, 0666)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create log file:", err)
 		return
@@ -102,7 +102,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 	log.Println(log_string)
 	if fatal {
 		dialog.Message(log_string).Title("Fatal error").Error()
-		os.Exit(1)
+		panic("fatal error occured")
 	}
 }
 

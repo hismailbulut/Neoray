@@ -2,6 +2,8 @@ package main
 
 import (
 	"math"
+	"os"
+	"strconv"
 	"sync/atomic"
 )
 
@@ -142,4 +144,24 @@ func (atomicBool *AtomicBool) Get() bool {
 		return false
 	}
 	return true
+}
+
+func fileExists(name string) bool {
+	_, err := os.Stat(name)
+	return err == nil
+}
+
+func getAvailableFileName(basename, extension string) string {
+	filename := basename + extension
+	index := 1
+	for {
+		// There is a file or folder with this name.
+		if fileExists(filename) {
+			filename = basename + strconv.Itoa(index) + extension
+			index++
+		} else {
+			break
+		}
+	}
+	return filename
 }

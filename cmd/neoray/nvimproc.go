@@ -9,15 +9,15 @@ import (
 
 const (
 	// Options
-	OPTION_CURSOR_ANIM  string = "neoray_cursor_animation_time"
-	OPTION_TRANSPARENCY string = "neoray_framebuffer_transparency"
-	OPTION_TARGET_TPS   string = "neoray_target_ticks_per_second"
-	OPTION_POPUP_MENU   string = "neoray_popup_menu_enabled"
-	OPTION_WINDOW_STATE string = "neoray_window_startup_state"
+	OPTION_CURSOR_ANIM  = "neoray_cursor_animation_time"
+	OPTION_TRANSPARENCY = "neoray_framebuffer_transparency"
+	OPTION_TARGET_TPS   = "neoray_target_ticks_per_second"
+	OPTION_POPUP_MENU   = "neoray_popup_menu_enabled"
+	OPTION_WINDOW_STATE = "neoray_window_startup_state"
 	// Keybindings
-	OPTION_KEY_FULLSCRN string = "neoray_key_toggle_fullscreen"
-	OPTION_ZOOMIN_KEY   string = "neoray_key_increase_fontsize"
-	OPTION_ZOOMOUT_KEY  string = "neoray_key_decrease_fontsize"
+	OPTION_KEY_FULLSCRN = "neoray_key_toggle_fullscreen"
+	OPTION_KEY_ZOOMIN   = "neoray_key_increase_fontsize"
+	OPTION_KEY_ZOOMOUT  = "neoray_key_decrease_fontsize"
 )
 
 type NvimProcess struct {
@@ -35,6 +35,8 @@ func CreateNvimProcess() NvimProcess {
 
 	args := []string{"--embed"}
 	args = append(args, EditorParsedArgs.others...)
+
+	log_debug("Neovim args:", args)
 
 	nv, err := nvim.NewChildProcess(nvim.ChildProcessArgs(args...))
 	if err != nil {
@@ -90,7 +92,7 @@ func (proc *NvimProcess) initScripts() {
 }
 
 func (proc *NvimProcess) startUI() {
-	defer measure_execution_time("StartUI")()
+	defer measure_execution_time("NvimProcess.StartUI")()
 
 	options := make(map[string]interface{})
 	options["rgb"] = true
@@ -142,22 +144,22 @@ func (proc *NvimProcess) requestOptions() {
 			popupMenuEnabled = true
 		}
 	}
-	if proc.handle.Var(OPTION_KEY_FULLSCRN, &strvar) == nil {
-		toggleFullscreenKey = strvar
-	}
-	if proc.handle.Var(OPTION_ZOOMIN_KEY, &strvar) == nil {
-		zoomInKey = strvar
-	}
-	if proc.handle.Var(OPTION_ZOOMOUT_KEY, &strvar) == nil {
-		zoomOutKey = strvar
-	}
 	if proc.handle.Var(OPTION_WINDOW_STATE, &strvar) == nil {
 		EditorSingleton.window.SetState(strvar)
+	}
+	if proc.handle.Var(OPTION_KEY_FULLSCRN, &strvar) == nil {
+		KEYToggleFullscreen = strvar
+	}
+	if proc.handle.Var(OPTION_KEY_ZOOMIN, &strvar) == nil {
+		KEYIncreaseFontSize = strvar
+	}
+	if proc.handle.Var(OPTION_KEY_ZOOMOUT, &strvar) == nil {
+		KEYDecreaseFontSize = strvar
 	}
 }
 
 func (proc *NvimProcess) executeVimScript(script string, args ...interface{}) {
-	cmd := fmt.Sprintf(script, args...) + "\n"
+	cmd := fmt.Sprintf(script, args...) //+ "\n"
 	if err := proc.handle.Command(cmd); err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
 			"Failed to execute vimscript:", cmd, err)

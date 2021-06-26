@@ -152,7 +152,7 @@ func (cursor *Cursor) Draw() {
 		rect, draw_char := cursor.modeRectangle(pos, mode_info)
 		if draw_char && !cursor.needsDraw {
 			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
-			if cell.char != "" && cell.char != " " {
+			if cell.char != 0 {
 				// We need to draw cell character to the cursor foreground.
 				cursor.drawWithCell(cell, fg)
 			} else {

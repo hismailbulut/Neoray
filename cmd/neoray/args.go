@@ -27,7 +27,7 @@ Options:
 --singleinstance, -si
 	Only accept one instance of neoray and send all flags to it.
 --verbose
-	Specify a file in cwd to verbose debug output
+	Specify a filename to verbose debug output
 --help, -h
 	Prints this message and quits
 

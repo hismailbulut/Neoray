@@ -94,14 +94,12 @@ func (fontFace *FontFace) Resize(newsize float32) {
 	fontFace.height = face.Metrics().Height.Floor()
 }
 
-func (fontFace *FontFace) IsDrawable(c string) bool {
-	char := []rune(c)[0]
+func (fontFace *FontFace) IsDrawable(char rune) bool {
 	i, err := fontFace.fontHandle.GlyphIndex(&fontFace.buffer, char)
 	return i != 0 && err == nil
 }
 
 // This function draws horizontal line at given y coord.
-// Don't use this function directly, use RenderChar instead.
 func (fontFace *FontFace) drawLine(img *image.RGBA, y int) {
 	for x := 0; x < img.Rect.Dx(); x++ {
 		img.Set(x, y, color.White)
@@ -134,7 +132,6 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 }
 
 // Renders given rune and returns rendered RGBA image.
-// Use RenderChar instead.
 func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
 	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
@@ -146,9 +143,9 @@ func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
 	return nil
 }
 
-func (fontFace *FontFace) RenderChar(str string, underline, strikethrough bool) *image.RGBA {
+func (fontFace *FontFace) RenderChar(c rune, underline, strikethrough bool) *image.RGBA {
 	defer measure_execution_time("FontFace.RenderChar")()
-	img := fontFace.renderGlyph([]rune(str)[0])
+	img := fontFace.renderGlyph(c)
 	if img == nil {
 		return nil
 	}
