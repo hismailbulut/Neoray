@@ -36,10 +36,7 @@ func HandleNvimRedrawEvents() {
 				option_set(update[1:])
 				break
 			case "mode_change":
-				name := reflect.ValueOf(update[1]).Index(0).Elem().String()
-				EditorSingleton.mode.current_mode_name = name
-				id := reflect.ValueOf(update[1]).Index(1).Elem().Convert(t_int).Int()
-				EditorSingleton.mode.current_mode = int(id)
+				mode_change(update[1:])
 				break
 			case "mouse_on":
 				break
@@ -98,47 +95,47 @@ func HandleNvimRedrawEvents() {
 func option_set(args []interface{}) {
 	options := &EditorSingleton.options
 	for _, opt := range args {
-		valr := reflect.ValueOf(opt).Index(1).Elem()
+		val := reflect.ValueOf(opt).Index(1).Elem()
 		switch reflect.ValueOf(opt).Index(0).Elem().String() {
 		case "arabicshape":
-			options.arabicshape = valr.Bool()
+			options.arabicshape = val.Bool()
 			break
 		case "ambiwidth":
-			options.ambiwidth = valr.String()
+			options.ambiwidth = val.String()
 			break
 		case "emoji":
-			options.emoji = valr.Bool()
+			options.emoji = val.Bool()
 			break
 		case "guifont":
-			options.SetGuiFont(valr.String())
+			options.SetGuiFont(val.String())
 			break
 		case "guifontset":
-			options.guifontset = valr.String()
+			options.guifontset = val.String()
 			break
 		case "guifontwide":
-			options.guifontwide = valr.String()
+			options.guifontwide = val.String()
 			break
 		case "linespace":
-			options.linespace = int(valr.Convert(t_int).Int())
+			options.linespace = int(val.Convert(t_int).Int())
 			break
 		case "pumblend":
-			options.pumblend = int(valr.Convert(t_int).Int())
+			options.pumblend = int(val.Convert(t_int).Int())
 			break
 		case "showtabline":
-			options.showtabline = int(valr.Convert(t_int).Int())
+			options.showtabline = int(val.Convert(t_int).Int())
 			break
 		case "termguicolors":
-			options.termguicolors = valr.Bool()
+			options.termguicolors = val.Bool()
 			break
 		}
 	}
 }
 
 func mode_info_set(args []interface{}) {
-	r := reflect.ValueOf(args).Index(0).Elem()
-	EditorSingleton.mode.cursor_style_enabled = r.Index(0).Elem().Bool()
+	v := reflect.ValueOf(args[0])
+	EditorSingleton.mode.cursor_style_enabled = v.Index(0).Elem().Bool()
 	EditorSingleton.mode.Clear()
-	for _, infos := range r.Index(1).Interface().([]interface{}) {
+	for _, infos := range v.Index(1).Interface().([]interface{}) {
 		mapIter := reflect.ValueOf(infos).MapRange()
 		info := ModeInfo{}
 		for mapIter.Next() {
@@ -178,10 +175,18 @@ func mode_info_set(args []interface{}) {
 	EditorSingleton.cursor.needsDraw = true
 }
 
+func mode_change(args []interface{}) {
+	v := reflect.ValueOf(args[0])
+	name := v.Index(0).Elem().String()
+	EditorSingleton.mode.current_mode_name = name
+	id := v.Index(1).Elem().Convert(t_int).Int()
+	EditorSingleton.mode.current_mode = int(id)
+}
+
 func grid_resize(args []interface{}) {
-	r := reflect.ValueOf(args[0])
-	rows := int(r.Index(2).Elem().Convert(t_int).Int())
-	cols := int(r.Index(1).Elem().Convert(t_int).Int())
+	v := reflect.ValueOf(args[0])
+	rows := int(v.Index(2).Elem().Convert(t_int).Int())
+	cols := int(v.Index(1).Elem().Convert(t_int).Int())
 
 	EditorSingleton.rowCount = rows
 	EditorSingleton.columnCount = cols
@@ -196,10 +201,10 @@ func grid_resize(args []interface{}) {
 }
 
 func default_colors_set(args []interface{}) {
-	r := reflect.ValueOf(args[0])
-	fg := r.Index(0).Elem().Convert(t_uint).Uint()
-	bg := r.Index(1).Elem().Convert(t_uint).Uint()
-	sp := r.Index(2).Elem().Convert(t_uint).Uint()
+	v := reflect.ValueOf(args[0])
+	fg := v.Index(0).Elem().Convert(t_uint).Uint()
+	bg := v.Index(1).Elem().Convert(t_uint).Uint()
+	sp := v.Index(2).Elem().Convert(t_uint).Uint()
 	EditorSingleton.grid.default_fg = unpackColor(uint32(fg))
 	EditorSingleton.grid.default_bg = unpackColor(uint32(bg))
 	EditorSingleton.grid.default_sp = unpackColor(uint32(sp))
@@ -207,29 +212,31 @@ func default_colors_set(args []interface{}) {
 
 func hl_attr_define(args []interface{}) {
 	for _, arg := range args {
+		v := reflect.ValueOf(arg)
 		// args is an array with first element is
 		// attribute id and second is a map which
 		// contains attribute keys
-		id := int(reflect.ValueOf(arg).Index(0).Elem().Convert(t_uint).Uint())
+		id := int(v.Index(0).Elem().Convert(t_uint).Uint())
 		if id == 0 {
 			// `id` 0 will always be used for the default highlight with colors
 			continue
 		}
-		mapIter := reflect.ValueOf(arg).Index(1).Elem().MapRange()
+		mapIter := v.Index(1).Elem().MapRange()
 		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes
 		for mapIter.Next() {
+			val := mapIter.Value().Elem()
 			switch mapIter.Key().String() {
 			case "foreground":
-				fg := uint32(mapIter.Value().Elem().Convert(t_uint).Uint())
+				fg := uint32(val.Convert(t_uint).Uint())
 				hl_attr.foreground = unpackColor(fg)
 				break
 			case "background":
-				bg := uint32(mapIter.Value().Elem().Convert(t_uint).Uint())
+				bg := uint32(val.Convert(t_uint).Uint())
 				hl_attr.background = unpackColor(bg)
 				break
 			case "special":
-				sp := uint32(mapIter.Value().Elem().Convert(t_uint).Uint())
+				sp := uint32(val.Convert(t_uint).Uint())
 				hl_attr.special = unpackColor(sp)
 				break
 			// All boolean keys default to false,
@@ -253,7 +260,7 @@ func hl_attr_define(args []interface{}) {
 				hl_attr.undercurl = true
 				break
 			case "blend":
-				hl_attr.blend = int(mapIter.Value().Elem().Convert(t_uint).Uint())
+				hl_attr.blend = int(val.Convert(t_uint).Uint())
 				break
 			}
 		}
@@ -264,11 +271,11 @@ func hl_attr_define(args []interface{}) {
 
 func grid_line(args []interface{}) {
 	for _, arg := range args {
-		r := reflect.ValueOf(arg)
-		row := int(r.Index(1).Elem().Convert(t_int).Int())
-		col_start := int(r.Index(2).Elem().Convert(t_int).Int())
+		v := reflect.ValueOf(arg)
+		row := int(v.Index(1).Elem().Convert(t_int).Int())
+		col_start := int(v.Index(2).Elem().Convert(t_int).Int())
 		// cells is an array of arrays each with 1 to 3 elements
-		cells := r.Index(3).Elem().Interface().([]interface{})
+		cells := v.Index(3).Elem().Interface().([]interface{})
 		hl_id := 0 // if hl_id is not present, we will use the last one
 		for _, cell := range cells {
 			// cell is a slice, may have 1 to 3 elements
@@ -294,19 +301,19 @@ func grid_line(args []interface{}) {
 }
 
 func grid_cursor_goto(args []interface{}) {
-	r := reflect.ValueOf(args).Index(0).Elem()
-	X := int(r.Index(1).Elem().Convert(t_int).Int())
-	Y := int(r.Index(2).Elem().Convert(t_int).Int())
+	v := reflect.ValueOf(args[0])
+	X := int(v.Index(1).Elem().Convert(t_int).Int())
+	Y := int(v.Index(2).Elem().Convert(t_int).Int())
 	EditorSingleton.cursor.SetPosition(X, Y, false)
 }
 
 func grid_scroll(args []interface{}) {
-	r := reflect.ValueOf(args).Index(0).Elem()
-	top := r.Index(1).Elem().Convert(t_int).Int()
-	bot := r.Index(2).Elem().Convert(t_int).Int()
-	left := r.Index(3).Elem().Convert(t_int).Int()
-	right := r.Index(4).Elem().Convert(t_int).Int()
-	rows := r.Index(5).Elem().Convert(t_int).Int()
+	v := reflect.ValueOf(args[0])
+	top := v.Index(1).Elem().Convert(t_int).Int()
+	bot := v.Index(2).Elem().Convert(t_int).Int()
+	left := v.Index(3).Elem().Convert(t_int).Int()
+	right := v.Index(4).Elem().Convert(t_int).Int()
+	rows := v.Index(5).Elem().Convert(t_int).Int()
 	//cols := r.Index(6).Elem().Convert(t).Int()
 	EditorSingleton.grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
 }
