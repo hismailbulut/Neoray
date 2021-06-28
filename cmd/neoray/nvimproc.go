@@ -27,7 +27,7 @@ type NvimProcess struct {
 }
 
 func CreateNvimProcess() NvimProcess {
-	defer measure_execution_time("CreateNvimProcess")()
+	defer measure_execution_time()()
 	proc := NvimProcess{
 		update_mutex: &sync.Mutex{},
 		update_stack: make([][][]interface{}, 0),
@@ -92,7 +92,7 @@ func (proc *NvimProcess) initScripts() {
 }
 
 func (proc *NvimProcess) startUI() {
-	defer measure_execution_time("NvimProcess.StartUI")()
+	defer measure_execution_time()()
 
 	options := make(map[string]interface{})
 	options["rgb"] = true
@@ -119,57 +119,44 @@ func (proc *NvimProcess) startUI() {
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
 		"UI Connected. Rows:", EditorSingleton.rowCount, "Cols:", EditorSingleton.columnCount)
 
-	proc.requestOptions()
+	proc.requestVariables()
 }
 
-func (proc *NvimProcess) requestOptions() {
-	var f32var float32
-	var intvar int
-	var strvar string
-	if proc.handle.Var(OPTION_CURSOR_ANIM, &f32var) == nil {
-		EditorSingleton.cursor.animLifetime = f32var
+func (proc *NvimProcess) requestVariables() {
+	proc.getVimVar(OPTION_CURSOR_ANIM, &EditorSingleton.cursor.animLifetime)
+	proc.getVimVar(OPTION_TRANSPARENCY, &EditorSingleton.framebufferTransparency)
+	proc.getVimVar(OPTION_TARGET_TPS, &EditorSingleton.targetTPS)
+	proc.getVimVar(OPTION_POPUP_MENU, &popupMenuEnabled)
+	var state string
+	if proc.getVimVar(OPTION_WINDOW_STATE, &state) {
+		EditorSingleton.window.SetState(state)
 	}
-	if proc.handle.Var(OPTION_TRANSPARENCY, &f32var) == nil {
-		EditorSingleton.framebufferTransparency = f32var
+	proc.getVimVar(OPTION_KEY_FULLSCRN, &KEYToggleFullscreen)
+	proc.getVimVar(OPTION_KEY_ZOOMIN, &KEYIncreaseFontSize)
+	proc.getVimVar(OPTION_KEY_ZOOMOUT, &KEYDecreaseFontSize)
+}
+
+func (proc *NvimProcess) getVimVar(name string, variable interface{}) bool {
+	if err := proc.handle.Var(name, variable); err != nil {
+		log_debug("Failed to get variable:", err)
+		return false
 	}
-	if proc.handle.Var(OPTION_TARGET_TPS, &intvar) == nil {
-		if intvar > 0 {
-			EditorSingleton.targetTPS = intvar
-		}
-	}
-	if proc.handle.Var(OPTION_POPUP_MENU, &intvar) == nil {
-		if intvar == 0 {
-			popupMenuEnabled = false
-		} else {
-			popupMenuEnabled = true
-		}
-	}
-	if proc.handle.Var(OPTION_WINDOW_STATE, &strvar) == nil {
-		EditorSingleton.window.SetState(strvar)
-	}
-	if proc.handle.Var(OPTION_KEY_FULLSCRN, &strvar) == nil {
-		KEYToggleFullscreen = strvar
-	}
-	if proc.handle.Var(OPTION_KEY_ZOOMIN, &strvar) == nil {
-		KEYIncreaseFontSize = strvar
-	}
-	if proc.handle.Var(OPTION_KEY_ZOOMOUT, &strvar) == nil {
-		KEYDecreaseFontSize = strvar
-	}
+	return true
 }
 
 func (proc *NvimProcess) executeVimScript(script string, args ...interface{}) {
-	cmd := fmt.Sprintf(script, args...) //+ "\n"
-	if err := proc.handle.Command(cmd); err != nil {
+	cmd := fmt.Sprintf(script, args...)
+	err := proc.handle.Command(cmd)
+	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
-			"Failed to execute vimscript:", cmd, err)
+			"Failed to execute vimscript: [", cmd, "] err:", err)
 	}
 }
 
 func (proc *NvimProcess) currentMode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get mode name:", mode)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get mode name:", err)
 		return ""
 	}
 	return mode.Mode
@@ -185,6 +172,8 @@ func (proc *NvimProcess) echoErr(text string, args ...interface{}) {
 	proc.handle.WritelnErr(formatted)
 }
 
+// TODO: Clipboard are not working on some linux systems.
+// We need to do cut and copy commands ourselves.
 func (proc *NvimProcess) cutSelected() {
 	switch proc.currentMode() {
 	case "n":
@@ -207,21 +196,10 @@ func (proc *NvimProcess) copySelected() {
 	}
 }
 
-func (proc *NvimProcess) writeAtCursor(str string) {
-	switch proc.currentMode() {
-	case "i":
-		proc.input(str)
-		break
-	case "n":
-		proc.feedKeys("i")
-		proc.input(str)
-		proc.feedKeys("<ESC>")
-		break
-	case "v":
-		proc.feedKeys("<ESC>i")
-		proc.input(str)
-		proc.feedKeys("<ESC>gv")
-		break
+func (proc *NvimProcess) paste(str string) {
+	err := proc.handle.Call("nvim_paste", nil, str, true, -1)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call nvim_paste() failed:", err)
 	}
 }
 

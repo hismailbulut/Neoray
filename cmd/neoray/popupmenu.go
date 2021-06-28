@@ -17,7 +17,7 @@ var MenuButtonEvents = map[string]func(){
 		EditorSingleton.nvim.copySelected()
 	},
 	ButtonNames[2]: func() {
-		EditorSingleton.nvim.writeAtCursor(glfw.GetClipboardString())
+		EditorSingleton.nvim.paste(glfw.GetClipboardString())
 	},
 	ButtonNames[3]: func() {
 		EditorSingleton.nvim.selectAll()
@@ -68,10 +68,13 @@ func (pmenu *PopupMenu) createCells() {
 	// Loop through all cells and give them correct characters
 	for x, row := range pmenu.cells {
 		for y := range row {
-			c := ' '
+			var c rune = 0
 			if y != 0 && y != pmenu.width-1 {
 				if y-1 < len(ButtonNames[x]) {
 					c = rune(ButtonNames[x][y-1])
+					if c == ' ' {
+						c = 0
+					}
 				}
 			}
 			pmenu.cells[x][y] = c
@@ -181,6 +184,8 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 				EditorSingleton.render()
 			}
 		} else {
+			// If this uncommented, the context menu will be hidden
+			// when cursor goes out from on top of it.
 			// pmenu.Hide()
 		}
 	}

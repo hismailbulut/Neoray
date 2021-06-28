@@ -128,8 +128,8 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 	bold := false
 	underline := false
 	strikethrough := false
-	if cell.attrib_id > 0 {
-		attrib := EditorSingleton.grid.attributes[cell.attrib_id]
+	if cell.attribId > 0 {
+		attrib := EditorSingleton.grid.attributes[cell.attribId]
 		italic = attrib.italic
 		bold = attrib.bold
 		underline = attrib.underline
@@ -144,7 +144,7 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 }
 
 func (cursor *Cursor) Draw() {
-	defer measure_execution_time("Cursor.Draw")()
+	defer measure_execution_time()()
 	if !cursor.hidden {
 		mode_info := EditorSingleton.mode.CurrentModeInfo()
 		fg, bg := cursor.modeColors(mode_info)

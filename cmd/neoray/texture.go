@@ -21,9 +21,9 @@ func CreateTexture(width, height int) Texture {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	rgl_checkError("CreateTexture.TexParameteri")
+	rglCheckError("CreateTexture.TexParameteri")
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-	rgl_checkError("CreateTexture.TexImage2D")
+	rglCheckError("CreateTexture.TexImage2D")
 	texture := Texture{
 		id:     texture_id,
 		width:  width,
@@ -38,14 +38,14 @@ func (texture *Texture) Bind() {
 
 func (texture *Texture) Clear() {
 	gl.ClearTexImage(texture.id, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-	rgl_checkError("Texture.Clear")
+	rglCheckError("Texture.Clear")
 }
 
 func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest IntRect) {
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0,
 		int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
-	rgl_checkError("Texture.UpdatePartFromImage")
+	rglCheckError("Texture.UpdatePartFromImage")
 }
 
 func (texture *Texture) GetRectGLCoordinates(rect IntRect) F32Rect {

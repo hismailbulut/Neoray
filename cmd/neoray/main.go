@@ -10,7 +10,7 @@ const (
 	DEBUG   = 0
 	RELEASE = 1
 
-	TITLE         = "Neoray"
+	TITLE         = "neoray"
 	VERSION_MAJOR = 0
 	VERSION_MINOR = 0
 	VERSION_PATCH = 5
@@ -39,8 +39,9 @@ var EditorParsedArgs ParsedArgs
 func main() {
 	// If --verbose flag is set then new file will be created with given name
 	// and we need to close this file. This function will check if the file is open
-	// and than closes it.
-	defer close_log_file()
+	// and than closes it. And also prints panic to the logfile if the program panics.
+	// Only main goroutine panic can be captured.
+	defer close_logger()
 	// Trackers are debug functions and collects data about what function
 	// called how many times and it's execution time. Only debug build
 	init_function_time_tracker()
@@ -51,11 +52,12 @@ func main() {
 	if EditorParsedArgs.ProcessBefore() {
 		return
 	}
+	// Starts a pprof server. This function is only implemented in debug build.
 	start_pprof()
 	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
 	EditorSingleton.Initialize()
-	// And shutdown will frees resources and closes neovim.
+	// And shutdown will frees resources and closes everything.
 	defer EditorSingleton.Shutdown()
 	// Some arguments must be processed after initializing.
 	EditorParsedArgs.ProcessAfter()

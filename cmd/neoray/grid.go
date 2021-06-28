@@ -1,9 +1,9 @@
 package main
 
 type Cell struct {
-	char         rune
-	attrib_id    int
-	needs_redraw bool
+	char      rune
+	attribId  int
+	needsDraw bool
 }
 
 type HighlightAttribute struct {
@@ -41,7 +41,7 @@ func (grid *Grid) Resize(rows, cols int) {
 	for i := range grid.cells {
 		grid.cells[i] = make([]Cell, cols)
 		for j := range grid.cells[i] {
-			grid.cells[i][j].needs_redraw = true
+			grid.cells[i][j].needsDraw = true
 		}
 	}
 }
@@ -50,10 +50,11 @@ func (grid *Grid) ClearCells() {
 	for _, row := range grid.cells {
 		for _, cell := range row {
 			cell.char = 0
-			cell.attrib_id = 0
-			cell.needs_redraw = true
+			cell.attribId = 0
+			cell.needsDraw = true
 		}
 	}
+	EditorSingleton.draw()
 }
 
 // This makes all cells will be rendered in the next
@@ -63,9 +64,10 @@ func (grid *Grid) ClearCells() {
 func (grid *Grid) MakeAllCellsChanged() {
 	for i := range grid.cells {
 		for j := range grid.cells[i] {
-			grid.cells[i][j].needs_redraw = true
+			grid.cells[i][j].needsDraw = true
 		}
 	}
+	EditorSingleton.draw()
 }
 
 // Sets cells with the given parameters, and advances y to the next.
@@ -82,8 +84,8 @@ func (grid *Grid) SetCells(x int, y *int, char rune, hl_id int, repeat int) {
 	for i := 0; i < cell_count; i++ {
 		cell := &grid.cells[x][*y]
 		cell.char = char
-		cell.attrib_id = hl_id
-		cell.needs_redraw = true
+		cell.attribId = hl_id
+		cell.needsDraw = true
 		*y++
 	}
 }
@@ -93,19 +95,20 @@ func (grid *Grid) GetCell(x, y int) Cell {
 	return grid.cells[x][y]
 }
 
+func (grid *Grid) copyRow(dst, src, left, right int) {
+	copy(grid.cells[dst][left:right], grid.cells[src][left:right])
+	EditorSingleton.renderer.copyRowData(dst, src, left, right)
+}
+
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {
-	defer measure_execution_time("Grid.Scroll")()
-	copyCellsAndScroll := func(dst, src, left, right int) {
-		copy(grid.cells[dst][left:right], grid.cells[src][left:right])
-		EditorSingleton.renderer.copyRowData(dst, src, left, right)
-	}
+	defer measure_execution_time()()
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ {
-			copyCellsAndScroll(y-rows, y, left, right)
+			grid.copyRow(y-rows, y, left, right)
 		}
 	} else { // Scroll up, move down
 		for y := (bot + rows) - 1; y >= top; y-- {
-			copyCellsAndScroll(y-rows, y, left, right)
+			grid.copyRow(y-rows, y, left, right)
 		}
 	}
 	cursor := &EditorSingleton.cursor
@@ -115,4 +118,5 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 		cursor.SetPosition(cursor.X-rows, cursor.Y, true)
 		cursor.SetPosition(cursor.X+rows, cursor.Y, false)
 	}
+	EditorSingleton.draw()
 }

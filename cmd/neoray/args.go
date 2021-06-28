@@ -18,28 +18,26 @@ Webpage %s
 
 Options:
 
---file
+--file <name>
 	Filename to open
---line
+--line <number>
 	Goto line number
---column
+--column <number>
 	Goto column number
 --singleinstance, -si
-	Only accept one instance of neoray and send all flags to it.
---verbose
+	Only accept one instance of neoray and send all flags to it
+--verbose <filename>
 	Specify a filename to verbose debug output
 --help, -h
 	Prints this message and quits
 
-All other flags will be send to neovim.
+All other flags will send to neovim.
 
 Copyrights:
 
 Default font is Cascadia Code, Copyright (c) 2019 - Present,
 Microsoft Corporation, licensed under SIL OPEN FONT LICENSE Version 1.1
 `
-
-var argUsages = map[string]string{}
 
 type ParsedArgs struct {
 	file       string
@@ -134,7 +132,7 @@ func (options ParsedArgs) ProcessBefore() bool {
 			}
 			client.Close()
 		} else {
-			log_debug("No instance founded.")
+			log_debug("No instance founded or tcp server creation failed:", err)
 		}
 	}
 	return dontStart

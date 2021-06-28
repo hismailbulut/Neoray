@@ -5,9 +5,8 @@ import (
 )
 
 const (
-	UNSUPPORTED_GLYPH_ID    = "Unsupported"
-	UNDERCURL_GLYPH_ID      = "Undercurl"
-	FONT_ATLAS_DEFAULT_SIZE = 512
+	UNSUPPORTED_GLYPH_ID = "Unsupported"
+	UNDERCURL_GLYPH_ID   = "Undercurl"
 )
 
 var (
@@ -45,9 +44,9 @@ type VertexDataStorage struct {
 }
 
 func CreateRenderer() Renderer {
-	defer measure_execution_time("CreateRenderer")()
+	defer measure_execution_time()()
 
-	rgl_init()
+	rglInit()
 	renderer := Renderer{
 		fontSize: DEFAULT_FONT_SIZE,
 		fontAtlas: FontAtlas{
@@ -60,8 +59,8 @@ func CreateRenderer() Renderer {
 	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.GetCellSize()
 	EditorSingleton.calculateCellCount()
 
-	rgl_createViewport(EditorSingleton.window.width, EditorSingleton.window.height)
-	rgl_setAtlasTexture(&renderer.fontAtlas.texture)
+	rglCreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
+	rglSetAtlasTexture(&renderer.fontAtlas.texture)
 
 	return renderer
 }
@@ -88,7 +87,7 @@ func (renderer *Renderer) SetFontSize(size float32) {
 		}
 		renderer.clearAtlas()
 		renderer.fontSize = size
-		EditorSingleton.nvim.echoMsg("Font Size: %.1f\n", size)
+		EditorSingleton.nvim.echoMsg("Font Size: %.1f", size)
 	}
 }
 
@@ -115,7 +114,7 @@ func (renderer *Renderer) updateCellSize(font *Font) bool {
 // This function will only be called from neovim.
 func (renderer *Renderer) resize(rows, cols int) {
 	renderer.createVertexData(rows, cols)
-	rgl_createViewport(EditorSingleton.window.width, EditorSingleton.window.height)
+	rglCreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
 }
 
 func (renderer *Renderer) clearAtlas() {
@@ -128,7 +127,7 @@ func (renderer *Renderer) clearAtlas() {
 }
 
 func (renderer *Renderer) createVertexData(rows, cols int) {
-	defer measure_execution_time("Renderer.createVertexData")()
+	defer measure_execution_time()()
 	cellCount := rows * cols
 	vertex_data_size := 4 * (cellCount + 1)
 	renderer.vertexData = make([]Vertex, vertex_data_size, vertex_data_size)
@@ -159,7 +158,7 @@ func (renderer *Renderer) createVertexData(rows, cols int) {
 		renderer.debugDrawFontAtlas()
 	}
 	// Update element buffer
-	rgl_updateIndices(renderer.indexData)
+	rglUpdateIndices(renderer.indexData)
 }
 
 func (renderer *Renderer) debugDrawFontAtlas() {
@@ -259,7 +258,7 @@ func (renderer *Renderer) appendRectData(positions [4]F32Vec2, texPositions [4]F
 // This function copies src to dst from left to right,
 // and used for scroll acceleration
 func (renderer *Renderer) copyRowData(dst, src, left, right int) {
-	defer measure_execution_time("Renderer.CopyRowData")()
+	defer measure_execution_time()()
 	dst_begin := cellVertexPos(dst, left)
 	src_begin := cellVertexPos(src, left)
 	src_end := cellVertexPos(src, right)
@@ -306,6 +305,16 @@ func (renderer *Renderer) clearCellFgColor(x, y int) {
 		renderer.vertexData[begin+i].tex = F32Vec2{}
 		renderer.vertexData[begin+i].fg = F32Color{}
 		renderer.vertexData[begin+i].sp = F32Color{}
+	}
+}
+
+func (renderer *Renderer) getCellData(x, y int) [4]Vertex {
+	begin := cellVertexPos(x, y)
+	return [4]Vertex{
+		renderer.vertexData[begin+0],
+		renderer.vertexData[begin+1],
+		renderer.vertexData[begin+2],
+		renderer.vertexData[begin+3],
 	}
 }
 
@@ -379,12 +388,14 @@ func (renderer *Renderer) checkUndercurlPos() {
 		// Add this font to character list for further use
 		renderer.fontAtlas.characters[UNDERCURL_GLYPH_ID] = rect
 		// Set uniform
-		rgl_setUndercurlRect(renderer.fontAtlas.texture.GetRectGLCoordinates(rect))
+		rglSetUndercurlRect(renderer.fontAtlas.texture.GetRectGLCoordinates(rect))
 	}
 }
 
 // Returns given character position at the font atlas.
 func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) IntRect {
+	dassert(char != ' ', "char is space")
+	dassert(char != 0, "char is zero")
 	// generate specific id for this character
 	id := fmt.Sprintf("%d%t%t%t%t", char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
@@ -405,7 +416,7 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 			}
 		}
 		// Render character to an image
-		textImage := fontFace.RenderChar(char, underline, strikethrough)
+		textImage, _ := fontFace.RenderChar(char, underline, strikethrough)
 		if textImage == nil {
 			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph:", string(char), char)
 			id = UNSUPPORTED_GLYPH_ID
@@ -479,8 +490,8 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 }
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
-	if cell.attrib_id > 0 {
-		renderer.DrawCellWithAttrib(x, y, cell, EditorSingleton.grid.attributes[cell.attrib_id])
+	if cell.attribId > 0 {
+		renderer.DrawCellWithAttrib(x, y, cell, EditorSingleton.grid.attributes[cell.attribId])
 	} else {
 		// transparency
 		bg := EditorSingleton.grid.default_bg
@@ -505,18 +516,19 @@ func (renderer *Renderer) Update() {
 // Don't call this function directly. Set drawCall value to true in the renderer.
 // This function sets renderCall to true and draws cursor one more time.
 func (renderer *Renderer) drawAllChangedCells() {
+	defer measure_execution_time()()
 	// Set changed cells vertex data
-	rendered := 0
+	total := 0
 	for x, row := range EditorSingleton.grid.cells {
 		for y, cell := range row {
-			if cell.needs_redraw {
+			if cell.needsDraw {
 				renderer.DrawCell(x, y, cell)
-				rendered++
-				EditorSingleton.grid.cells[x][y].needs_redraw = false
+				total++
+				EditorSingleton.grid.cells[x][y].needsDraw = false
 			}
 		}
 	}
-	if rendered > 0 {
+	if total > 0 {
 		// Draw cursor one more time.
 		EditorSingleton.cursor.Draw()
 	}
@@ -526,14 +538,13 @@ func (renderer *Renderer) drawAllChangedCells() {
 
 // Don't call this function directly. Set renderCall value to true in the renderer.
 func (renderer *Renderer) render() {
-	fmt.Println()
-	rgl_clearScreen(EditorSingleton.grid.default_bg)
-	rgl_updateVertices(renderer.vertexData)
-	rgl_render()
+	rglClearScreen(EditorSingleton.grid.default_bg)
+	rglUpdateVertices(renderer.vertexData)
+	rglRender()
 	EditorSingleton.window.handle.SwapBuffers()
 }
 
 func (renderer *Renderer) Close() {
 	renderer.fontAtlas.texture.Delete()
-	rgl_close()
+	rglClose()
 }

@@ -132,10 +132,10 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 }
 
 // Renders given rune and returns rendered RGBA image.
-func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
+func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
 	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
-	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, c)
+	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
 	if ok {
 		draw.DrawMask(img, dr, image.White, image.Point{}, mask, maskp, draw.Over)
 		return img
@@ -143,11 +143,20 @@ func (fontFace *FontFace) renderGlyph(c rune) *image.RGBA {
 	return nil
 }
 
-func (fontFace *FontFace) RenderChar(c rune, underline, strikethrough bool) *image.RGBA {
-	defer measure_execution_time("FontFace.RenderChar")()
-	img := fontFace.renderGlyph(c)
+// Renders given char to an RGBA image and returns. Also renders underline and strikethrough
+// if specified. The second returned value is the size of the glyph rectangle.
+func (fontFace *FontFace) RenderChar(char rune, underline, strikethrough bool) (*image.RGBA, IntSize) {
+	defer measure_execution_time()()
+	var size IntSize
+	// bounds, _, ok := fontFace.handle.GlyphBounds(char)
+	// if !ok {
+	//     size = IntSize{W: EditorSingleton.cellWidth, H: EditorSingleton.cellHeight}
+	// } else {
+	//     logf_debug("Bounds: %+v", bounds)
+	// }
+	img := fontFace.renderGlyph(char)
 	if img == nil {
-		return nil
+		return nil, IntSize{}
 	}
 	if underline {
 		fontFace.drawLine(img, EditorSingleton.cellHeight-fontFace.descent)
@@ -155,5 +164,5 @@ func (fontFace *FontFace) RenderChar(c rune, underline, strikethrough bool) *ima
 	if strikethrough {
 		fontFace.drawLine(img, EditorSingleton.cellHeight/2)
 	}
-	return img
+	return img, size
 }

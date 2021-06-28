@@ -28,7 +28,7 @@ type Window struct {
 }
 
 func CreateWindow(width int, height int, title string) Window {
-	defer measure_execution_time("CreateWindow")()
+	defer measure_execution_time()()
 	window := Window{
 		title:  title,
 		width:  width,
@@ -41,7 +41,7 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.Resizable, glfw.True)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
 
-	// NOTE: When doublebuffer is on, framebuffer transparency not working
+	// NOTE: When doublebuffering is on, framebuffer transparency not working
 	// on fullscreen
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 
@@ -51,21 +51,21 @@ func CreateWindow(width int, height int, title string) Window {
 	}
 	window.handle = windowHandle
 
-	window.handle.SetSizeCallback(WindowResizeHandler)
-	window.handle.SetIconifyCallback(MinimizeHandler)
+	window.handle.SetSizeCallback(windowResizeHandler)
+	window.handle.SetIconifyCallback(windowMinimizeHandler)
 
-	window.CalculateDPI()
+	window.calculateDPI()
 
 	window.handle.MakeContextCurrent()
 
 	return window
 }
 
-func MinimizeHandler(w *glfw.Window, minimized bool) {
+func windowMinimizeHandler(w *glfw.Window, minimized bool) {
 	EditorSingleton.window.minimized = minimized
 }
 
-func WindowResizeHandler(w *glfw.Window, width, height int) {
+func windowResizeHandler(w *glfw.Window, width, height int) {
 	EditorSingleton.window.width = width
 	EditorSingleton.window.height = height
 	EditorSingleton.nvim.requestResize()
@@ -109,6 +109,7 @@ func (window *Window) SetState(state string) {
 		window.Center()
 		break
 	default:
+		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
 		break
 	}
 }
@@ -119,6 +120,10 @@ func (window *Window) Center() {
 	x := (mode.Width / 2) - (w / 2)
 	y := (mode.Height / 2) - (h / 2)
 	window.handle.SetPos(x, y)
+}
+
+func (window *Window) SetSize(width, height int) {
+	window.handle.SetSize(width, height)
 }
 
 func (window *Window) SetTitle(title string) {
@@ -146,7 +151,7 @@ func (window *Window) ToggleFullscreen() {
 	}
 }
 
-func (window *Window) CalculateDPI() {
+func (window *Window) calculateDPI() {
 	monitor := glfw.GetPrimaryMonitor()
 	pWidth, pHeight := monitor.GetPhysicalSize()
 	pDiagonal := math.Sqrt(float64(pWidth*pWidth) + float64(pHeight*pHeight))
@@ -155,6 +160,7 @@ func (window *Window) CalculateDPI() {
 	mHeight := float32(monitor.GetVideoMode().Height)
 	mDiagonal := math.Sqrt(float64(mWidth*mWidth) + float64(mHeight*mHeight))
 	window.dpi = mDiagonal / pDiagonalInch
+	log_debug("Monitor diagonal:", pDiagonalInch, "dpi:", window.dpi)
 }
 
 func (window *Window) Close() {

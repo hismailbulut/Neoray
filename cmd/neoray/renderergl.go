@@ -12,11 +12,9 @@ import (
 const VertexStructSize = 16 * 4
 
 type Vertex struct {
-	// These are vertex positions. May not be changed for
-	// most of the vertices in runtime.
+	// position of this vertex
 	pos F32Vec2 // layout 0
-	// These are vertex atlas texture positions for given character
-	// and they are changing most of the time.
+	// texture position
 	tex F32Vec2 // layout 1
 	// foreground color
 	fg F32Color // layout 2
@@ -46,8 +44,8 @@ var (
 	rgl_height int
 )
 
-func rgl_init() {
-	defer measure_execution_time("rgl_init")()
+func rglInit() {
+	defer measure_execution_time()()
 
 	// Initialize opengl
 	if err := gl.Init(); err != nil {
@@ -55,13 +53,13 @@ func rgl_init() {
 	}
 
 	// Init shaders
-	rgl_initShaders()
+	rglInitShaders()
 	gl.UseProgram(rgl_shader_program)
 
-	rgl_checkError("gl use program")
+	rglCheckError("gl use program")
 
-	rgl_atlas_uniform = rgl_getUniformLocation("atlas")
-	rgl_projection_uniform = rgl_getUniformLocation("projection")
+	rgl_atlas_uniform = rglGetUniformLocation("atlas")
+	rgl_projection_uniform = rglGetUniformLocation("projection")
 
 	// Initialize vao
 	gl.CreateVertexArrays(1, &rgl_vao)
@@ -75,7 +73,7 @@ func rgl_init() {
 	gl.GenBuffers(1, &rgl_ebo)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rgl_ebo)
 
-	rgl_checkError("gl bind buffers")
+	rglCheckError("gl bind buffers")
 
 	// position
 	offset := 0
@@ -98,20 +96,20 @@ func rgl_init() {
 	gl.EnableVertexAttribArray(4)
 	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
-	rgl_checkError("gl enable attributes")
+	rglCheckError("gl enable attributes")
 	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
 
 	if isDebugBuild() {
 		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
 		gl.Enable(gl.BLEND)
 		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-		rgl_checkError("gl enable blending")
+		rglCheckError("gl enable blending")
 	}
 
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
-func rgl_getUniformLocation(name string) int32 {
+func rglGetUniformLocation(name string) int32 {
 	uniform_name := gl.Str(name + "\x00")
 	loc := gl.GetUniformLocation(rgl_shader_program, uniform_name)
 	if loc < 0 {
@@ -120,7 +118,7 @@ func rgl_getUniformLocation(name string) int32 {
 	return loc
 }
 
-func rgl_createViewport(w, h int) {
+func rglCreateViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
 	projection := orthoProjection(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rgl_projection_uniform, 1, true, &projection[0])
@@ -128,27 +126,27 @@ func rgl_createViewport(w, h int) {
 	rgl_height = h
 }
 
-func rgl_setAtlasTexture(atlas *Texture) {
+func rglSetAtlasTexture(atlas *Texture) {
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, atlas.id)
 }
 
-func rgl_setUndercurlRect(val F32Rect) {
-	loc := rgl_getUniformLocation("undercurlRect")
+func rglSetUndercurlRect(val F32Rect) {
+	loc := rglGetUniformLocation("undercurlRect")
 	gl.Uniform4f(loc, val.X, val.Y, val.W, val.H)
 }
 
-func rgl_clearScreen(color U8Color) {
+func rglClearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	c := color.ToF32Color()
 	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.framebufferTransparency)
 }
 
-func rgl_readPixelsToImage() *image.RGBA {
-	defer measure_execution_time("rgl_readPixelsToImage")()
+func rglReadPixelsToImage() *image.RGBA {
+	defer measure_execution_time()()
 	img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
 	gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
-	rgl_checkError("read pixels")
+	rglCheckError("read pixels")
 	// The image is upside down, we need to flip.
 	for y := 0; y < rgl_height/2; y++ {
 		k := (rgl_height - 1) - y
@@ -163,37 +161,37 @@ func rgl_readPixelsToImage() *image.RGBA {
 	return img
 }
 
-func rgl_updateVertices(data []Vertex) {
+func rglUpdateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*VertexStructSize, gl.Ptr(data), gl.STATIC_DRAW)
-		rgl_checkError("vertex buffer data")
+		rglCheckError("vertex buffer data")
 		rgl_vertex_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*VertexStructSize, gl.Ptr(data))
-		rgl_checkError("vertex buffer subdata")
+		rglCheckError("vertex buffer subdata")
 	}
 }
 
-func rgl_updateIndices(data []uint32) {
+func rglUpdateIndices(data []uint32) {
 	if rgl_element_buffer_len != len(data) {
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(data)*4, gl.Ptr(data), gl.STATIC_DRAW)
-		rgl_checkError("index buffer data")
+		rglCheckError("index buffer data")
 		rgl_element_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, len(data)*4, gl.Ptr(data))
-		rgl_checkError("index buffer subdata")
+		rglCheckError("index buffer subdata")
 	}
 }
 
-func rgl_render() {
+func rglRender() {
 	gl.DrawElements(gl.TRIANGLES, int32(rgl_element_buffer_len), gl.UNSIGNED_INT, nil)
-	rgl_checkError("draw elements")
+	rglCheckError("draw elements")
 }
 
-func rgl_initShaders() {
-	vertexShaderSource, fragmentShaderSource := rgl_loadShaders()
-	vertexShader := rgl_compileShader(vertexShaderSource, gl.VERTEX_SHADER)
-	fragmentShader := rgl_compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+func rglInitShaders() {
+	vertexShaderSource, fragmentShaderSource := rglLoadDefaultShaders()
+	vertexShader := rglCompileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	fragmentShader := rglCompileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
 
 	rgl_shader_program = gl.CreateProgram()
 	gl.AttachShader(rgl_shader_program, vertexShader)
@@ -215,7 +213,7 @@ func rgl_initShaders() {
 	gl.DeleteShader(fragmentShader)
 }
 
-func rgl_loadShaders() (string, string) {
+func rglLoadDefaultShaders() (string, string) {
 	vertexSourceBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
 	fragSourceBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
 	assert(vertexSourceBegin != -1 && fragSourceBegin != -1, "Shaders are not correctly prefixed!")
@@ -233,7 +231,7 @@ func rgl_loadShaders() (string, string) {
 	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00"
 }
 
-func rgl_compileShader(source string, shader_type uint32) uint32 {
+func rglCompileShader(source string, shader_type uint32) uint32 {
 	shader := gl.CreateShader(shader_type)
 	cstr, free := gl.Strs(source)
 	defer free()
@@ -254,7 +252,7 @@ func rgl_compileShader(source string, shader_type uint32) uint32 {
 	return shader
 }
 
-func rgl_checkError(callerName string) {
+func rglCheckError(callerName string) {
 	if err := gl.GetError(); err != gl.NO_ERROR {
 		var errName string
 		switch err {
@@ -280,7 +278,7 @@ func rgl_checkError(callerName string) {
 	}
 }
 
-func rgl_close() {
+func rglClose() {
 	gl.DeleteProgram(rgl_shader_program)
 	gl.DeleteBuffers(1, &rgl_vbo)
 	gl.DeleteVertexArrays(1, &rgl_vao)

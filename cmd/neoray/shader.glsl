@@ -53,10 +53,8 @@ void main() {
 	vec4 ucColor = texture(atlas, ucPos);
 	vec4 foreground = mix(fgColor, spColor, ucColor.a * spColor.a);
 	vec4 background = mix(bgColor, spColor, ucColor.a * spColor.a);
-
 	// Mix background and foreground color.
 	vec4 texColor = texture(atlas, texPos);
 	vec4 result = mix(background, foreground, texColor.a);
-
 	gl_FragColor = result;
 }

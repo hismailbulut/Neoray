@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/sqweek/dialog"
@@ -16,8 +17,16 @@ const (
 	LOG_LEVEL_TRACE
 	LOG_LEVEL_WARN
 	LOG_LEVEL_ERROR
+	// Panic is only for printing panic string to
+	// beginning of the message and only used for
+	// printing panics to file. It will not panic
+	// itself. Don't use it.
+	LOG_LEVEL_PANIC
+	// The fatal will be printed to logfile and a
+	// fatal popup will be shown. The program will
+	// be panicked. Not immediately exits.
 	LOG_LEVEL_FATAL
-	// log types
+	// Log types, makes easy to understand where the message coming from
 	LOG_TYPE_NVIM
 	LOG_TYPE_NEORAY
 	LOG_TYPE_RENDERER
@@ -29,9 +38,9 @@ var (
 	log_file       *os.File
 )
 
-func init_log_file(name string) {
+func init_log_file(filename string) {
 	assert(!verbose_output, "log file already initialized")
-	path, err := filepath.Abs(name)
+	path, err := filepath.Abs(filename)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
 		return
@@ -43,12 +52,23 @@ func init_log_file(name string) {
 	}
 	verbose_output = true
 	// Print time to log file
-	log_file.WriteString(fmt.Sprintln("\nNEORAY LOG", time.Now()))
+	log_file.WriteString(fmt.Sprintln("\nNEORAY LOG", time.Now().UTC()))
 }
 
-func close_log_file() {
+func close_logger() {
+	// If we are panicking print it to logfile.
+	// Also the stack trace will be printed after
+	// fatal error.
+	if pmsg := recover(); pmsg != nil {
+		log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, pmsg)
+		log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, string(debug.Stack()))
+		// Print some information.
+	}
+	// If logfile is initialized then close it.
 	if verbose_output {
 		log_file.Close()
+		// We don't need but anyway
+		verbose_output = false
 	}
 }
 
@@ -83,6 +103,8 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		log_string += "WARNING:"
 	case LOG_LEVEL_ERROR:
 		log_string += "ERROR:"
+	case LOG_LEVEL_PANIC:
+		log_string += "PANIC:"
 	case LOG_LEVEL_FATAL:
 		log_string += "FATAL:"
 		fatal = true
@@ -90,16 +112,16 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		return
 	}
 
-	log_string += " "
 	for _, msg := range message {
-		log_string += fmt.Sprint(msg)
-		log_string += " "
+		log_string += " " + fmt.Sprint(msg)
 	}
 
 	if verbose_output {
 		log_file.WriteString(log_string + "\n")
 	}
+
 	log.Println(log_string)
+
 	if fatal {
 		dialog.Message(log_string).Title("Fatal error").Error()
 		panic("fatal error occured")
@@ -108,6 +130,10 @@ func log_message(log_level, log_type int, message ...interface{}) {
 
 func log_debug(message ...interface{}) {
 	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, message...)
+}
+
+func logf_debug(format string, message ...interface{}) {
+	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
 }
 
 func assert(cond bool, message ...interface{}) {

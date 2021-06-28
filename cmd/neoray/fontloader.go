@@ -30,7 +30,7 @@ type Font struct {
 }
 
 func CreateDefaultFont() Font {
-	defer measure_execution_time("InitializeFontLoader")()
+	defer measure_execution_time()()
 	font := Font{
 		size: DEFAULT_FONT_SIZE,
 	}
@@ -63,14 +63,14 @@ func CreateDefaultFont() Font {
 func CheckSystemFonts() {
 	// On windows systems this takes long (2-3 secs)
 	// We could do it on beginning in another goroutine
-	defer measure_execution_time("CheckSystemFonts")()
+	defer measure_execution_time()()
 	if systemFontList == nil {
 		systemFontList = sysfont.NewFinder(nil).List()
 	}
 }
 
 func CreateFont(fontName string, size float32) (Font, bool) {
-	defer measure_execution_time("CreateFont")()
+	defer measure_execution_time()()
 	CheckSystemFonts()
 
 	if fontName == "" || fontName == " " {

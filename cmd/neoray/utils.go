@@ -37,6 +37,10 @@ type F32Rect struct {
 	X, Y, W, H float32
 }
 
+type IntSize struct {
+	W, H int
+}
+
 func packColor(color U8Color) uint32 {
 	rgb24 := uint32(color.R)
 	rgb24 = (rgb24 << 8) | uint32(color.G)

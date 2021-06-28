@@ -72,7 +72,7 @@ func InitializeInputEvents() {
 	popupMenuEnabled = true
 	// Initialize callbacks
 	wh := EditorSingleton.window.handle
-	wh.SetCharModsCallback(CharEventHandler)
+	wh.SetCharCallback(CharEventHandler)
 	wh.SetKeyCallback(KeyEventHandler)
 	wh.SetMouseButtonCallback(ButtonEventHandler)
 	wh.SetCursorPosCallback(MousePosEventHandler)
@@ -80,7 +80,7 @@ func InitializeInputEvents() {
 	wh.SetDropCallback(DropEventHandler)
 }
 
-func CharEventHandler(w *glfw.Window, char rune, mods glfw.ModifierKey) {
+func CharEventHandler(w *glfw.Window, char rune) {
 	var keycode string
 	c := string(char)
 	switch c {
@@ -116,20 +116,28 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 		shift := mods&glfw.ModShift != 0
 		alt := mods&glfw.ModAlt != 0
 		super := mods&glfw.ModSuper != 0
+
 		var keyname string
 		name, ok := SpecialKeys[key]
+
 		if ok {
 			keyname = name
 		} else {
-			if shift || alt || super {
-				return
-			} else if ctrl {
+			// GetKeyName function returns the localized character
+			// of the key if key representable by char. We are only
+			// send ctrl and super mods with characters because shift
+			// and alt is used for alternative characters and sending
+			// them may broke the input.
+			if (ctrl || super) && !(shift || alt) {
 				keyname = glfw.GetKeyName(key, scancode)
 				if keyname == "" {
 					return
 				}
+			} else {
+				return
 			}
 		}
+
 		keycode := "<"
 		if ctrl {
 			keycode += "C-"
@@ -191,6 +199,12 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 		buttonCode = "middle"
 		break
 	default:
+		// Other mouse buttons will print the cell info under the cursor in debug build.
+		if isDebugBuild() && action == glfw.Release {
+			row := lastMousePos.Y / EditorSingleton.cellHeight
+			col := lastMousePos.X / EditorSingleton.cellWidth
+			EditorSingleton.debugEvalCell(row, col)
+		}
 		return
 	}
 

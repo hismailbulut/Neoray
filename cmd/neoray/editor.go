@@ -143,8 +143,8 @@ MAINLOOP:
 		}
 	}
 	if !quitRequestedFromNvim {
-		// Maybe there are unsaved files in neovim. Instead of immediately closing
-		// we will send simple quit command to neovim and if there are unsaved files
+		// Instead of immediately closing we will send simple
+		// quit command to neovim and if there are unsaved files
 		// the neovim will handle them and user will not lose its progress.
 		editor.window.handle.SetShouldClose(false)
 		go editor.nvim.executeVimScript(":qa")
@@ -169,6 +169,23 @@ func (editor *Editor) render() {
 
 func (editor *Editor) draw() {
 	editor.renderer.drawCall = true
+}
+
+func (editor *Editor) debugEvalCell(x, y int) {
+	cell := editor.grid.GetCell(x, y)
+	vertices := editor.renderer.getCellData(x, y)
+	format := `Cell information:
+	pos: %d %d
+	char: %s %d
+	attrib_id: %d
+	needs_redraw: %t
+	Data 0: %+v
+	Data 1: %+v
+	Data 2: %+v
+	Data 3: %+v`
+	logf_debug(format, x, y, string(cell.char), cell.char,
+		cell.attribId, cell.needsDraw,
+		vertices[0], vertices[1], vertices[2], vertices[3])
 }
 
 func (editor *Editor) Shutdown() {
