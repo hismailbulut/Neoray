@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os/exec"
+	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/neovim/go-client/nvim"
 )
@@ -33,12 +37,14 @@ func CreateNvimProcess() NvimProcess {
 		update_stack: make([][][]interface{}, 0),
 	}
 
-	args := []string{"--embed"}
-	args = append(args, EditorParsedArgs.others...)
+	proc.checkNeovimVersion()
 
-	nv, err := nvim.NewChildProcess(nvim.ChildProcessArgs(args...))
+	args := append([]string{"--embed"}, EditorParsedArgs.others...)
+	nv, err := nvim.NewChildProcess(
+		nvim.ChildProcessArgs(args...),
+		nvim.ChildProcessCommand(EditorParsedArgs.execPath))
 	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, err)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Failed to start neovim instance:", err)
 	}
 
 	proc.handle = nv
@@ -47,9 +53,44 @@ func CreateNvimProcess() NvimProcess {
 	proc.initScripts()
 
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
-		"Neovim started with args", args)
+		"Neovim started with command:", EditorParsedArgs.execPath, args)
 
 	return proc
+}
+
+func (proc *NvimProcess) checkNeovimVersion() {
+	defer measure_execution_time()()
+
+	path, err := exec.LookPath(EditorParsedArgs.execPath)
+	if err != nil {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
+			"Neovim executable not found! Specify with --nvim option or add it to path.")
+	}
+
+	cmd := exec.Command(path, "--version")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	output, err := cmd.Output()
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get neovim version information:", err)
+	}
+
+	// The version string is like this: NVIM v0.4.5
+	versionStringIndex := strings.Index(string(output), "NVIM v")
+
+	versionString := string(output[versionStringIndex : versionStringIndex+11])
+	log_debug("Founded neovim version:", versionString)
+
+	vMinorString := string(versionString[strings.Index(versionString, ".")+1])
+
+	vMinor, err := strconv.Atoi(vMinorString)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Version output of the neovim is not valid.")
+	}
+
+	if vMinor < 4 {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
+			"Neoray needs minimum 0.4.0 version of neovim. Please update your neovim to a newer version.")
+	}
 }
 
 func (proc *NvimProcess) requestApiInfo() {
