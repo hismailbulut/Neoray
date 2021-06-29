@@ -61,8 +61,8 @@ func CreateDefaultFont() Font {
 }
 
 func CheckSystemFonts() {
-	// On windows systems this takes long (2-3 secs)
-	// We could do it on beginning in another goroutine
+	// On some system that has many fonts this functions
+	// takes so long.
 	defer measure_execution_time()()
 	if systemFontList == nil {
 		systemFontList = sysfont.NewFinder(nil).List()
@@ -73,14 +73,11 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	defer measure_execution_time()()
 	CheckSystemFonts()
 
-	if fontName == "" || fontName == " " {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Font name can not be empty!")
-		return Font{}, false
-	}
+	assert(fontName != "" && fontName != " ", "Font name can not be empty!")
 
 	if size < MINIMUM_FONT_SIZE {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
-			"Font size", size, "is small. Reset to default", DEFAULT_FONT_SIZE)
+			"Font size", size, "is small and set to default", DEFAULT_FONT_SIZE)
 		size = DEFAULT_FONT_SIZE
 	}
 
