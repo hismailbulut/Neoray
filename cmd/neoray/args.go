@@ -19,17 +19,19 @@ Webpage %s
 Options:
 
 --file <name>
-	Filename to open
+	Filename to open.
 --line <number>
-	Goto line number
+	Goto line number.
 --column <number>
-	Goto column number
+	Goto column number.
 --singleinstance, -si
-	Only accept one instance of neoray and send all flags to it
+	Only accept one instance of neoray and send all flags to it.
 --verbose <filename>
-	Specify a filename to verbose debug output
+	Specify a filename to verbose debug output.
+--nvim <path>
+	Path to nvim executable. May be relative or absolute.
 --help, -h
-	Prints this message and quits
+	Prints this message and quits.
 
 All other flags will send to neovim.
 
@@ -44,6 +46,7 @@ type ParsedArgs struct {
 	line       int
 	column     int
 	singleinst bool
+	execPath   string
 	others     []string
 }
 
@@ -54,6 +57,8 @@ func ParseArgs(args []string) ParsedArgs {
 		line:       -1,
 		column:     -1,
 		singleinst: false,
+		execPath:   "nvim",
+		others:     []string{},
 	}
 	printHelp := false
 	var err error
@@ -78,6 +83,14 @@ func ParseArgs(args []string) ParsedArgs {
 			break
 		case "--singleinstance", "-si":
 			options.singleinst = true
+			break
+		case "--nvim":
+			assert(len(args) > i+1, "specify filename after --file")
+			absolute, err := filepath.Abs(args[i+1])
+			if err == nil {
+				options.execPath = absolute
+			}
+			i++
 			break
 		case "--verbose":
 			assert(len(args) > i+1, "specify filename after --verbose")
