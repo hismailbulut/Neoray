@@ -14,6 +14,11 @@ type Cursor struct {
 	needsDraw    bool
 	hidden       bool
 	vertexData   VertexDataStorage
+	// blinking variables
+	time     float32
+	lastTime float32
+	waitTime float32
+	modeName string
 }
 
 func CreateCursor() Cursor {
@@ -23,8 +28,34 @@ func CreateCursor() Cursor {
 }
 
 func (cursor *Cursor) Update() {
+	cursor.time += EditorSingleton.deltaTime
+	// Blinking
+	cursor.updateBlinking()
+	// Draw cursor if it needs.
 	if cursor.needsDraw {
 		cursor.Draw()
+	}
+}
+
+func (cursor *Cursor) updateBlinking() {
+	info := EditorSingleton.mode.Current()
+	if info.name != cursor.modeName {
+		// blinkwait
+		cursor.Show()
+		cursor.modeName = info.name
+		cursor.lastTime = cursor.time
+		cursor.waitTime = float32(info.blinkwait) / 1000
+	} else if cursor.time >= cursor.lastTime+cursor.waitTime {
+		cursor.lastTime = cursor.time
+		if cursor.hidden {
+			// show cursor
+			cursor.Show()
+			cursor.waitTime = float32(info.blinkon) / 1000
+		} else {
+			// hide cursor
+			cursor.Hide()
+			cursor.waitTime = float32(info.blinkoff) / 1000
+		}
 	}
 }
 
@@ -114,13 +145,18 @@ func (cursor *Cursor) animPosition() IntVec2 {
 }
 
 func (cursor *Cursor) Show() {
-	cursor.hidden = false
-	cursor.Draw()
+	if cursor.hidden {
+		cursor.hidden = false
+		cursor.Draw()
+	}
 }
 
 func (cursor *Cursor) Hide() {
-	cursor.hidden = true
-	cursor.vertexData.setCellPos(0, IntRect{})
+	if !cursor.hidden {
+		cursor.hidden = true
+		cursor.vertexData.setCellPos(0, IntRect{})
+		EditorSingleton.render()
+	}
 }
 
 func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
@@ -146,26 +182,26 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 func (cursor *Cursor) Draw() {
 	defer measure_execution_time()()
 	if !cursor.hidden {
-		mode_info := EditorSingleton.mode.CurrentModeInfo()
+		mode_info := EditorSingleton.mode.Current()
 		fg, bg := cursor.modeColors(mode_info)
 		pos := cursor.animPosition()
 		rect, draw_char := cursor.modeRectangle(pos, mode_info)
 		if draw_char && !cursor.needsDraw {
-			cell := EditorSingleton.grid.GetCell(cursor.X, cursor.Y)
+			cell := EditorSingleton.grid.getCell(cursor.X, cursor.Y)
 			if cell.char != 0 {
 				// We need to draw cell character to the cursor foreground.
 				cursor.drawWithCell(cell, fg)
 			} else {
 				// Clear foreground of the cursor.
 				cursor.vertexData.setCellTexPos(0, IntRect{})
-				cursor.vertexData.setCellSpColor(0, U8Color{})
+				// cursor.vertexData.setCellSpColor(0, U8Color{})
 			}
 			cursor.vertexData.setCellColor(0, fg, bg)
 		} else {
 			// No cell drawing needed. Clear foreground.
 			cursor.vertexData.setCellTexPos(0, IntRect{})
 			cursor.vertexData.setCellColor(0, U8Color{}, bg)
-			cursor.vertexData.setCellSpColor(0, U8Color{})
+			// cursor.vertexData.setCellSpColor(0, U8Color{})
 		}
 		cursor.vertexData.setCellPos(0, rect)
 		EditorSingleton.render()
