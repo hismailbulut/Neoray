@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"time"
 )
 
 const (
@@ -37,6 +38,7 @@ var EditorSingleton Editor
 var EditorParsedArgs ParsedArgs
 
 func main() {
+	start := time.Now()
 	// If --verbose flag is set then new file will be created with given name
 	// and we need to close this file. This function will check if the file is open
 	// and than closes it. And also prints panic to the logfile if the program panics.
@@ -60,6 +62,8 @@ func main() {
 	defer EditorSingleton.Shutdown()
 	// Some arguments must be processed after initializing.
 	EditorParsedArgs.ProcessAfter()
+	// Start time information
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Start time:", time.Since(start))
 	// MainLoop is main loop of the neoray.
 	EditorSingleton.MainLoop()
 }
