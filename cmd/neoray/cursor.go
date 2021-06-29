@@ -16,8 +16,7 @@ type Cursor struct {
 	vertexData   VertexDataStorage
 	// blinking variables
 	time     float32
-	lastTime float32
-	waitTime float32
+	nextTime float32
 	modeName string
 }
 
@@ -39,22 +38,26 @@ func (cursor *Cursor) Update() {
 
 func (cursor *Cursor) updateBlinking() {
 	info := EditorSingleton.mode.Current()
+	// When one of the numbers is zero, there is no blinking.
+	if info.blinkwait <= 0 || info.blinkon <= 0 || info.blinkoff <= 0 {
+		return
+	}
 	if info.name != cursor.modeName {
-		// blinkwait
-		cursor.Show()
+		// show cursor
 		cursor.modeName = info.name
-		cursor.lastTime = cursor.time
-		cursor.waitTime = float32(info.blinkwait) / 1000
-	} else if cursor.time >= cursor.lastTime+cursor.waitTime {
-		cursor.lastTime = cursor.time
+		cursor.time = 0
+		cursor.Show()
+		cursor.nextTime = float32(info.blinkwait) / 1000
+	} else if cursor.time >= cursor.nextTime {
+		cursor.time = 0
 		if cursor.hidden {
 			// show cursor
 			cursor.Show()
-			cursor.waitTime = float32(info.blinkon) / 1000
+			cursor.nextTime = float32(info.blinkon) / 1000
 		} else {
 			// hide cursor
 			cursor.Hide()
-			cursor.waitTime = float32(info.blinkoff) / 1000
+			cursor.nextTime = float32(info.blinkoff) / 1000
 		}
 	}
 }
@@ -94,7 +97,7 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, b
 		draw_char = true
 		break
 	case "horizontal":
-		height := EditorSingleton.cellHeight / (100 / info.cell_percentage)
+		height := int(float32(EditorSingleton.cellHeight) / (100 / float32(info.cell_percentage)))
 		cursor_rect = IntRect{
 			X: cell_pos.X,
 			Y: cell_pos.Y + (EditorSingleton.cellHeight - height),
@@ -106,7 +109,7 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, b
 		cursor_rect = IntRect{
 			X: cell_pos.X,
 			Y: cell_pos.Y,
-			W: EditorSingleton.cellWidth / (100 / info.cell_percentage),
+			W: int(float32(EditorSingleton.cellWidth) / (100 / float32(info.cell_percentage))),
 			H: EditorSingleton.cellHeight,
 		}
 		break
@@ -120,8 +123,12 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	bg := EditorSingleton.grid.default_fg
 	if info.attr_id != 0 {
 		attrib := EditorSingleton.grid.attributes[info.attr_id]
-		fg = attrib.foreground
-		bg = attrib.background
+		if !colorIsBlack(attrib.foreground) {
+			fg = attrib.foreground
+		}
+		if !colorIsBlack(attrib.background) {
+			bg = attrib.background
+		}
 	}
 	return fg, bg
 }
@@ -194,14 +201,14 @@ func (cursor *Cursor) Draw() {
 			} else {
 				// Clear foreground of the cursor.
 				cursor.vertexData.setCellTexPos(0, IntRect{})
-				// cursor.vertexData.setCellSpColor(0, U8Color{})
+				cursor.vertexData.setCellSpColor(0, U8Color{})
 			}
 			cursor.vertexData.setCellColor(0, fg, bg)
 		} else {
 			// No cell drawing needed. Clear foreground.
 			cursor.vertexData.setCellTexPos(0, IntRect{})
 			cursor.vertexData.setCellColor(0, U8Color{}, bg)
-			// cursor.vertexData.setCellSpColor(0, U8Color{})
+			cursor.vertexData.setCellSpColor(0, U8Color{})
 		}
 		cursor.vertexData.setCellPos(0, rect)
 		EditorSingleton.render()
