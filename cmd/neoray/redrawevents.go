@@ -195,7 +195,7 @@ func mode_change(args []interface{}) {
 func grid_resize(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		grid := int(v.Index(0).Elem().Convert(t_int).Int())
+		_ = int(v.Index(0).Elem().Convert(t_int).Int())
 		cols := int(v.Index(1).Elem().Convert(t_int).Int())
 		rows := int(v.Index(2).Elem().Convert(t_int).Int())
 
@@ -204,10 +204,7 @@ func grid_resize(args []interface{}) {
 		EditorSingleton.cellCount = rows * cols
 
 		EditorSingleton.grid.resize(rows, cols)
-
-		log_debug("Grid", grid, "resized:", rows, cols)
 		EditorSingleton.renderer.resize(rows, cols)
-
 		EditorSingleton.waitingResize = false
 	}
 }
@@ -221,9 +218,11 @@ func default_colors_set(args []interface{}) {
 		EditorSingleton.grid.default_fg = unpackColor(uint32(fg))
 		EditorSingleton.grid.default_bg = unpackColor(uint32(bg))
 		EditorSingleton.grid.default_sp = unpackColor(uint32(sp))
-		// Note: Unlike the corresponding |ui-grid-old| events, the screen is not
+		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
+		// Maybe not clear all cells but it's working. And without
+		// it it's also working.
 		EditorSingleton.grid.clearCells()
 	}
 }
@@ -235,10 +234,11 @@ func hl_attr_define(args []interface{}) {
 		// attribute id and second is a map which
 		// contains attribute keys
 		id := int(v.Index(0).Elem().Convert(t_uint).Uint())
-		if id == 0 {
-			// `id` 0 will always be used for the default highlight with colors
-			continue
-		}
+		assert(id != 0, "hl id is zero")
+		// if id == 0 {
+		//     // `id` 0 will always be used for the default highlight with colors
+		//     continue
+		// }
 		mapIter := v.Index(1).Elem().MapRange()
 		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes
