@@ -65,7 +65,7 @@ func CreateRenderer() Renderer {
 	return renderer
 }
 
-func (renderer *Renderer) SetFont(font Font) {
+func (renderer *Renderer) setFont(font Font) {
 	renderer.userFont = font
 	// resize default fonts
 	renderer.defaultFont.Resize(font.size)
@@ -76,7 +76,7 @@ func (renderer *Renderer) SetFont(font Font) {
 	renderer.fontSize = font.size
 }
 
-func (renderer *Renderer) SetFontSize(size float32) {
+func (renderer *Renderer) setFontSize(size float32) {
 	if size >= MINIMUM_FONT_SIZE && size != renderer.fontSize {
 		renderer.defaultFont.Resize(size)
 		if renderer.userFont.size > 0 {
@@ -91,12 +91,12 @@ func (renderer *Renderer) SetFontSize(size float32) {
 	}
 }
 
-func (renderer *Renderer) IncreaseFontSize() {
-	renderer.SetFontSize(renderer.fontSize + 0.5)
+func (renderer *Renderer) increaseFontSize() {
+	renderer.setFontSize(renderer.fontSize + 0.5)
 }
 
-func (renderer *Renderer) DecreaseFontSize() {
-	renderer.SetFontSize(renderer.fontSize - 0.5)
+func (renderer *Renderer) decreaseFontSize() {
+	renderer.setFontSize(renderer.fontSize - 0.5)
 }
 
 func (renderer *Renderer) updateCellSize(font *Font) bool {
@@ -121,7 +121,7 @@ func (renderer *Renderer) clearAtlas() {
 	renderer.fontAtlas.texture.Clear()
 	renderer.fontAtlas.characters = make(map[string]IntRect)
 	renderer.fontAtlas.pos = IntVec2{}
-	EditorSingleton.grid.MakeAllCellsChanged()
+	EditorSingleton.grid.makeAllCellsChanged()
 	EditorSingleton.popupMenu.updateChars()
 	renderer.drawCall = true
 }
@@ -405,18 +405,19 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 		// Get suitable font and check for glyph
 		fontFace, ok := renderer.getSupportedFace(char, italic, bold)
 		if !ok {
-			if isDebugBuild() {
-				log_debug("Unsupported glyph:", string(char), char)
-			} else {
-				id = UNSUPPORTED_GLYPH_ID
-				pos, ok := renderer.fontAtlas.characters[id]
-				if ok {
-					return pos
-				}
+			// If this character can't be drawed, an empty rectangle will be drawed.
+			// And we are reducing this rectangle count in the font atlas to 1.
+			// Every unsupported glyph will use it.
+			// TODO: sprintf is for debugging, delete it
+			id = fmt.Sprint(UNSUPPORTED_GLYPH_ID, char)
+			pos, ok := renderer.fontAtlas.characters[id]
+			if ok {
+				return pos
 			}
+			log_debug("Unsupported glyph:", string(char), char)
 		}
 		// Render character to an image
-		textImage, _ := fontFace.RenderChar(char, underline, strikethrough)
+		textImage := fontFace.RenderChar(char, underline, strikethrough)
 		if textImage == nil {
 			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph:", string(char), char)
 			id = UNSUPPORTED_GLYPH_ID
@@ -425,12 +426,15 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 				return pos
 			}
 		}
+		// TODO: This is always equal to cellWidth for now. But we need
+		// to implement some functionality to render double width characters.
+		width := textImage.Rect.Dx()
 		// Get empty atlas position for this character
-		text_pos := renderer.nextAtlasPosition(EditorSingleton.cellWidth)
+		text_pos := renderer.nextAtlasPosition(width)
 		position := IntRect{
 			X: text_pos.X,
 			Y: text_pos.Y,
-			W: EditorSingleton.cellWidth,
+			W: width,
 			H: EditorSingleton.cellHeight,
 		}
 		// Draw text to empty position of atlas texture

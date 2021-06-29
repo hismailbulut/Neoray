@@ -36,8 +36,6 @@ func CreateNvimProcess() NvimProcess {
 	args := []string{"--embed"}
 	args = append(args, EditorParsedArgs.others...)
 
-	log_debug("Neovim args:", args)
-
 	nv, err := nvim.NewChildProcess(nvim.ChildProcessArgs(args...))
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, err)
@@ -48,12 +46,14 @@ func CreateNvimProcess() NvimProcess {
 	proc.introduce()
 	proc.initScripts()
 
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process created.")
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
+		"Neovim started with args", args)
 
 	return proc
 }
 
 func (proc *NvimProcess) requestApiInfo() {
+	// TODO: Reserved.
 	_, err := proc.handle.APIInfo()
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
@@ -129,11 +129,11 @@ func (proc *NvimProcess) requestVariables() {
 	proc.getVimVar(OPTION_POPUP_MENU, &popupMenuEnabled)
 	var state string
 	if proc.getVimVar(OPTION_WINDOW_STATE, &state) {
-		EditorSingleton.window.SetState(state)
+		EditorSingleton.window.setState(state)
 	}
-	proc.getVimVar(OPTION_KEY_FULLSCRN, &KEYToggleFullscreen)
-	proc.getVimVar(OPTION_KEY_ZOOMIN, &KEYIncreaseFontSize)
-	proc.getVimVar(OPTION_KEY_ZOOMOUT, &KEYDecreaseFontSize)
+	proc.getVimVar(OPTION_KEY_FULLSCRN, &keyToggleFullscreen)
+	proc.getVimVar(OPTION_KEY_ZOOMIN, &keyIncreaseFontSize)
+	proc.getVimVar(OPTION_KEY_ZOOMOUT, &keyDecreaseFontSize)
 }
 
 func (proc *NvimProcess) getVimVar(name string, variable interface{}) bool {
@@ -203,6 +203,9 @@ func (proc *NvimProcess) paste(str string) {
 	}
 }
 
+// TODO: We need to check if this buffer is normal buffer.
+// Executing this function in non normal buffers is may
+// dangerous.
 func (proc *NvimProcess) selectAll() {
 	switch proc.currentMode() {
 	case "i", "v":

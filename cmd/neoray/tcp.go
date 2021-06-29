@@ -191,7 +191,7 @@ func (server *TCPServer) Process() {
 				break
 			}
 		}
-		EditorSingleton.window.Raise()
+		EditorSingleton.window.raise()
 		server.data = nil
 		server.dataReceived.Set(false)
 	}

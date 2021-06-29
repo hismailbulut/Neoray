@@ -59,16 +59,16 @@ var (
 	popupMenuEnabled bool
 
 	// Keybindings
-	KEYIncreaseFontSize string
-	KEYDecreaseFontSize string
-	KEYToggleFullscreen string
+	keyIncreaseFontSize string
+	keyDecreaseFontSize string
+	keyToggleFullscreen string
 )
 
 func InitializeInputEvents() {
 	// Initialize defaults
-	KEYIncreaseFontSize = "<C-+>"
-	KEYDecreaseFontSize = "<C-->"
-	KEYToggleFullscreen = "<F11>"
+	keyIncreaseFontSize = "<C-+>"
+	keyDecreaseFontSize = "<C-->"
+	keyToggleFullscreen = "<F11>"
 	popupMenuEnabled = true
 	// Initialize callbacks
 	wh := EditorSingleton.window.handle
@@ -119,7 +119,6 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 
 		var keyname string
 		name, ok := SpecialKeys[key]
-
 		if ok {
 			keyname = name
 		} else {
@@ -155,14 +154,14 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 
 		// Handle neoray keybindings
 		switch keycode {
-		case KEYIncreaseFontSize:
-			EditorSingleton.renderer.IncreaseFontSize()
+		case keyIncreaseFontSize:
+			EditorSingleton.renderer.increaseFontSize()
 			return
-		case KEYDecreaseFontSize:
-			EditorSingleton.renderer.DecreaseFontSize()
+		case keyDecreaseFontSize:
+			EditorSingleton.renderer.decreaseFontSize()
 			return
-		case KEYToggleFullscreen:
-			EditorSingleton.window.ToggleFullscreen()
+		case keyToggleFullscreen:
+			EditorSingleton.window.toggleFullscreen()
 			return
 		case "<ESC>":
 			if popupMenuEnabled && !EditorSingleton.popupMenu.hidden {

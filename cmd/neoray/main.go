@@ -54,7 +54,6 @@ func main() {
 	}
 	// Starts a pprof server. This function is only implemented in debug build.
 	start_pprof()
-	EditorSingleton = Editor{}
 	// Initializing editor is initializes everything.
 	EditorSingleton.Initialize()
 	// And shutdown will frees resources and closes everything.

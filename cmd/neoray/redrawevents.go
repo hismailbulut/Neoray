@@ -25,7 +25,7 @@ func HandleNvimRedrawEvents() {
 			// Global events
 			case "set_title":
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
-				EditorSingleton.window.SetTitle(title)
+				EditorSingleton.window.setTitle(title)
 				break
 			case "set_icon":
 				break
@@ -77,7 +77,7 @@ func HandleNvimRedrawEvents() {
 				grid_line(update[1:])
 				break
 			case "grid_clear":
-				EditorSingleton.grid.ClearCells()
+				EditorSingleton.grid.clearCells()
 				break
 			case "grid_destroy":
 				break
@@ -203,7 +203,7 @@ func grid_resize(args []interface{}) {
 		EditorSingleton.columnCount = cols
 		EditorSingleton.cellCount = rows * cols
 
-		EditorSingleton.grid.Resize(rows, cols)
+		EditorSingleton.grid.resize(rows, cols)
 
 		log_debug("Grid", grid, "resized:", rows, cols)
 		EditorSingleton.renderer.resize(rows, cols)
@@ -224,7 +224,7 @@ func default_colors_set(args []interface{}) {
 		// Note: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
-		EditorSingleton.grid.ClearCells()
+		EditorSingleton.grid.clearCells()
 	}
 }
 
@@ -283,7 +283,7 @@ func hl_attr_define(args []interface{}) {
 			}
 		}
 		EditorSingleton.grid.attributes[id] = hl_attr
-		EditorSingleton.grid.MakeAllCellsChanged()
+		EditorSingleton.grid.makeAllCellsChanged()
 	}
 }
 
@@ -319,7 +319,7 @@ func grid_line(args []interface{}) {
 			if cellv.Len() == 3 {
 				repeat = int(cellv.Index(2).Elem().Convert(t_int).Int())
 			}
-			EditorSingleton.grid.SetCells(row, &col_start, char, hl_id, repeat)
+			EditorSingleton.grid.setCells(row, &col_start, char, hl_id, repeat)
 		}
 	}
 }
@@ -344,6 +344,6 @@ func grid_scroll(args []interface{}) {
 		right := v.Index(4).Elem().Convert(t_int).Int()
 		rows := v.Index(5).Elem().Convert(t_int).Int()
 		//cols := r.Index(6).Elem().Convert(t).Int()
-		EditorSingleton.grid.Scroll(int(top), int(bot), int(rows), int(left), int(right))
+		EditorSingleton.grid.scroll(int(top), int(bot), int(rows), int(left), int(right))
 	}
 }

@@ -74,16 +74,18 @@ func (editor *Editor) Initialize() {
 	if err := glfw.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
 	}
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
+
 	editor.window = CreateWindow(800, 600, TITLE)
 	InitializeInputEvents()
 
 	editor.grid = CreateGrid()
 	editor.mode = CreateMode()
 	editor.cursor = CreateCursor()
+	editor.popupMenu = CreatePopupMenu()
 	editor.options = UIOptions{}
 
 	editor.renderer = CreateRenderer()
-	editor.popupMenu = CreatePopupMenu()
 
 	editor.quitRequestedChan = make(chan bool)
 	editor.nvim.startUI()
@@ -172,7 +174,7 @@ func (editor *Editor) draw() {
 }
 
 func (editor *Editor) debugEvalCell(x, y int) {
-	cell := editor.grid.GetCell(x, y)
+	cell := editor.grid.getCell(x, y)
 	vertices := editor.renderer.getCellData(x, y)
 	format := `Cell information:
 	pos: %d %d

@@ -23,7 +23,7 @@ func CreateMode() Mode {
 	return Mode{}
 }
 
-func (mode *Mode) CurrentModeInfo() ModeInfo {
+func (mode *Mode) Current() ModeInfo {
 	return mode.mode_infos[mode.current_mode]
 }
 

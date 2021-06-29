@@ -36,7 +36,7 @@ func CreateGrid() Grid {
 
 // This function is only used by neovim,
 // and calling this anywhere else may break the program.
-func (grid *Grid) Resize(rows, cols int) {
+func (grid *Grid) resize(rows, cols int) {
 	grid.cells = make([][]Cell, rows)
 	for i := range grid.cells {
 		grid.cells[i] = make([]Cell, cols)
@@ -46,7 +46,7 @@ func (grid *Grid) Resize(rows, cols int) {
 	}
 }
 
-func (grid *Grid) ClearCells() {
+func (grid *Grid) clearCells() {
 	for _, row := range grid.cells {
 		for _, cell := range row {
 			cell.char = 0
@@ -61,7 +61,7 @@ func (grid *Grid) ClearCells() {
 // draw call. We are using this when a highlight attribute
 // changes. Because we don't know how many and which cells
 // will be affected from highlight attribute change.
-func (grid *Grid) MakeAllCellsChanged() {
+func (grid *Grid) makeAllCellsChanged() {
 	for i := range grid.cells {
 		for j := range grid.cells[i] {
 			grid.cells[i][j].needsDraw = true
@@ -76,7 +76,7 @@ func (grid *Grid) MakeAllCellsChanged() {
 // you should create an alternative function.
 // If `repeat` is present, the cell should be
 // repeated `repeat` times (including the first time)
-func (grid *Grid) SetCells(x int, y *int, char rune, hl_id int, repeat int) {
+func (grid *Grid) setCells(x int, y *int, char rune, hl_id int, repeat int) {
 	cell_count := 1
 	if repeat > 0 {
 		cell_count = repeat
@@ -91,7 +91,7 @@ func (grid *Grid) SetCells(x int, y *int, char rune, hl_id int, repeat int) {
 }
 
 // This function returns a copy of the cell.
-func (grid *Grid) GetCell(x, y int) Cell {
+func (grid *Grid) getCell(x, y int) Cell {
 	return grid.cells[x][y]
 }
 
@@ -100,7 +100,7 @@ func (grid *Grid) copyRow(dst, src, left, right int) {
 	EditorSingleton.renderer.copyRowData(dst, src, left, right)
 }
 
-func (grid *Grid) Scroll(top, bot, rows, left, right int) {
+func (grid *Grid) scroll(top, bot, rows, left, right int) {
 	defer measure_execution_time()()
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ {

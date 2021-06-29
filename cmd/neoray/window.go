@@ -51,7 +51,7 @@ func CreateWindow(width int, height int, title string) Window {
 	}
 	window.handle = windowHandle
 
-	window.handle.SetSizeCallback(windowResizeHandler)
+	window.handle.SetFramebufferSizeCallback(windowFramebufferResizeHandler)
 	window.handle.SetIconifyCallback(windowMinimizeHandler)
 
 	window.calculateDPI()
@@ -61,14 +61,15 @@ func CreateWindow(width int, height int, title string) Window {
 	return window
 }
 
-func windowMinimizeHandler(w *glfw.Window, minimized bool) {
-	EditorSingleton.window.minimized = minimized
-}
-
-func windowResizeHandler(w *glfw.Window, width, height int) {
+func windowFramebufferResizeHandler(w *glfw.Window, width, height int) {
+	log_debug("Window Resized:", width, height)
 	EditorSingleton.window.width = width
 	EditorSingleton.window.height = height
 	EditorSingleton.nvim.requestResize()
+}
+
+func windowMinimizeHandler(w *glfw.Window, minimized bool) {
+	EditorSingleton.window.minimized = minimized
 }
 
 func (window *Window) Update() {
@@ -77,14 +78,14 @@ func (window *Window) Update() {
 			EditorSingleton.updatesPerSecond, EditorSingleton.deltaTime)
 		idx := strings.LastIndex(window.title, " | TPS:")
 		if idx == -1 {
-			window.SetTitle(window.title + fps_string)
+			window.setTitle(window.title + fps_string)
 		} else {
-			window.SetTitle(window.title[0:idx] + fps_string)
+			window.setTitle(window.title[0:idx] + fps_string)
 		}
 	}
 }
 
-func (window *Window) Raise() {
+func (window *Window) raise() {
 	if window.minimized {
 		window.handle.Restore()
 	}
@@ -92,7 +93,7 @@ func (window *Window) Raise() {
 	window.handle.SetAttrib(glfw.Floating, glfw.False)
 }
 
-func (window *Window) SetState(state string) {
+func (window *Window) setState(state string) {
 	switch state {
 	case WINDOW_STATE_MINIMIZED:
 		window.handle.Iconify()
@@ -102,11 +103,11 @@ func (window *Window) SetState(state string) {
 		break
 	case WINDOW_STATE_FULLSCREEN:
 		if !window.fullscreen {
-			window.ToggleFullscreen()
+			window.toggleFullscreen()
 		}
 		break
 	case WINDOW_STATE_CENTERED:
-		window.Center()
+		window.center()
 		break
 	default:
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
@@ -114,7 +115,7 @@ func (window *Window) SetState(state string) {
 	}
 }
 
-func (window *Window) Center() {
+func (window *Window) center() {
 	mode := glfw.GetPrimaryMonitor().GetVideoMode()
 	w, h := window.handle.GetSize()
 	x := (mode.Width / 2) - (w / 2)
@@ -122,16 +123,16 @@ func (window *Window) Center() {
 	window.handle.SetPos(x, y)
 }
 
-func (window *Window) SetSize(width, height int) {
+func (window *Window) setSize(width, height int) {
 	window.handle.SetSize(width, height)
 }
 
-func (window *Window) SetTitle(title string) {
+func (window *Window) setTitle(title string) {
 	window.handle.SetTitle(title)
 	window.title = title
 }
 
-func (window *Window) ToggleFullscreen() {
+func (window *Window) toggleFullscreen() {
 	if window.handle.GetMonitor() == nil {
 		// to fullscreen
 		x, y := window.handle.GetPos()
@@ -164,6 +165,5 @@ func (window *Window) calculateDPI() {
 }
 
 func (window *Window) Close() {
-	// glfw.DetachCurrentContext()
 	window.handle.Destroy()
 }

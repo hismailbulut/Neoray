@@ -1,0 +1,7 @@
+{
+    "go.goplsOptions": {
+        "buildFlags": [
+            "-tags=debug"
+        ]
+    }
+}
