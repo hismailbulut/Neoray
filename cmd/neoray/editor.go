@@ -56,6 +56,7 @@ type Editor struct {
 	cellCount   int
 	// Initializing in Editor.MainLoop
 	updatesPerSecond int
+	averageTPS       float32
 	deltaTime        float32
 	// Transparency of window background min 0, max 1, default 1
 	framebufferTransparency float32
@@ -66,7 +67,7 @@ type Editor struct {
 }
 
 func (editor *Editor) Initialize() {
-	startupTime := time.Now()
+	defer measure_execution_time()()
 
 	editor.initDefaults()
 	editor.nvim = CreateNvimProcess()
@@ -89,8 +90,6 @@ func (editor *Editor) Initialize() {
 
 	editor.quitRequestedChan = make(chan bool)
 	editor.nvim.startUI()
-
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Startup time:", time.Since(startupTime))
 }
 
 func (editor *Editor) initDefaults() {
@@ -125,6 +124,7 @@ MAINLOOP:
 			// Calculate ticks per second
 			if elapsed >= 1 {
 				editor.updatesPerSecond = ticks
+				editor.averageTPS = (editor.averageTPS + float32(editor.updatesPerSecond)) / 2
 				ticks = 0
 				elapsed = 0
 			}
@@ -152,6 +152,7 @@ MAINLOOP:
 		go editor.nvim.executeVimScript(":qa")
 		goto MAINLOOP
 	}
+	log_debug("Average TPS:", editor.averageTPS)
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
 }
 
