@@ -17,7 +17,6 @@ type Cursor struct {
 	// blinking variables
 	time     float32
 	nextTime float32
-	modeName string
 }
 
 func CreateCursor() Cursor {
@@ -36,19 +35,24 @@ func (cursor *Cursor) Update() {
 	}
 }
 
+func (cursor *Cursor) resetBlinking() {
+	info := EditorSingleton.mode.Current()
+	// When one of the numbers is zero, there is no blinking.
+	if info.blinkwait <= 0 || info.blinkon <= 0 || info.blinkoff <= 0 {
+		return
+	}
+	cursor.time = 0
+	cursor.Show()
+	cursor.nextTime = float32(info.blinkwait) / 1000
+}
+
 func (cursor *Cursor) updateBlinking() {
 	info := EditorSingleton.mode.Current()
 	// When one of the numbers is zero, there is no blinking.
 	if info.blinkwait <= 0 || info.blinkon <= 0 || info.blinkoff <= 0 {
 		return
 	}
-	if info.name != cursor.modeName {
-		// show cursor
-		cursor.modeName = info.name
-		cursor.time = 0
-		cursor.Show()
-		cursor.nextTime = float32(info.blinkwait) / 1000
-	} else if cursor.time >= cursor.nextTime {
+	if cursor.time >= cursor.nextTime {
 		cursor.time = 0
 		if cursor.hidden {
 			// show cursor
@@ -76,6 +80,7 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	cursor.X = x
 	cursor.Y = y
 	cursor.needsDraw = true
+	cursor.resetBlinking()
 }
 
 func (cursor *Cursor) isInArea(x, y, w, h int) bool {
