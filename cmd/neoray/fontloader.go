@@ -17,7 +17,8 @@ var (
 	//go:embed fonts/CascadiaMono-Bold.otf
 	defaultBoldData []byte
 	// List of installed system fonts.
-	systemFontList []*sysfont.Font = nil
+	systemFontList      []*sysfont.Font = nil
+	systemFontListReady AtomicBool
 )
 
 type Font struct {
@@ -61,17 +62,19 @@ func CreateDefaultFont() Font {
 }
 
 func CheckSystemFonts() {
-	// On some system that has many fonts this functions
-	// takes so long.
 	defer measure_execution_time()()
 	if systemFontList == nil {
 		systemFontList = sysfont.NewFinder(nil).List()
 	}
+	systemFontListReady.Set(true)
+	log_debug("System font list is loaded.")
 }
 
 func CreateFont(fontName string, size float32) (Font, bool) {
 	defer measure_execution_time()()
-	CheckSystemFonts()
+
+	// We have to wait until the system fonts have loaded.
+	systemFontListReady.WaitUntil(true)
 
 	assert(fontName != "" && fontName != " ", "Font name can not be empty!")
 

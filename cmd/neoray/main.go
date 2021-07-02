@@ -41,11 +41,11 @@ func main() {
 	start := time.Now()
 	// If --verbose flag is set then new file will be created with given name
 	// and we need to close this file. This function will check if the file is open
-	// and than closes it. And also prints panic to the logfile if the program panics.
+	// and than closes it. Also recovers panic and prints to the logfile if the program panics.
 	// Only main goroutine panic can be captured.
 	defer close_logger()
 	// Trackers are debug functions and collects data about what function
-	// called how many times and it's execution time. Only debug build
+	// called how many times and it's execution time. Works in only debug build
 	init_function_time_tracker()
 	defer close_function_time_tracker()
 	// Parse args
@@ -56,7 +56,7 @@ func main() {
 	}
 	// Starts a pprof server. This function is only implemented in debug build.
 	start_pprof()
-	// Initializing editor is initializes everything.
+	// Initializing editor will initialize everything.
 	EditorSingleton.Initialize()
 	// And shutdown will frees resources and closes everything.
 	defer EditorSingleton.Shutdown()
