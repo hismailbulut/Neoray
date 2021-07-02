@@ -11,10 +11,16 @@ var ButtonNames = []string{
 
 var MenuButtonEvents = map[string]func(){
 	ButtonNames[0]: func() {
-		EditorSingleton.nvim.cutSelected()
+		text := EditorSingleton.nvim.cutSelected()
+		if text != "" {
+			glfw.SetClipboardString(text)
+		}
 	},
 	ButtonNames[1]: func() {
-		EditorSingleton.nvim.copySelected()
+		text := EditorSingleton.nvim.copySelected()
+		if text != "" {
+			glfw.SetClipboardString(text)
+		}
 	},
 	ButtonNames[2]: func() {
 		EditorSingleton.nvim.paste(glfw.GetClipboardString())
@@ -39,8 +45,6 @@ type PopupMenu struct {
 	cells      [][]rune
 }
 
-// Popup menu is mostly hardcoded.
-// And this is because actually renderer is hardcoded as well.
 func CreatePopupMenu() PopupMenu {
 	pmenu := PopupMenu{
 		hidden: true,
