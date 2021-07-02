@@ -24,9 +24,9 @@ type UIOptions struct {
 
 func (options *UIOptions) SetGuiFont(newGuiFont string) {
 	// Load Font
-	if newGuiFont != "" && newGuiFont != " " && newGuiFont != options.guifont {
+	if newGuiFont != options.guifont {
 		options.guifont = newGuiFont
-		size := float32(DEFAULT_FONT_SIZE)
+		var size float32 = DEFAULT_FONT_SIZE
 		// treat underlines like whitespaces
 		newGuiFont = strings.ReplaceAll(newGuiFont, "_", " ")
 		// parse font options
@@ -41,16 +41,20 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 				}
 			}
 		}
-		if name == options.guifontname {
+		if name == "" {
+			// Disable user font.
+			EditorSingleton.renderer.DisableUserFont()
+			EditorSingleton.renderer.setFontSize(size)
+		} else if name == options.guifontname {
 			// Names are same, just resize the font
 			EditorSingleton.renderer.setFontSize(size)
 		} else {
 			// Create and set renderers font.
 			font, ok := CreateFont(name, size)
-			if !ok {
-				EditorSingleton.nvim.echoErr("Font %s not found!", name)
-			} else {
+			if ok {
 				EditorSingleton.renderer.setFont(font)
+			} else {
+				EditorSingleton.nvim.echoErr("Font %s not found!", name)
 			}
 		}
 		options.guifontname = name

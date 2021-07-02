@@ -91,6 +91,14 @@ func (renderer *Renderer) setFontSize(size float32) {
 	}
 }
 
+func (renderer *Renderer) DisableUserFont() {
+	if renderer.userFont.size > 0 {
+		renderer.userFont.size = 0
+		renderer.updateCellSize(&renderer.defaultFont)
+		renderer.clearAtlas()
+	}
+}
+
 func (renderer *Renderer) increaseFontSize() {
 	renderer.setFontSize(renderer.fontSize + 0.5)
 }
@@ -256,7 +264,7 @@ func (renderer *Renderer) appendRectData(positions [4]F32Vec2, texPositions [4]F
 }
 
 // This function copies src to dst from left to right,
-// and used for scroll acceleration
+// and used for accelerating scroll operations.
 func (renderer *Renderer) copyRowData(dst, src, left, right int) {
 	defer measure_execution_time()()
 	dst_begin := cellVertexPos(dst, left)
