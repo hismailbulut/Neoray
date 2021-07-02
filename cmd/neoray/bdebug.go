@@ -6,6 +6,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -32,7 +33,10 @@ type function_measure struct {
 	totalTime time.Duration
 }
 
-var trackerAverages map[string]function_measure
+var (
+	trackerAverages map[string]function_measure
+	trackerMutex    sync.Mutex
+)
 
 func init_function_time_tracker() {
 	trackerAverages = make(map[string]function_measure)
@@ -47,6 +51,8 @@ func measure_execution_time() func() {
 			name = runtime.FuncForPC(pc).Name()
 		}
 		elapsed := time.Since(now)
+		trackerMutex.Lock()
+		defer trackerMutex.Unlock()
 		if val, ok := trackerAverages[name]; ok == true {
 			val.totalCall++
 			val.totalTime += elapsed
@@ -61,6 +67,8 @@ func measure_execution_time() func() {
 }
 
 func close_function_time_tracker() {
+	trackerMutex.Lock()
+	defer trackerMutex.Unlock()
 	for key, val := range trackerAverages {
 		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 			key, "Calls:", val.totalCall, "Time:", val.totalTime, "Average:", val.totalTime/time.Duration(val.totalCall))
