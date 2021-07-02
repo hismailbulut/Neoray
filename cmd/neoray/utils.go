@@ -3,8 +3,8 @@ package main
 import (
 	"math"
 	"os"
-	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 var (
@@ -150,22 +150,28 @@ func (atomicBool *AtomicBool) Get() bool {
 	return true
 }
 
+func (atomicBool *AtomicBool) WaitUntil(val bool) {
+	for atomicBool.Get() != val {
+		time.Sleep(time.Microsecond)
+	}
+}
+
+func boolFromInterface(val interface{}) bool {
+	switch val.(type) {
+	case bool:
+		return val == true
+	case int, int32, int64:
+		if val == 0 {
+			return false
+		}
+		return true
+	default:
+		log_debug("Value type can not be a bool:", val)
+		return false
+	}
+}
+
 func fileExists(name string) bool {
 	_, err := os.Stat(name)
 	return err == nil
-}
-
-func getAvailableFileName(basename, extension string) string {
-	filename := basename + extension
-	index := 1
-	for {
-		// There is a file or folder with this name.
-		if fileExists(filename) {
-			filename = basename + strconv.Itoa(index) + extension
-			index++
-		} else {
-			break
-		}
-	}
-	return filename
 }
