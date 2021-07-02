@@ -57,6 +57,7 @@ var (
 
 	// Options
 	popupMenuEnabled bool
+	mouseHide        bool
 
 	// Keybindings
 	keyIncreaseFontSize string
@@ -94,6 +95,9 @@ func CharEventHandler(w *glfw.Window, char rune) {
 		keycode = c
 	}
 	EditorSingleton.nvim.input(keycode)
+	if mouseHide {
+		EditorSingleton.window.hideCursor()
+	}
 }
 
 func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -176,6 +180,9 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 }
 
 func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+	if mouseHide {
+		EditorSingleton.window.showCursor()
+	}
 	var buttonCode string
 	switch button {
 	case glfw.MouseButtonLeft:
@@ -221,6 +228,9 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 }
 
 func MousePosEventHandler(w *glfw.Window, xpos, ypos float64) {
+	if mouseHide {
+		EditorSingleton.window.showCursor()
+	}
 	lastMousePos.X = int(xpos)
 	lastMousePos.Y = int(ypos)
 	if popupMenuEnabled {
@@ -235,6 +245,9 @@ func MousePosEventHandler(w *glfw.Window, xpos, ypos float64) {
 }
 
 func ScrollEventHandler(w *glfw.Window, xpos, ypos float64) {
+	if mouseHide {
+		EditorSingleton.window.showCursor()
+	}
 	action := "up"
 	if ypos < 0 {
 		action = "down"

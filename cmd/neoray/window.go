@@ -21,10 +21,12 @@ type Window struct {
 	width  int
 	height int
 	dpi    float64
-	// This is for restoring window from fullscreen, dont use them
+
+	// internal usage
 	windowedRect IntRect
 	minimized    bool
 	fullscreen   bool
+	cursorHidden bool
 }
 
 func CreateWindow(width int, height int, title string) Window {
@@ -82,6 +84,22 @@ func (window *Window) Update() {
 		} else {
 			window.setTitle(window.title[0:idx] + fps_string)
 		}
+	}
+}
+
+func (window *Window) hideCursor() {
+	if !window.cursorHidden {
+		window.handle.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
+		window.cursorHidden = true
+		log_debug("hideCursor")
+	}
+}
+
+func (window *Window) showCursor() {
+	if window.cursorHidden {
+		window.handle.SetInputMode(glfw.CursorMode, glfw.CursorNormal)
+		window.cursorHidden = false
+		log_debug("showCursor")
 	}
 }
 

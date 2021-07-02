@@ -75,12 +75,19 @@ func (proc *NvimProcess) checkNeovimVersion() {
 	}
 
 	// The version string is like this: NVIM v0.4.5
-	versionStringIndex := strings.Index(string(output), "NVIM v")
-
-	versionString := string(output[versionStringIndex : versionStringIndex+11])
-	log_debug("Founded neovim version:", versionString)
-
-	vMinorString := string(versionString[strings.Index(versionString, ".")+1])
+	// NOTE: Hardcoded search may fail if new versions of neovim contains
+	// more than 9 number or this pre value is changed. Like 0.10.0.
+	// But i think this wouldn't happen in ten years.
+	// And this is very easy to fix but we don't need.
+	// NOTE: Also we can split first line of the output with dots and
+	// second element will be minor value of the version.
+	versionPre := "NVIM v"
+	versionStringIndex := strings.Index(string(output), versionPre)
+	vMinorString := "0"
+	if versionStringIndex == -1 {
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Neoray version string can not be parsed.")
+	}
+	vMinorString = string(output[versionStringIndex+len(versionPre)+2])
 
 	vMinor, err := strconv.Atoi(vMinorString)
 	if err != nil {
@@ -89,7 +96,7 @@ func (proc *NvimProcess) checkNeovimVersion() {
 
 	if vMinor < 4 {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
-			"Neoray needs minimum 0.4.0 version of neovim. Please update your neovim to a newer version.")
+			"Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")
 	}
 }
 
@@ -130,6 +137,24 @@ func (proc *NvimProcess) introduce() {
 func (proc *NvimProcess) initScripts() {
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
+	// Get some options.
+	mouseHide = boolFromInterface(proc.getOption("mousehide"))
+}
+
+func (proc *NvimProcess) getOption(name string) interface{} {
+	eventName := "optc_" + name
+	var opt interface{}
+	okc := make(chan bool)
+	proc.handle.RegisterHandler(eventName, func(val interface{}) {
+		opt = val
+		okc <- true
+	})
+	ok := proc.executeVimScript("call rpcnotify(%d, \"%s\", &%s)",
+		proc.handle.ChannelID(), eventName, name)
+	if ok {
+		<-okc
+	}
+	return opt
 }
 
 func (proc *NvimProcess) startUI() {
@@ -164,79 +189,87 @@ func (proc *NvimProcess) startUI() {
 }
 
 func (proc *NvimProcess) requestVariables() {
-	proc.getVimVar(OPTION_CURSOR_ANIM, &EditorSingleton.cursor.animLifetime)
-	proc.getVimVar(OPTION_TRANSPARENCY, &EditorSingleton.framebufferTransparency)
-	proc.getVimVar(OPTION_TARGET_TPS, &EditorSingleton.targetTPS)
-	proc.getVimVar(OPTION_POPUP_MENU, &popupMenuEnabled)
+	proc.handle.Var(OPTION_CURSOR_ANIM, &EditorSingleton.cursor.animLifetime)
+	proc.handle.Var(OPTION_TRANSPARENCY, &EditorSingleton.framebufferTransparency)
+	proc.handle.Var(OPTION_TARGET_TPS, &EditorSingleton.targetTPS)
+	proc.handle.Var(OPTION_POPUP_MENU, &popupMenuEnabled)
 	var state string
-	if proc.getVimVar(OPTION_WINDOW_STATE, &state) {
-		EditorSingleton.window.setState(state)
-	}
-	proc.getVimVar(OPTION_KEY_FULLSCRN, &keyToggleFullscreen)
-	proc.getVimVar(OPTION_KEY_ZOOMIN, &keyIncreaseFontSize)
-	proc.getVimVar(OPTION_KEY_ZOOMOUT, &keyDecreaseFontSize)
+	proc.handle.Var(OPTION_WINDOW_STATE, &state)
+	EditorSingleton.window.setState(state)
+	proc.handle.Var(OPTION_KEY_FULLSCRN, &keyToggleFullscreen)
+	proc.handle.Var(OPTION_KEY_ZOOMIN, &keyIncreaseFontSize)
+	proc.handle.Var(OPTION_KEY_ZOOMOUT, &keyDecreaseFontSize)
 }
 
-func (proc *NvimProcess) getVimVar(name string, variable interface{}) bool {
-	if err := proc.handle.Var(name, variable); err != nil {
-		log_debug("Failed to get variable:", err)
+func (proc *NvimProcess) optionChanged(name string, value ...interface{}) {
+	proc.handle.Option("mousehide", &mouseHide)
+	log_debug("option mousehide:", mouseHide)
+}
+
+func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bool {
+	cmd := fmt.Sprintf(format, args...)
+	err := proc.handle.Command(cmd)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
+			"Failed to execute vimscript: [", cmd, "] err:", err)
 		return false
 	}
 	return true
 }
 
-func (proc *NvimProcess) executeVimScript(script string, args ...interface{}) {
-	cmd := fmt.Sprintf(script, args...)
-	err := proc.handle.Command(cmd)
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
-			"Failed to execute vimscript: [", cmd, "] err:", err)
-	}
-}
-
 func (proc *NvimProcess) currentMode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get mode name:", err)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get current mode name:", err)
 		return ""
 	}
 	return mode.Mode
 }
 
-func (proc *NvimProcess) echoMsg(text string, args ...interface{}) {
-	formatted := fmt.Sprintf(text, args...)
+func (proc *NvimProcess) echoMsg(format string, args ...interface{}) {
+	formatted := fmt.Sprintf(format, args...)
 	proc.executeVimScript(":echomsg '%s'", formatted)
 }
 
-func (proc *NvimProcess) echoErr(text string, args ...interface{}) {
-	formatted := fmt.Sprintf(text, args...)
+func (proc *NvimProcess) echoErr(format string, args ...interface{}) {
+	formatted := fmt.Sprintf(format, args...)
 	proc.handle.WritelnErr(formatted)
 }
 
-// TODO: Clipboard are not working on some linux systems.
-// We need to do cut and copy commands ourselves.
-func (proc *NvimProcess) cutSelected() {
+func (proc *NvimProcess) getRegister(register string) string {
+	var content string
+	err := proc.handle.Call("getreg", &content, register)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call getreg() failed:", err)
+	}
+	return content
+}
+
+// This function cuts current selected text and returns the content.
+// Not updates clipboard on every system.
+func (proc *NvimProcess) cutSelected() string {
 	switch proc.currentMode() {
-	case "n":
-		proc.feedKeys("v\"*yx")
-		break
-	case "v":
+	case "v", "V":
 		proc.feedKeys("\"*ygvd")
-		break
+		return proc.getRegister("*")
+	default:
+		return ""
 	}
 }
 
-func (proc *NvimProcess) copySelected() {
+// This function copies current selected text and returns the content.
+// Not updates clipboard on every system.
+func (proc *NvimProcess) copySelected() string {
 	switch proc.currentMode() {
-	case "n":
-		proc.feedKeys("v\"*y")
-		break
-	case "v":
+	case "v", "V":
 		proc.feedKeys("\"*y")
-		break
+		return proc.getRegister("*")
+	default:
+		return ""
 	}
 }
 
+// Pastes text to cursor.
 func (proc *NvimProcess) paste(str string) {
 	err := proc.handle.Call("nvim_paste", nil, str, true, -1)
 	if err != nil {
@@ -245,8 +278,7 @@ func (proc *NvimProcess) paste(str string) {
 }
 
 // TODO: We need to check if this buffer is normal buffer.
-// Executing this function in non normal buffers is may
-// dangerous.
+// Executing this function in non normal buffers may be dangerous.
 func (proc *NvimProcess) selectAll() {
 	switch proc.currentMode() {
 	case "i", "v":
@@ -263,11 +295,11 @@ func (proc *NvimProcess) openFile(file string) {
 }
 
 func (proc *NvimProcess) gotoLine(line int) {
-	proc.executeVimScript("call cursor(%d, 0)", line)
+	proc.handle.Call("cursor", nil, line, 0)
 }
 
 func (proc *NvimProcess) gotoColumn(col int) {
-	proc.executeVimScript("call cursor(0, %d)", col)
+	proc.handle.Call("cursor", nil, 0, col)
 }
 
 func (proc *NvimProcess) feedKeys(keys string) {
@@ -301,7 +333,11 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 
 func (proc *NvimProcess) requestResize() {
 	EditorSingleton.calculateCellCount()
-	proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
+	err := proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
+	if err != nil {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
+		return
+	}
 	EditorSingleton.waitingResize = true
 }
 
