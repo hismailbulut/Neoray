@@ -24,7 +24,10 @@ func CreateMode() Mode {
 }
 
 func (mode *Mode) Current() ModeInfo {
-	return mode.mode_infos[mode.current_mode]
+	if mode.current_mode < len(mode.mode_infos) {
+		return mode.mode_infos[mode.current_mode]
+	}
+	return ModeInfo{}
 }
 
 func (mode *Mode) Clear() {
