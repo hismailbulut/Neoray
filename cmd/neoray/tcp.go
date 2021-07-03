@@ -75,6 +75,7 @@ func CreateClient() (*TCPClient, error) {
 }
 
 func (client *TCPClient) SendSignal(signal string, args ...string) bool {
+	log_debug("Sending signal:", signal, args)
 	for _, arg := range args {
 		signal += "\x00" + arg
 	}
@@ -135,9 +136,6 @@ func CreateServer() (*TCPServer, error) {
 						break
 					}
 					switch data {
-					case "", " ":
-						resp = SIGNAL_CLOSE_CONNECTION
-						break
 					case SIGNAL_CHECK_CONNECTION:
 						resp = SIGNAL_OK
 						break
@@ -186,8 +184,11 @@ func (server *TCPServer) Process() {
 			case SIGNAL_GOTO_COLUMN:
 				cl, err := strconv.Atoi(args[1])
 				if err == nil {
-					EditorSingleton.nvim.gotoLine(cl)
+					EditorSingleton.nvim.gotoColumn(cl)
 				}
+				break
+			default:
+				log_debug("Received invalid signal:", sig)
 				break
 			}
 		}
