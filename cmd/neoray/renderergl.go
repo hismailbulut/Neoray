@@ -2,14 +2,11 @@ package main
 
 import (
 	_ "embed"
-	"image"
 	"strings"
 	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 )
-
-const VertexStructSize = 16 * 4
 
 type Vertex struct {
 	// position of this vertex
@@ -24,6 +21,8 @@ type Vertex struct {
 	sp F32Color // layout 4
 }
 
+const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
+
 // render subsystem global variables
 var (
 	rgl_vao uint32
@@ -32,16 +31,10 @@ var (
 
 	//go:embed shader.glsl
 	rgl_shader_sources string
-
-	rgl_shader_program     uint32
-	rgl_atlas_uniform      int32
-	rgl_projection_uniform int32
+	rgl_shader_program uint32
 
 	rgl_vertex_buffer_len  int
 	rgl_element_buffer_len int
-
-	rgl_width  int
-	rgl_height int
 )
 
 func rglInit() {
@@ -57,9 +50,6 @@ func rglInit() {
 	gl.UseProgram(rgl_shader_program)
 
 	rglCheckError("gl use program")
-
-	rgl_atlas_uniform = rglGetUniformLocation("atlas")
-	rgl_projection_uniform = rglGetUniformLocation("projection")
 
 	// Initialize vao
 	gl.CreateVertexArrays(1, &rgl_vao)
@@ -97,7 +87,6 @@ func rglInit() {
 	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
 	rglCheckError("gl enable attributes")
-	// NOTE: If you changed something in Vertex you have to update VertexStructSize!
 
 	if isDebugBuild() {
 		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
@@ -121,9 +110,7 @@ func rglGetUniformLocation(name string) int32 {
 func rglCreateViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
 	projection := orthoProjection(0, 0, float32(w), float32(h), -1, 1)
-	gl.UniformMatrix4fv(rgl_projection_uniform, 1, true, &projection[0])
-	rgl_width = w
-	rgl_height = h
+	gl.UniformMatrix4fv(rglGetUniformLocation("projection"), 1, true, &projection[0])
 }
 
 func rglSetAtlasTexture(atlas *Texture) {
@@ -139,35 +126,35 @@ func rglSetUndercurlRect(val F32Rect) {
 func rglClearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	c := color.ToF32Color()
-	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.framebufferTransparency)
+	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.options.transparency)
 }
 
-func rglReadPixelsToImage() *image.RGBA {
-	defer measure_execution_time()()
-	img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
-	gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
-	rglCheckError("read pixels")
-	// The image is upside down, we need to flip.
-	for y := 0; y < rgl_height/2; y++ {
-		k := (rgl_height - 1) - y
-		yBegin := img.PixOffset(0, y)
-		yEnd := img.PixOffset(0, y+1)
-		kBegin := img.PixOffset(0, k)
-		kEnd := img.PixOffset(0, k+1)
-		temp := append([]uint8(nil), img.Pix[yBegin:yEnd]...)
-		copy(img.Pix[yBegin:yEnd], img.Pix[kBegin:kEnd])
-		copy(img.Pix[kBegin:kEnd], temp)
-	}
-	return img
-}
+// func rglReadPixelsToImage() *image.RGBA {
+// defer measure_execution_time()()
+// img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
+// gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
+// rglCheckError("read pixels")
+// // The image is upside down, we need to flip.
+// for y := 0; y < rgl_height/2; y++ {
+//     k := (rgl_height - 1) - y
+//     yBegin := img.PixOffset(0, y)
+//     yEnd := img.PixOffset(0, y+1)
+//     kBegin := img.PixOffset(0, k)
+//     kEnd := img.PixOffset(0, k+1)
+//     temp := append([]uint8(nil), img.Pix[yBegin:yEnd]...)
+//     copy(img.Pix[yBegin:yEnd], img.Pix[kBegin:kEnd])
+//     copy(img.Pix[kBegin:kEnd], temp)
+// }
+// return img
+// }
 
 func rglUpdateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
-		gl.BufferData(gl.ARRAY_BUFFER, len(data)*VertexStructSize, gl.Ptr(data), gl.STATIC_DRAW)
+		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(VertexStructSize), gl.Ptr(data), gl.STATIC_DRAW)
 		rglCheckError("vertex buffer data")
 		rgl_vertex_buffer_len = len(data)
 	} else {
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*VertexStructSize, gl.Ptr(data))
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(VertexStructSize), gl.Ptr(data))
 		rglCheckError("vertex buffer subdata")
 	}
 }
