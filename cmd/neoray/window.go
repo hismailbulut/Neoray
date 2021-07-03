@@ -43,8 +43,7 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.Resizable, glfw.True)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
 
-	// NOTE: When doublebuffering is on, framebuffer transparency not working
-	// on fullscreen
+	// NOTE: When doublebuffering is on, framebuffer transparency not working on fullscreen
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 
 	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
@@ -53,7 +52,7 @@ func CreateWindow(width int, height int, title string) Window {
 	}
 	window.handle = windowHandle
 
-	window.handle.SetFramebufferSizeCallback(windowFramebufferResizeHandler)
+	window.handle.SetFramebufferSizeCallback(windowResizeHandler)
 	window.handle.SetIconifyCallback(windowMinimizeHandler)
 
 	window.calculateDPI()
@@ -63,11 +62,12 @@ func CreateWindow(width int, height int, title string) Window {
 	return window
 }
 
-func windowFramebufferResizeHandler(w *glfw.Window, width, height int) {
-	log_debug("Window Resized:", width, height)
+func windowResizeHandler(w *glfw.Window, width, height int) {
 	EditorSingleton.window.width = width
 	EditorSingleton.window.height = height
-	EditorSingleton.nvim.requestResize()
+	if width > 0 && height > 0 {
+		EditorSingleton.nvim.requestResize()
+	}
 }
 
 func windowMinimizeHandler(w *glfw.Window, minimized bool) {
@@ -91,7 +91,6 @@ func (window *Window) hideCursor() {
 	if !window.cursorHidden {
 		window.handle.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
 		window.cursorHidden = true
-		log_debug("hideCursor")
 	}
 }
 
@@ -99,7 +98,6 @@ func (window *Window) showCursor() {
 	if window.cursorHidden {
 		window.handle.SetInputMode(glfw.CursorMode, glfw.CursorNormal)
 		window.cursorHidden = false
-		log_debug("showCursor")
 	}
 }
 
