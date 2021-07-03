@@ -6,6 +6,11 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
+type StringPair struct {
+	key string
+	val string
+}
+
 var (
 	SpecialKeys = map[glfw.Key]string{
 		glfw.KeyEscape:    "ESC",
@@ -38,39 +43,56 @@ var (
 		glfw.KeyF12:       "F12",
 	}
 
+	SpecialChars = map[string]string{
+		"<":  "lt",
+		"\\": "Bslash",
+		"|":  "Bar",
+		// These needs to be checked for surrounding with <>
+		">": ">",
+		"{": "{",
+		"[": "[",
+		"]": "]",
+		"}": "}",
+	}
+
+	// Don't add right alt.
 	ModifierKeys = map[glfw.Key]string{
+		glfw.KeyLeftAlt:      "M",
 		glfw.KeyLeftControl:  "C",
 		glfw.KeyRightControl: "C",
-		glfw.KeyLeftAlt:      "A",
-		glfw.KeyRightAlt:     "A",
 		glfw.KeyLeftShift:    "S",
 		glfw.KeyRightShift:   "S",
 		glfw.KeyLeftSuper:    "D",
 		glfw.KeyRightSuper:   "D",
 	}
 
-	// Last mouse informations
-	lastMousePos       IntVec2
-	lastMouseButton    string
-	lastMouseModifiers string
-	lastMouseAction    glfw.Action
+	SharedKeys = map[glfw.Key]StringPair{
+		glfw.KeyKPAdd:      {key: "kPlus", val: "+"},
+		glfw.KeyKPSubtract: {key: "kMinus", val: "-"},
+		glfw.KeyKPMultiply: {key: "kMultiply", val: "*"},
+		glfw.KeyKPDivide:   {key: "kDivide", val: "/"},
+		glfw.KeyKPDecimal:  {key: "kComma", val: ","},
+		glfw.KeyKP0:        {key: "k0", val: "0"},
+		glfw.KeyKP1:        {key: "k1", val: "1"},
+		glfw.KeyKP2:        {key: "k2", val: "2"},
+		glfw.KeyKP3:        {key: "k3", val: "3"},
+		glfw.KeyKP4:        {key: "k4", val: "4"},
+		glfw.KeyKP5:        {key: "k5", val: "5"},
+		glfw.KeyKP6:        {key: "k6", val: "6"},
+		glfw.KeyKP7:        {key: "k7", val: "7"},
+		glfw.KeyKP8:        {key: "k8", val: "8"},
+		glfw.KeyKP9:        {key: "k9", val: "9"},
+	}
 
-	// Options
-	popupMenuEnabled bool
-	mouseHide        bool
-
-	// Keybindings
-	keyIncreaseFontSize string
-	keyDecreaseFontSize string
-	keyToggleFullscreen string
+	// Global input informations
+	lastMousePos     IntVec2
+	lastMouseButton  string
+	lastMouseAction  glfw.Action
+	lastSharedKey    glfw.Key
+	currentModifiers string
 )
 
 func InitializeInputEvents() {
-	// Initialize defaults
-	keyIncreaseFontSize = "<C-+>"
-	keyDecreaseFontSize = "<C-->"
-	keyToggleFullscreen = "<F11>"
-	popupMenuEnabled = true
 	// Initialize callbacks
 	wh := EditorSingleton.window.handle
 	wh.SetCharCallback(CharEventHandler)
@@ -84,18 +106,44 @@ func InitializeInputEvents() {
 func CharEventHandler(w *glfw.Window, char rune) {
 	var keycode string
 	c := string(char)
-	switch c {
-	// This is handled in key callback as Space
-	case " ":
+
+	if c == " " {
 		return
-	// This is special character
-	case "<":
-		keycode = "<LT>"
-	default:
+	}
+
+	pair, ok := SharedKeys[lastSharedKey]
+	if ok {
+		if c == pair.val {
+			lastSharedKey = glfw.KeyUnknown
+			return
+		}
+	}
+
+	sp, ok := SpecialChars[c]
+	if ok {
+		// Send modifiers with special characters. Like C-\
+		if strings.Contains(currentModifiers, "M") {
+			keycode += "M-"
+		}
+		if strings.Contains(currentModifiers, "C") {
+			keycode += "C-"
+		}
+		if strings.Contains(currentModifiers, "D") {
+			keycode += "D-"
+		}
+		if sp != c || len(keycode) > 0 {
+			// Surround with <>
+			keycode = "<" + keycode + sp + ">"
+		} else {
+			keycode = sp
+		}
+	} else {
 		keycode = c
 	}
+
 	EditorSingleton.nvim.input(keycode)
-	if mouseHide {
+
+	if EditorSingleton.options.mouseHide {
 		EditorSingleton.window.hideCursor()
 	}
 }
@@ -106,50 +154,61 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 	code, ok := ModifierKeys[key]
 	if ok {
 		if action == glfw.Press {
-			if strings.Index(lastMouseModifiers, code) == -1 {
-				lastMouseModifiers += code
+			if !strings.Contains(currentModifiers, code) {
+				currentModifiers += code
 			}
-		} else if action == glfw.Release && lastMouseModifiers != "" {
-			lastMouseModifiers = strings.Replace(lastMouseModifiers, code, "", 1)
+		} else if action == glfw.Release {
+			currentModifiers = strings.Replace(currentModifiers, code, "", 1)
 		}
 		return
 	}
 
+	// Keys
 	if action != glfw.Release {
+		alt := mods&glfw.ModAlt != 0
 		ctrl := mods&glfw.ModControl != 0
 		shift := mods&glfw.ModShift != 0
-		alt := mods&glfw.ModAlt != 0
 		super := mods&glfw.ModSuper != 0
 
 		var keyname string
-		name, ok := SpecialKeys[key]
-		if ok {
+		if name, ok := SpecialKeys[key]; ok {
 			keyname = name
-		} else {
+		} else if pair, ok := SharedKeys[key]; ok {
+			// Maybe a shared key?
+			// Shared keys are keypad keys and most of them
+			// are characters. They must be sent with their
+			// special names for allowing more mappings. And
+			// corresponding character mustn't be sent.
+			keyname = pair.key
+			lastSharedKey = key
+		} else if (ctrl || shift || alt || super) && !(ctrl && (alt || shift)) && !(shift && !(alt || super)) {
+			// Only send if there is modifiers
+			// Dont send ctrl with alt or shift
+			// Dont send shift alone
+			// These are the possible modifiers for characters:
+			// M, D, C, M-D, C-D, M-S, S-D, M-S-D
+
 			// GetKeyName function returns the localized character
-			// of the key if key representable by char. We are only
-			// send ctrl and super mods with characters because shift
-			// and alt is used for alternative characters and sending
-			// them may broke the input.
-			if (ctrl || super) && !(shift || alt) {
-				keyname = glfw.GetKeyName(key, scancode)
-				if keyname == "" {
-					return
-				}
-			} else {
+			// of the key if key representable by char. Ctrl with alt
+			// means AltGr and it is used for alternative characters.
+			// And shift is also changes almost every key.
+			keyname = glfw.GetKeyName(key, scancode)
+			if keyname == "" {
 				return
 			}
+		} else {
+			return
 		}
 
 		keycode := "<"
+		if alt {
+			keycode += "M-"
+		}
 		if ctrl {
 			keycode += "C-"
 		}
 		if shift {
 			keycode += "S-"
-		}
-		if alt {
-			keycode += "A-"
 		}
 		if super {
 			keycode += "D-"
@@ -158,17 +217,17 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 
 		// Handle neoray keybindings
 		switch keycode {
-		case keyIncreaseFontSize:
+		case EditorSingleton.options.keyIncreaseFontSize:
 			EditorSingleton.renderer.increaseFontSize()
 			return
-		case keyDecreaseFontSize:
+		case EditorSingleton.options.keyDecreaseFontSize:
 			EditorSingleton.renderer.decreaseFontSize()
 			return
-		case keyToggleFullscreen:
+		case EditorSingleton.options.keyToggleFullscreen:
 			EditorSingleton.window.toggleFullscreen()
 			return
 		case "<ESC>":
-			if popupMenuEnabled && !EditorSingleton.popupMenu.hidden {
+			if EditorSingleton.options.popupMenuEnabled && !EditorSingleton.popupMenu.hidden {
 				EditorSingleton.popupMenu.Hide()
 				return
 			}
@@ -180,13 +239,13 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 }
 
 func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
-	if mouseHide {
+	if EditorSingleton.options.mouseHide {
 		EditorSingleton.window.showCursor()
 	}
 	var buttonCode string
 	switch button {
 	case glfw.MouseButtonLeft:
-		if action == glfw.Press && popupMenuEnabled {
+		if action == glfw.Press && EditorSingleton.options.popupMenuEnabled {
 			if EditorSingleton.popupMenu.mouseClick(false, lastMousePos) {
 				return
 			}
@@ -194,7 +253,7 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 		buttonCode = "left"
 		break
 	case glfw.MouseButtonRight:
-		if action == glfw.Press && popupMenuEnabled {
+		if action == glfw.Press && EditorSingleton.options.popupMenuEnabled {
 			// We don't send right button to neovim if popup menu enabled.
 			EditorSingleton.popupMenu.mouseClick(true, lastMousePos)
 			return
@@ -221,31 +280,31 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 
 	row := lastMousePos.Y / EditorSingleton.cellHeight
 	col := lastMousePos.X / EditorSingleton.cellWidth
-	EditorSingleton.nvim.inputMouse(buttonCode, actionCode, lastMouseModifiers, 0, row, col)
+	EditorSingleton.nvim.inputMouse(buttonCode, actionCode, currentModifiers, 0, row, col)
 
 	lastMouseButton = buttonCode
 	lastMouseAction = action
 }
 
 func MousePosEventHandler(w *glfw.Window, xpos, ypos float64) {
-	if mouseHide {
+	if EditorSingleton.options.mouseHide {
 		EditorSingleton.window.showCursor()
 	}
 	lastMousePos.X = int(xpos)
 	lastMousePos.Y = int(ypos)
-	if popupMenuEnabled {
+	if EditorSingleton.options.popupMenuEnabled {
 		EditorSingleton.popupMenu.mouseMove(lastMousePos)
 	}
 	// If mouse moving when holding left button, it's drag event
 	if lastMouseAction == glfw.Press {
 		row := lastMousePos.Y / EditorSingleton.cellHeight
 		col := lastMousePos.X / EditorSingleton.cellWidth
-		EditorSingleton.nvim.inputMouse(lastMouseButton, "drag", lastMouseModifiers, 0, row, col)
+		EditorSingleton.nvim.inputMouse(lastMouseButton, "drag", currentModifiers, 0, row, col)
 	}
 }
 
 func ScrollEventHandler(w *glfw.Window, xpos, ypos float64) {
-	if mouseHide {
+	if EditorSingleton.options.mouseHide {
 		EditorSingleton.window.showCursor()
 	}
 	action := "up"
@@ -254,7 +313,7 @@ func ScrollEventHandler(w *glfw.Window, xpos, ypos float64) {
 	}
 	row := lastMousePos.Y / EditorSingleton.cellHeight
 	col := lastMousePos.X / EditorSingleton.cellWidth
-	EditorSingleton.nvim.inputMouse("wheel", action, lastMouseModifiers, 0, row, col)
+	EditorSingleton.nvim.inputMouse("wheel", action, currentModifiers, 0, row, col)
 }
 
 func DropEventHandler(w *glfw.Window, names []string) {

@@ -60,8 +60,8 @@ disable as you wish. All options here are strings contains vim style
 keybindings and set to defaults.
 ```vim
 let neoray_key_toggle_fullscreen='<F11>'
-let neoray_key_increase_fontsize='<C-+>'
-let neoray_key_decrease_fontsize='<C-->'
+let neoray_key_increase_fontsize='<C-kPlus>'
+let neoray_key_decrease_fontsize='<C-kMinus>'
 ```
 ___
 ### font
@@ -84,7 +84,7 @@ if exists('g:neoray')
     let neoray_target_ticks_per_second=120
     let neoray_popup_menu_enabled=1
     let neoray_window_startup_state='centered'
-    let neoray_key_toggle_fullscreen='<M-C-CR>'
+    let neoray_key_toggle_fullscreen='<M-C-CR>' " AltGr+Enter
     let neoray_key_increase_fontsize='<C-PageUp>'
     let neoray_key_decrease_fontsize='<C-PageDown>'
 endif
