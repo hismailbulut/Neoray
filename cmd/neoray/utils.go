@@ -105,8 +105,6 @@ type Animation struct {
 	lifeTime float32
 }
 
-const ANIM_FINISH_TOLERANCE = 0.1
-
 // Lifetime is the life of the animation. Animation speed is depends of the
 // delta time and lifetime. For lifeTime parameter, 1.0 value is 1 seconds
 func CreateAnimation(from, to F32Vec2, lifeTime float32) Animation {
@@ -123,8 +121,8 @@ func (anim *Animation) GetCurrentStep(deltaTime float32) (F32Vec2, bool) {
 	if anim.lifeTime > 0 && deltaTime > 0 {
 		anim.current.X += (anim.target.X - anim.current.X) / (anim.lifeTime / deltaTime)
 		anim.current.Y += (anim.target.Y - anim.current.Y) / (anim.lifeTime / deltaTime)
-		finishedX := math.Abs(float64(anim.target.X-anim.current.X)) < ANIM_FINISH_TOLERANCE
-		finishedY := math.Abs(float64(anim.target.Y-anim.current.Y)) < ANIM_FINISH_TOLERANCE
+		finishedX := math.Abs(float64(anim.target.X-anim.current.X)) < 0.1
+		finishedY := math.Abs(float64(anim.target.Y-anim.current.Y)) < 0.1
 		return anim.current, finishedX && finishedY
 	}
 	return anim.target, true
@@ -144,10 +142,7 @@ func (atomicBool *AtomicBool) Set(value bool) {
 
 func (atomicBool *AtomicBool) Get() bool {
 	val := atomic.LoadInt32(&atomicBool.value)
-	if val == 0 {
-		return false
-	}
-	return true
+	return val != 0
 }
 
 func (atomicBool *AtomicBool) WaitUntil(val bool) {
@@ -161,12 +156,9 @@ func boolFromInterface(val interface{}) bool {
 	case bool:
 		return val == true
 	case int, int32, int64:
-		if val == 0 {
-			return false
-		}
-		return true
+		return val != 0
 	default:
-		log_debug("Value type can not be a bool:", val)
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Value type can not be a bool:", val)
 		return false
 	}
 }
