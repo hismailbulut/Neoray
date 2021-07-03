@@ -50,7 +50,9 @@ func CreateNvimProcess() NvimProcess {
 	proc.handle = nv
 	proc.requestApiInfo()
 	proc.introduce()
-	proc.initScripts()
+
+	// Set a variable that users can define their neoray specific customization.
+	proc.handle.SetVar("neoray", 1)
 
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
 		"Neovim started with command:", EditorParsedArgs.execPath, args)
@@ -134,14 +136,8 @@ func (proc *NvimProcess) introduce() {
 	}
 }
 
-func (proc *NvimProcess) initScripts() {
-	// Set a variable that users can define their neoray specific customization.
-	proc.handle.SetVar("neoray", 1)
-	// Get some options.
-	mouseHide = boolFromInterface(proc.getOption("mousehide"))
-}
-
 func (proc *NvimProcess) getOption(name string) interface{} {
+	defer measure_execution_time()()
 	eventName := "optc_" + name
 	var opt interface{}
 	okc := make(chan bool)
@@ -189,25 +185,23 @@ func (proc *NvimProcess) startUI() {
 }
 
 func (proc *NvimProcess) requestVariables() {
-	proc.handle.Var(OPTION_CURSOR_ANIM, &EditorSingleton.cursor.animLifetime)
-	proc.handle.Var(OPTION_TRANSPARENCY, &EditorSingleton.framebufferTransparency)
-	proc.handle.Var(OPTION_TARGET_TPS, &EditorSingleton.targetTPS)
-	proc.handle.Var(OPTION_POPUP_MENU, &popupMenuEnabled)
+	proc.handle.Var(OPTION_CURSOR_ANIM, &EditorSingleton.options.cursorAnimTime)
+	proc.handle.Var(OPTION_TRANSPARENCY, &EditorSingleton.options.transparency)
+	proc.handle.Var(OPTION_TARGET_TPS, &EditorSingleton.options.targetTPS)
+	proc.handle.Var(OPTION_POPUP_MENU, &EditorSingleton.options.popupMenuEnabled)
+	proc.handle.Var(OPTION_KEY_FULLSCRN, &EditorSingleton.options.keyToggleFullscreen)
+	proc.handle.Var(OPTION_KEY_ZOOMIN, &EditorSingleton.options.keyIncreaseFontSize)
+	proc.handle.Var(OPTION_KEY_ZOOMOUT, &EditorSingleton.options.keyDecreaseFontSize)
 	var state string
-	proc.handle.Var(OPTION_WINDOW_STATE, &state)
-	EditorSingleton.window.setState(state)
-	proc.handle.Var(OPTION_KEY_FULLSCRN, &keyToggleFullscreen)
-	proc.handle.Var(OPTION_KEY_ZOOMIN, &keyIncreaseFontSize)
-	proc.handle.Var(OPTION_KEY_ZOOMOUT, &keyDecreaseFontSize)
-}
-
-func (proc *NvimProcess) optionChanged(name string, value ...interface{}) {
-	proc.handle.Option("mousehide", &mouseHide)
-	log_debug("option mousehide:", mouseHide)
+	if proc.handle.Var(OPTION_WINDOW_STATE, &state) == nil {
+		EditorSingleton.window.setState(state)
+	}
+	EditorSingleton.options.mouseHide = boolFromInterface(proc.getOption("mousehide"))
 }
 
 func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bool {
 	cmd := fmt.Sprintf(format, args...)
+	log_debug("Executing script: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
@@ -291,14 +285,17 @@ func (proc *NvimProcess) selectAll() {
 }
 
 func (proc *NvimProcess) openFile(file string) {
+	log_debug("Open file:", file)
 	proc.executeVimScript(":edit %s", file)
 }
 
 func (proc *NvimProcess) gotoLine(line int) {
+	log_debug("Goto Line:", line)
 	proc.handle.Call("cursor", nil, line, 0)
 }
 
 func (proc *NvimProcess) gotoColumn(col int) {
+	log_debug("Goto Column:", col)
 	proc.handle.Call("cursor", nil, 0, col)
 }
 
@@ -332,13 +329,14 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 }
 
 func (proc *NvimProcess) requestResize() {
-	EditorSingleton.calculateCellCount()
-	err := proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
-		return
+	if EditorSingleton.calculateCellCount() {
+		err := proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
+		if err != nil {
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
+			return
+		}
+		EditorSingleton.waitingResize = true
 	}
-	EditorSingleton.waitingResize = true
 }
 
 func (proc *NvimProcess) Close() {

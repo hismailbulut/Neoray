@@ -2,27 +2,22 @@ package main
 
 import ()
 
-const (
-	DefaultCursorAnimLifetime = 0.08
-)
+// DefaultCursorAnimLifetime = 0.08
 
 type Cursor struct {
-	X            int
-	Y            int
-	anim         Animation
-	animLifetime float32
-	needsDraw    bool
-	hidden       bool
-	vertexData   VertexDataStorage
+	X          int
+	Y          int
+	anim       Animation
+	needsDraw  bool
+	hidden     bool
+	vertexData VertexDataStorage
 	// blinking variables
 	time     float32
 	nextTime float32
 }
 
 func CreateCursor() Cursor {
-	return Cursor{
-		animLifetime: DefaultCursorAnimLifetime,
-	}
+	return Cursor{}
 }
 
 func (cursor *Cursor) Update() {
@@ -75,7 +70,8 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	if !immediately {
 		cursor.anim = CreateAnimation(
 			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
-			F32Vec2{X: float32(x), Y: float32(y)}, cursor.animLifetime)
+			F32Vec2{X: float32(x), Y: float32(y)},
+			EditorSingleton.options.cursorAnimTime)
 	}
 	cursor.X = x
 	cursor.Y = y

@@ -7,46 +7,69 @@ import (
 )
 
 const (
-	MINIMUM_FONT_SIZE    = 7
-	DEFAULT_FONT_SIZE    = 12
-	DEFAULT_TRANSPARENCY = 1
-	DEFAULT_TARGET_TPS   = 60
+	MINIMUM_FONT_SIZE        = 7
+	DEFAULT_FONT_SIZE        = 12
+	DEFAULT_CURSOR_ANIM_TIME = 0.8
+	DEFAULT_TRANSPARENCY     = 1
+	DEFAULT_TARGET_TPS       = 60
 )
 
+type Options struct {
+	// custom options
+	cursorAnimTime      float32
+	transparency        float32
+	targetTPS           int
+	popupMenuEnabled    bool
+	keyToggleFullscreen string
+	keyIncreaseFontSize string
+	keyDecreaseFontSize string
+	// builtin options
+	mouseHide bool
+}
+
 type Editor struct {
-	// Neovim child process, nvim_process.go
+	// Neovim child process
+	// nvim_process.go
 	nvim NvimProcess
-	// Main window of this program. window.go
+	// Main window of this program.
+	// window.go
 	window Window
 	// Grid is a neovim window if multigrid option is enabled, otherwise full screen.
 	// Grid has cells and it's attributes, and contains all information how cells and fonts will be rendered.
 	// grid.go
-	// TODO: support multigrid
 	grid Grid
-	// Cursor represents a neovim cursor and all it's information, cursor.go
+	// Cursor represents a neovim cursor and all it's information
+	// cursor.go
 	cursor Cursor
 	// Mode is current nvim mode information struct (normal, visual etc.)
-	// We need for cursor rendering mode.go
+	// We need for cursor rendering
+	// mode.go
 	mode Mode
 	// Renderer is responsible for holding and oragnizing rendering data and
-	// sending them to opengl. renderer.go
-	// The opengl calls are encapsulated under renderergl.go
+	// sending them to opengl.
+	// renderer.go, opengl calls is in renderergl.go
 	renderer Renderer
-	// UIOptions is a struct, holds some user ui options like guifont.
+	// UIOptions is a struct, holds some user ui uiOptions like guifont.
 	// uioptions.go
-	options UIOptions
+	uiOptions UIOptions
 	// PopupMenu is the only popup menu in this program for right click menu.
 	// popupmenu.go
 	popupMenu PopupMenu
+	// Neoray options.
+	options Options
+	// Tcp server for singleinstance
+	// tcp.go
+	server *TCPServer
+
+	// These are the global variables of neoray. They are same in everywhere.
+	// Some of them are initialized at runtime. Therefore we must be carefull when we
+	// use them. If you add more here just write some information about it.
 	// If quitRequested is true the program will quit.
 	quitRequestedChan chan bool
 	// This is for resizing from nvim side, first we will send resize request to neovim,
 	// than we wait for the resize call from neovim side. When waiting this we dont want
-	// to render because its dangerous.
+	// to render.
 	waitingResize bool
-	// These are the global variables of neoray. They are same in everywhere.
-	// Some of them are initialized at runtime. Therefore we must be carefull when we
-	// use them. If you add more here just write some information about it.
 	// Initializing in CreateRenderer
 	cellWidth  int
 	cellHeight int
@@ -56,14 +79,10 @@ type Editor struct {
 	cellCount   int
 	// Initializing in Editor.MainLoop
 	updatesPerSecond int
-	averageTPS       float32
-	deltaTime        float32
-	// Transparency of window background min 0, max 1, default 1
-	framebufferTransparency float32
-	// Target ticks per second
-	targetTPS int
-	// Server for singleinstance
-	server *TCPServer
+	// For debugging.
+	averageTPS float32
+	// Last elapsed time between updates.
+	deltaTime float32
 }
 
 func (editor *Editor) Initialize() {
@@ -75,7 +94,7 @@ func (editor *Editor) Initialize() {
 	// when finished. And CreateFont will wait for it.
 	go CheckSystemFonts()
 
-	editor.initDefaults()
+	editor.options = CreateDefaultOptions()
 	editor.nvim = CreateNvimProcess()
 
 	if err := glfw.Init(); err != nil {
@@ -90,7 +109,7 @@ func (editor *Editor) Initialize() {
 	editor.mode = CreateMode()
 	editor.cursor = CreateCursor()
 	editor.popupMenu = CreatePopupMenu()
-	editor.options = UIOptions{}
+	editor.uiOptions = UIOptions{}
 
 	editor.renderer = CreateRenderer()
 
@@ -98,16 +117,24 @@ func (editor *Editor) Initialize() {
 	editor.nvim.startUI()
 }
 
-func (editor *Editor) initDefaults() {
-	editor.framebufferTransparency = DEFAULT_TRANSPARENCY
-	editor.targetTPS = DEFAULT_TARGET_TPS
+func CreateDefaultOptions() Options {
+	return Options{
+		cursorAnimTime:      DEFAULT_CURSOR_ANIM_TIME,
+		transparency:        DEFAULT_TRANSPARENCY,
+		targetTPS:           DEFAULT_TARGET_TPS,
+		popupMenuEnabled:    true,
+		keyToggleFullscreen: "<F11>",
+		keyIncreaseFontSize: "<C-kPlus>",
+		keyDecreaseFontSize: "<C-kMinus>",
+		mouseHide:           false,
+	}
 }
 
 func (editor *Editor) MainLoop() {
 	// For measuring total time of the program.
 	programBegin := time.Now()
 	// Ticker's interval
-	interval := time.Second / time.Duration(editor.targetTPS)
+	interval := time.Second / time.Duration(editor.options.targetTPS)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	// For measuring tps.
@@ -162,14 +189,22 @@ MAINLOOP:
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
 }
 
-func (editor *Editor) calculateCellCount() {
-	editor.columnCount = editor.window.width / editor.cellWidth
-	editor.rowCount = editor.window.height / editor.cellHeight
-	editor.cellCount = editor.columnCount * editor.rowCount
+// Calculates dimensions of the window as cell size.
+// Returns true if the cell count or rows or columns changed.
+func (editor *Editor) calculateCellCount() bool {
+	cols := editor.window.width / editor.cellWidth
+	rows := editor.window.height / editor.cellHeight
+	if cols != editor.columnCount || rows != editor.rowCount {
+		editor.columnCount = cols
+		editor.rowCount = rows
+		editor.cellCount = cols * rows
+		return true
+	}
+	return false
 }
 
 func (editor *Editor) backgroundAlpha() uint8 {
-	return uint8(editor.framebufferTransparency * 255)
+	return uint8(editor.options.transparency * 255)
 }
 
 func (editor *Editor) render() {

@@ -18,8 +18,10 @@ type UIOptions struct {
 	showtabline   int
 	termguicolors bool
 	// parsed options for forward usage
-	guifontname string
-	guifontsize float32
+	parsed struct {
+		guifontname string
+		guifontsize float32
+	}
 }
 
 func (options *UIOptions) SetGuiFont(newGuiFont string) {
@@ -45,7 +47,7 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 			// Disable user font.
 			EditorSingleton.renderer.DisableUserFont()
 			EditorSingleton.renderer.setFontSize(size)
-		} else if name == options.guifontname {
+		} else if name == options.parsed.guifontname {
 			// Names are same, just resize the font
 			EditorSingleton.renderer.setFontSize(size)
 		} else {
@@ -57,7 +59,7 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 				EditorSingleton.nvim.echoErr("Font %s not found!", name)
 			}
 		}
-		options.guifontname = name
-		options.guifontsize = size
+		options.parsed.guifontname = name
+		options.parsed.guifontsize = size
 	}
 }

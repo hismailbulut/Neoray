@@ -88,7 +88,6 @@ func HandleNvimRedrawEvents() {
 				grid_scroll(update[1:])
 				break
 			default:
-				log_debug("Unhandled redraw event:", update)
 				break
 			}
 		}
@@ -98,7 +97,7 @@ func HandleNvimRedrawEvents() {
 }
 
 func option_set(args []interface{}) {
-	options := &EditorSingleton.options
+	options := &EditorSingleton.uiOptions
 	for _, arg := range args {
 		val := reflect.ValueOf(arg).Index(1).Elem()
 		switch reflect.ValueOf(arg).Index(0).Elem().String() {
