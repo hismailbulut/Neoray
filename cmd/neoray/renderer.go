@@ -183,7 +183,7 @@ func (renderer *Renderer) debugDrawFontAtlas() {
 
 func (storage VertexDataStorage) setCellPos(index int, pos IntRect) {
 	cBegin := storage.begin + (index * 4)
-	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	positions := triangulateRect(pos)
 	for i := 0; i < 4; i++ {
@@ -193,7 +193,7 @@ func (storage VertexDataStorage) setCellPos(index int, pos IntRect) {
 
 func (storage VertexDataStorage) setCellTexPos(index int, texPos IntRect) {
 	cBegin := storage.begin + (index * 4)
-	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	texPositions := triangulateFRect(storage.renderer.fontAtlas.texture.GetRectGLCoordinates(texPos))
 	for i := 0; i < 4; i++ {
@@ -203,7 +203,7 @@ func (storage VertexDataStorage) setCellTexPos(index int, texPos IntRect) {
 
 func (storage VertexDataStorage) setCellColor(index int, fg, bg U8Color) {
 	cBegin := storage.begin + (index * 4)
-	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	fgc := fg.ToF32Color()
 	bgc := bg.ToF32Color()
@@ -215,7 +215,7 @@ func (storage VertexDataStorage) setCellColor(index int, fg, bg U8Color) {
 
 func (storage VertexDataStorage) setCellSpColor(index int, sp U8Color) {
 	cBegin := storage.begin + (index * 4)
-	assert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	spc := sp.ToF32Color()
 	for i := 0; i < 4; i++ {
@@ -354,7 +354,8 @@ func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
 	if atlas.pos.Y+EditorSingleton.cellHeight > int(FONT_ATLAS_DEFAULT_SIZE) {
 		// Fully filled
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
-		atlas.pos = IntVec2{}
+		renderer.clearAtlas()
+		return IntVec2{}
 	}
 	return pos
 }
@@ -416,13 +417,11 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 			// If this character can't be drawed, an empty rectangle will be drawed.
 			// And we are reducing this rectangle count in the font atlas to 1.
 			// Every unsupported glyph will use it.
-			// TODO: sprintf is for debugging, delete it
-			id = fmt.Sprint(UNSUPPORTED_GLYPH_ID, char)
+			id = UNSUPPORTED_GLYPH_ID
 			pos, ok := renderer.fontAtlas.characters[id]
 			if ok {
 				return pos
 			}
-			log_debug("Unsupported glyph:", string(char), char)
 		}
 		// Render character to an image
 		textImage := fontFace.RenderChar(char, underline, strikethrough)
