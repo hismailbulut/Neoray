@@ -60,7 +60,6 @@ func ParseArgs(args []string) ParsedArgs {
 		execPath:   "nvim",
 		others:     []string{},
 	}
-	printHelp := false
 	var err error
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -85,7 +84,7 @@ func ParseArgs(args []string) ParsedArgs {
 			options.singleinst = true
 			break
 		case "--nvim":
-			assert(len(args) > i+1, "specify filename after --file")
+			assert(len(args) > i+1, "specify path after --nvim")
 			absolute, err := filepath.Abs(args[i+1])
 			if err == nil {
 				options.execPath = absolute
@@ -98,16 +97,13 @@ func ParseArgs(args []string) ParsedArgs {
 			i++
 			break
 		case "--help", "-h":
-			printHelp = true
+			PrintHelp()
+			os.Exit(0)
 			break
 		default:
 			options.others = append(options.others, args[i])
 			break
 		}
-	}
-	if printHelp {
-		PrintHelp()
-		os.Exit(0)
 	}
 	return options
 }
@@ -117,38 +113,39 @@ func PrintHelp() {
 	msg := fmt.Sprintf(usageTemplate,
 		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
 		buildTypeString(), LICENSE, WEBPAGE)
-	dialog.Message(msg).Title("Neoray").Info()
+	dialog.Message(msg).Title(TITLE).Info()
 }
 
 // Call this before starting neovim.
 func (options ParsedArgs) ProcessBefore() bool {
-	dontStart := false
 	if options.singleinst {
 		// First we will check only once because sending and
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
-		if err == nil {
-			if client.SendSignal(SIGNAL_CHECK_CONNECTION) {
-				if options.file != "" {
-					fullPath, err := filepath.Abs(options.file)
-					if err == nil {
-						client.SendSignal(SIGNAL_OPEN_FILE, fullPath)
-					}
-				}
-				if options.line != -1 {
-					client.SendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
-				}
-				if options.column != -1 {
-					client.SendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
-				}
-				dontStart = true
-			}
-			client.Close()
-		} else {
-			log_debug("No instance founded or tcp server creation failed:", err)
+		if err != nil {
+			log_debug("No instance found or tcp client creation failed:", err)
+			return false
 		}
+		ok := false
+		if client.SendSignal(SIGNAL_CHECK_CONNECTION) {
+			if options.file != "" {
+				fullPath, err := filepath.Abs(options.file)
+				if err == nil {
+					client.SendSignal(SIGNAL_OPEN_FILE, fullPath)
+				}
+			}
+			if options.line != -1 {
+				client.SendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
+			}
+			if options.column != -1 {
+				client.SendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
+			}
+			ok = true
+		}
+		client.Close()
+		return ok
 	}
-	return dontStart
+	return false
 }
 
 // Call this after connected neovim as ui.
@@ -156,7 +153,7 @@ func (options ParsedArgs) ProcessAfter() {
 	if options.singleinst {
 		server, err := CreateServer()
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create TCP listener.")
+			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create TCP listener:", err)
 		} else {
 			EditorSingleton.server = server
 		}
