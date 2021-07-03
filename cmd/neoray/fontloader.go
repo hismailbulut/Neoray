@@ -63,11 +63,11 @@ func CreateDefaultFont() Font {
 
 func CheckSystemFonts() {
 	defer measure_execution_time()()
-	if systemFontList == nil {
+	if systemFontList == nil && !systemFontListReady.Get() {
 		systemFontList = sysfont.NewFinder(nil).List()
 	}
 	systemFontListReady.Set(true)
-	log_debug("System font list is loaded.")
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "System font list loaded. Total Fonts:", len(systemFontList))
 }
 
 func CreateFont(fontName string, size float32) (Font, bool) {
@@ -76,7 +76,7 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	// We have to wait until the system fonts have loaded.
 	systemFontListReady.WaitUntil(true)
 
-	assert(fontName != "" && fontName != " ", "Font name can not be empty!")
+	assert(fontName != "", "Font name can not be empty!")
 
 	if size < MINIMUM_FONT_SIZE {
 		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
