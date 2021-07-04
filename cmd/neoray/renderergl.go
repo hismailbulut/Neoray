@@ -19,6 +19,8 @@ type Vertex struct {
 	bg F32Color // layout 3
 	// special color
 	sp F32Color // layout 4
+	// second texture position for multiwidth characters
+	tex2 F32Vec2 // layout 5
 }
 
 const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
@@ -85,6 +87,10 @@ func rglInit() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(4)
 	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	// second texture
+	offset += 4 * 4
+	gl.EnableVertexAttribArray(5)
+	gl.VertexAttribPointerWithOffset(5, 2, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
 	rglCheckError("gl enable attributes")
 
@@ -130,22 +136,22 @@ func rglClearScreen(color U8Color) {
 }
 
 // func rglReadPixelsToImage() *image.RGBA {
-// defer measure_execution_time()()
-// img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
-// gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
-// rglCheckError("read pixels")
-// // The image is upside down, we need to flip.
-// for y := 0; y < rgl_height/2; y++ {
-//     k := (rgl_height - 1) - y
-//     yBegin := img.PixOffset(0, y)
-//     yEnd := img.PixOffset(0, y+1)
-//     kBegin := img.PixOffset(0, k)
-//     kEnd := img.PixOffset(0, k+1)
-//     temp := append([]uint8(nil), img.Pix[yBegin:yEnd]...)
-//     copy(img.Pix[yBegin:yEnd], img.Pix[kBegin:kEnd])
-//     copy(img.Pix[kBegin:kEnd], temp)
-// }
-// return img
+//     defer measure_execution_time()()
+//     img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
+//     gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
+//     rglCheckError("read pixels")
+//     // The image is upside down, we need to flip.
+//     for y := 0; y < rgl_height/2; y++ {
+//         k := (rgl_height - 1) - y
+//         yBegin := img.PixOffset(0, y)
+//         yEnd := img.PixOffset(0, y+1)
+//         kBegin := img.PixOffset(0, k)
+//         kEnd := img.PixOffset(0, k+1)
+//         temp := append([]uint8(nil), img.Pix[yBegin:yEnd]...)
+//         copy(img.Pix[yBegin:yEnd], img.Pix[kBegin:kEnd])
+//         copy(img.Pix[kBegin:kEnd], temp)
+//     }
+//     return img
 // }
 
 func rglUpdateVertices(data []Vertex) {

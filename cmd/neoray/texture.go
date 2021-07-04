@@ -42,6 +42,11 @@ func (texture *Texture) Clear() {
 }
 
 func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest IntRect) {
+	assert_debug(dest.X >= 0 && dest.Y >= 0 &&
+		dest.W >= 0 && dest.H >= 0 &&
+		dest.X+dest.W < texture.width && dest.Y+dest.H < texture.height,
+		"Image dest invalid:", dest)
+
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0,
 		int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))

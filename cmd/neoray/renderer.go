@@ -176,14 +176,15 @@ func (renderer *Renderer) debugDrawFontAtlas() {
 		W: FONT_ATLAS_DEFAULT_SIZE,
 		H: FONT_ATLAS_DEFAULT_SIZE,
 	}
-	positions := triangulateRect(atlas_pos)
-	texture_positions := triangulateFRect(F32Rect{X: 0, Y: 0, W: 1, H: 1})
-	renderer.appendRectData(positions, texture_positions, F32Color{R: 1, G: 1, B: 1, A: 1}, F32Color{})
+	storage := renderer.reserveVertexData(1)
+	storage.setCellPos(0, atlas_pos)
+	storage.setCellTex(0, IntRect{0, 0, FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE})
+	storage.setCellFg(0, U8Color{R: 255, G: 255, B: 255, A: 255})
 }
 
 func (storage VertexDataStorage) setCellPos(index int, pos IntRect) {
 	cBegin := storage.begin + (index * 4)
-	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	positions := triangulateRect(pos)
 	for i := 0; i < 4; i++ {
@@ -191,9 +192,9 @@ func (storage VertexDataStorage) setCellPos(index int, pos IntRect) {
 	}
 }
 
-func (storage VertexDataStorage) setCellTexPos(index int, texPos IntRect) {
+func (storage VertexDataStorage) setCellTex(index int, texPos IntRect) {
 	cBegin := storage.begin + (index * 4)
-	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	texPositions := triangulateFRect(storage.renderer.fontAtlas.texture.GetRectGLCoordinates(texPos))
 	for i := 0; i < 4; i++ {
@@ -201,21 +202,29 @@ func (storage VertexDataStorage) setCellTexPos(index int, texPos IntRect) {
 	}
 }
 
-func (storage VertexDataStorage) setCellColor(index int, fg, bg U8Color) {
+func (storage VertexDataStorage) setCellFg(index int, fg U8Color) {
 	cBegin := storage.begin + (index * 4)
-	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	fgc := fg.ToF32Color()
-	bgc := bg.ToF32Color()
 	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].fg = fgc
+	}
+}
+
+func (storage VertexDataStorage) setCellBg(index int, bg U8Color) {
+	cBegin := storage.begin + (index * 4)
+	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
+		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
+	bgc := bg.ToF32Color()
+	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].bg = bgc
 	}
 }
 
-func (storage VertexDataStorage) setCellSpColor(index int, sp U8Color) {
+func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
 	cBegin := storage.begin + (index * 4)
-	dassert(cBegin >= storage.begin && cBegin+4 <= storage.end,
+	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
 	spc := sp.ToF32Color()
 	for i := 0; i < 4; i++ {
@@ -223,12 +232,13 @@ func (storage VertexDataStorage) setCellSpColor(index int, sp U8Color) {
 	}
 }
 
-func (storage VertexDataStorage) setAllCellsColors(fg, bg U8Color) {
-	fgc := fg.ToF32Color()
-	bgc := bg.ToF32Color()
-	for i := storage.begin; i < storage.end; i++ {
-		storage.renderer.vertexData[i].fg = fgc
-		storage.renderer.vertexData[i].bg = bgc
+func (storage VertexDataStorage) setCellTex2(index int, texPos IntRect) {
+	cBegin := storage.begin + (index * 4)
+	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
+		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
+	texPositions := triangulateFRect(storage.renderer.fontAtlas.texture.GetRectGLCoordinates(texPos))
+	for i := 0; i < 4; i++ {
+		storage.renderer.vertexData[cBegin+i].tex2 = texPositions[i]
 	}
 }
 
@@ -239,27 +249,18 @@ func (storage VertexDataStorage) setAllCellsColors(fg, bg U8Color) {
 func (renderer *Renderer) reserveVertexData(cellCount int) VertexDataStorage {
 	begin := len(renderer.vertexData)
 	for i := 0; i < cellCount; i++ {
-		renderer.appendRectData([4]F32Vec2{}, [4]F32Vec2{}, F32Color{}, F32Color{})
+		cbegin := len(renderer.vertexData)
+		for i := 0; i < 4; i++ {
+			renderer.vertexData = append(renderer.vertexData, Vertex{})
+		}
+		for _, e := range IndexDataOrder {
+			renderer.indexData = append(renderer.indexData, uint32(cbegin)+e)
+		}
 	}
 	return VertexDataStorage{
 		renderer: renderer,
 		begin:    begin,
 		end:      len(renderer.vertexData),
-	}
-}
-
-func (renderer *Renderer) appendRectData(positions [4]F32Vec2, texPositions [4]F32Vec2, fg, bg F32Color) {
-	begin := len(renderer.vertexData)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData = append(renderer.vertexData, Vertex{
-			pos: positions[i],
-			tex: texPositions[i],
-			fg:  fg,
-			bg:  bg,
-		})
-	}
-	for _, e := range IndexDataOrder {
-		renderer.indexData = append(renderer.indexData, uint32(begin)+e)
 	}
 }
 
@@ -277,25 +278,37 @@ func (renderer *Renderer) copyRowData(dst, src, left, right int) {
 		dst_data.fg = src_data.fg
 		dst_data.bg = src_data.bg
 		dst_data.sp = src_data.sp
+		dst_data.tex2 = src_data.tex2
 	}
 }
 
-func (renderer *Renderer) setCellBgColor(x, y int, color U8Color) {
-	c := color.ToF32Color()
-	begin := cellVertexPos(x, y)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].bg = c
-	}
-}
-
-func (renderer *Renderer) setCellFgColor(x, y int, src IntRect, dest IntRect, color U8Color) {
-	c := color.ToF32Color()
-	area := renderer.fontAtlas.texture.GetRectGLCoordinates(src)
+func (renderer *Renderer) setCellTex(x, y int, pos IntRect) {
+	area := renderer.fontAtlas.texture.GetRectGLCoordinates(pos)
 	texture_coords := triangulateFRect(area)
 	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].tex = texture_coords[i]
+	}
+}
+
+func (renderer *Renderer) setCellFg(x, y int, color U8Color) {
+	c := color.ToF32Color()
+	begin := cellVertexPos(x, y)
+	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].fg = c
+	}
+}
+
+func (renderer *Renderer) getCellFg(x, y int) F32Color {
+	begin := cellVertexPos(x, y)
+	return renderer.vertexData[begin].fg
+}
+
+func (renderer *Renderer) setCellBg(x, y int, color U8Color) {
+	c := color.ToF32Color()
+	begin := cellVertexPos(x, y)
+	for i := 0; i < 4; i++ {
+		renderer.vertexData[begin+i].bg = c
 	}
 }
 
@@ -307,16 +320,38 @@ func (renderer *Renderer) setCellSpColor(x, y int, color U8Color) {
 	}
 }
 
-func (renderer *Renderer) clearCellFgColor(x, y int) {
+func (renderer *Renderer) setCellTex2(x, y int, src IntRect) {
+	area := renderer.fontAtlas.texture.GetRectGLCoordinates(src)
+	texture_coords := triangulateFRect(area)
 	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].tex = F32Vec2{}
-		renderer.vertexData[begin+i].fg = F32Color{}
-		renderer.vertexData[begin+i].sp = F32Color{}
+		renderer.vertexData[begin+i].tex2 = texture_coords[i]
 	}
 }
 
-func (renderer *Renderer) getCellData(x, y int) [4]Vertex {
+func (renderer *Renderer) isCellTexEmpty(x, y int) bool {
+	begin := cellVertexPos(x, y)
+	for i := 0; i < 4; i++ {
+		if renderer.vertexData[begin+i].tex.X != 0 ||
+			renderer.vertexData[begin+i].tex.Y != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (renderer *Renderer) isCellTex2Empty(x, y int) bool {
+	begin := cellVertexPos(x, y)
+	for i := 0; i < 4; i++ {
+		if renderer.vertexData[begin+i].tex2.X != 0 ||
+			renderer.vertexData[begin+i].tex2.Y != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (renderer *Renderer) debugGetCellData(x, y int) [4]Vertex {
 	begin := cellVertexPos(x, y)
 	return [4]Vertex{
 		renderer.vertexData[begin+0],
@@ -346,17 +381,18 @@ func cellElementPos(x, y int) int {
 func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
 	atlas := &renderer.fontAtlas
 	pos := atlas.pos
-	atlas.pos.X += width
-	if atlas.pos.X+width > int(FONT_ATLAS_DEFAULT_SIZE) {
-		atlas.pos.X = 0
-		atlas.pos.Y += EditorSingleton.cellHeight
+	if pos.X+width >= FONT_ATLAS_DEFAULT_SIZE {
+		pos.X = 0
+		pos.Y += EditorSingleton.cellHeight
 	}
-	if atlas.pos.Y+EditorSingleton.cellHeight > int(FONT_ATLAS_DEFAULT_SIZE) {
+	if pos.Y+EditorSingleton.cellHeight >= FONT_ATLAS_DEFAULT_SIZE {
 		// Fully filled
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
 		renderer.clearAtlas()
-		return IntVec2{}
+		pos = IntVec2{}
 	}
+	atlas.pos.X = pos.X + width
+	atlas.pos.Y = pos.Y
 	return pos
 }
 
@@ -403,8 +439,8 @@ func (renderer *Renderer) checkUndercurlPos() {
 
 // Returns given character position at the font atlas.
 func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) IntRect {
-	dassert(char != ' ', "char is space")
-	dassert(char != 0, "char is zero")
+	assert_debug(char != ' ', "char is space")
+	assert_debug(char != 0, "char is zero")
 	// generate specific id for this character
 	id := fmt.Sprintf("%d%t%t%t%t", char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
@@ -433,8 +469,6 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 				return pos
 			}
 		}
-		// TODO: This is always equal to cellWidth for now. But we need
-		// to implement some functionality to render double width characters.
 		width := textImage.Rect.Dx()
 		// Get empty atlas position for this character
 		text_pos := renderer.nextAtlasPosition(width)
@@ -456,10 +490,23 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
 	fg, bg, sp U8Color,
 	italic, bold, underline, undercurl, strikethrough bool) {
 	// draw Background
-	renderer.setCellBgColor(x, y, bg)
+	renderer.setCellBg(x, y, bg)
 	if char == 0 {
-		// this is an empty cell, clear the text vertex data
-		renderer.clearCellFgColor(x, y)
+		// this is an empty cell, clear the vertex data
+		// First we need to clear the next cell tex2.
+		if y+1 < EditorSingleton.columnCount {
+			renderer.setCellTex2(x, y+1, IntRect{})
+		}
+		if renderer.isCellTex2Empty(x, y) {
+			// We are checking for tex2 beause the previous cell
+			// may set this cells foreground color because of the
+			// multiwidth cell. We dont want to clear this cell
+			// foreground color. But we will clear the texture.
+			// log_debug("Cell fg clear:", x, y)
+			renderer.setCellFg(x, y, U8Color{})
+		}
+		renderer.setCellTex(x, y, IntRect{})
+		renderer.setCellSpColor(x, y, U8Color{})
 		return
 	}
 	if undercurl {
@@ -470,8 +517,29 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
 	}
 	// get character position in atlas texture
 	atlasPos := renderer.getCharPos(char, italic, bold, underline, strikethrough)
+	if atlasPos.W > EditorSingleton.cellWidth && y+1 < EditorSingleton.columnCount {
+		// If there is a next cell in this row and this character is a multiwidth char.
+		atlasPos.W /= 2
+		// Draw the parts more than width to the next cell.
+		// Only do this if foreground colors are same or the next cell is empty.
+		// NOTE: Foreground checking is not working because of the precision
+		if renderer.isCellTexEmpty(x, y+1) || renderer.getCellFg(x, y) == renderer.getCellFg(x, y+1) {
+			secAtlasPos := IntRect{
+				X: atlasPos.X + EditorSingleton.cellWidth,
+				Y: atlasPos.Y,
+				W: EditorSingleton.cellWidth,
+				H: EditorSingleton.cellHeight,
+			}
+			renderer.setCellTex2(x, y+1, secAtlasPos)
+			renderer.setCellFg(x, y+1, fg)
+		}
+	} else {
+		// Clear second texture.
+		renderer.setCellTex2(x, y+1, IntRect{})
+	}
 	// draw
-	renderer.setCellFgColor(x, y, atlasPos, cellRect(x, y), fg)
+	renderer.setCellTex(x, y, atlasPos)
+	renderer.setCellFg(x, y, fg)
 }
 
 func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute) {
@@ -482,13 +550,13 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	// bg transparency, this only affects default attribute backgrounds
 	bg.A = EditorSingleton.backgroundAlpha()
 	// set attribute colors
-	if !colorIsBlack(attrib.foreground) {
+	if attrib.foreground.A > 0 {
 		fg = attrib.foreground
 	}
-	if !colorIsBlack(attrib.background) {
+	if attrib.background.A > 0 {
 		bg = attrib.background
 	}
-	if !colorIsBlack(attrib.special) {
+	if attrib.special.A > 0 {
 		sp = attrib.special
 	}
 	// reverse foreground and background

@@ -66,9 +66,9 @@ func (c U8Color) ToF32Color() F32Color {
 	}
 }
 
-func colorIsBlack(color U8Color) bool {
-	return color.R == 0 && color.G == 0 && color.B == 0
-}
+// func colorIsBlack(color U8Color) bool {
+//     return color.R == 0 && color.G == 0 && color.B == 0
+// }
 
 func triangulateRect(rect IntRect) [4]F32Vec2 {
 	return [4]F32Vec2{

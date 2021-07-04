@@ -137,3 +137,4 @@ ___
 Neoray is licensed under MIT license. You can use, change, distribute
 it however you want. It ships with Cascadia Mono as default font (my best)
 and Cascadia Mono is powered by Microsoft Corporation, licensed under SFL v1.1
+The font's regular version is packed with nerdfonts.

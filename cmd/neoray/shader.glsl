@@ -5,8 +5,10 @@ layout(location = 1) in vec2 tex;
 layout(location = 2) in vec4 fg;
 layout(location = 3) in vec4 bg;
 layout(location = 4) in vec4 sp;
+layout(location = 5) in vec2 tex2;
 
 out vec2 texPos;
+out vec2 tex2Pos;
 out vec4 fgColor;
 out vec4 bgColor;
 out vec4 spColor;
@@ -32,6 +34,7 @@ vec2 getVertexTexturePos(vec4 rect) {
 void main() {
 	gl_Position =  vec4(pos, 0, 1) * projection;
 	texPos = tex;
+	tex2Pos = tex2;
 	fgColor = fg;
 	bgColor = bg;
 	spColor = sp;
@@ -41,6 +44,7 @@ void main() {
 // Fragment Shader
 #version 330 core
 in vec2 texPos;
+in vec2 tex2Pos;
 in vec4 fgColor;
 in vec4 bgColor;
 in vec4 spColor;
@@ -54,7 +58,8 @@ void main() {
 	vec4 foreground = mix(fgColor, spColor, ucColor.a * spColor.a);
 	vec4 background = mix(bgColor, spColor, ucColor.a * spColor.a);
 	// Mix background and foreground color.
-	vec4 texColor = texture(atlas, texPos);
-	vec4 result = mix(background, foreground, texColor.a);
+	vec4 tex1Color = texture(atlas, texPos);
+	vec4 tex2Color = texture(atlas, tex2Pos);
+	vec4 result = mix(background, foreground, max(tex1Color.a, tex2Color.a));
 	gl_FragColor = result;
 }

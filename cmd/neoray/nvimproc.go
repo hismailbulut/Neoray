@@ -136,7 +136,9 @@ func (proc *NvimProcess) introduce() {
 	}
 }
 
-func (proc *NvimProcess) getOption(name string) interface{} {
+// Returns options which implemented in vim but not implemented in neovim.
+// Like 'mousehide'. Don't use this as long as the nvim_get_option is working.
+func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
 	defer measure_execution_time()()
 	eventName := "optc_" + name
 	var opt interface{}
@@ -150,6 +152,7 @@ func (proc *NvimProcess) getOption(name string) interface{} {
 	if ok {
 		<-okc
 	}
+	proc.handle.Unsubscribe(eventName)
 	return opt
 }
 
@@ -196,7 +199,7 @@ func (proc *NvimProcess) requestVariables() {
 	if proc.handle.Var(OPTION_WINDOW_STATE, &state) == nil {
 		EditorSingleton.window.setState(state)
 	}
-	EditorSingleton.options.mouseHide = boolFromInterface(proc.getOption("mousehide"))
+	EditorSingleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
 }
 
 func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bool {
@@ -222,7 +225,7 @@ func (proc *NvimProcess) currentMode() string {
 
 func (proc *NvimProcess) echoMsg(format string, args ...interface{}) {
 	formatted := fmt.Sprintf(format, args...)
-	proc.executeVimScript(":echomsg '%s'", formatted)
+	proc.executeVimScript("echomsg '%s'", formatted)
 }
 
 func (proc *NvimProcess) echoErr(format string, args ...interface{}) {
@@ -286,7 +289,7 @@ func (proc *NvimProcess) selectAll() {
 
 func (proc *NvimProcess) openFile(file string) {
 	log_debug("Open file:", file)
-	proc.executeVimScript(":edit %s", file)
+	proc.executeVimScript("edit %s", file)
 }
 
 func (proc *NvimProcess) gotoLine(line int) {

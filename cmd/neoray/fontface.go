@@ -13,6 +13,10 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+const (
+	DEFAULT_FONT_HINTING = font.HintingFull
+)
+
 type FontFace struct {
 	loaded bool
 
@@ -43,7 +47,7 @@ func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
 	face, err := opentype.NewFace(sfont, &opentype.FaceOptions{
 		Size:    float64(size),
 		DPI:     EditorSingleton.window.dpi,
-		Hinting: font.HintingFull,
+		Hinting: DEFAULT_FONT_HINTING,
 	})
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to create font face: %s\n", err)
@@ -51,8 +55,6 @@ func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
 
 	advance, ok := face.GlyphAdvance('m')
 	if !ok {
-		// Maybe we should check for other glyphs
-		// but I think every font has 'm'
 		return FontFace{}, fmt.Errorf("Failed to get glyph advance!")
 	}
 
@@ -76,7 +78,7 @@ func (fontFace *FontFace) Resize(newsize float32) {
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
 		DPI:     EditorSingleton.window.dpi,
-		Hinting: font.HintingFull,
+		Hinting: DEFAULT_FONT_HINTING,
 	})
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)
@@ -136,15 +138,19 @@ func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
 	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
 	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
 	if ok {
-		img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
+		width := EditorSingleton.cellWidth
+		if mask.Bounds().Dx() > width {
+			width = 2 * EditorSingleton.cellWidth
+		}
+		img := image.NewRGBA(image.Rect(0, 0, width, EditorSingleton.cellHeight))
 		draw.DrawMask(img, dr, image.White, image.Point{}, mask, maskp, draw.Over)
 		return img
 	}
 	return nil
 }
 
-// Renders given char to an RGBA image and returns. Also renders underline and strikethrough
-// if specified. The second returned value is the width of the glyph rectangle.
+// Renders given char to an RGBA image and returns.
+// Also renders underline and strikethrough if specified.
 func (fontFace *FontFace) RenderChar(char rune, underline, strikethrough bool) *image.RGBA {
 	defer measure_execution_time()()
 	// Render glyph

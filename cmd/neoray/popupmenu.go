@@ -100,7 +100,7 @@ func (pmenu *PopupMenu) updateChars() {
 				atlasPos = EditorSingleton.renderer.getCharPos(
 					char, false, false, false, false)
 			}
-			pmenu.vertexData.setCellTexPos(cell_id, atlasPos)
+			pmenu.vertexData.setCellTex(cell_id, atlasPos)
 		}
 	}
 }
@@ -119,7 +119,8 @@ func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 				H: EditorSingleton.cellHeight,
 			}
 			pmenu.vertexData.setCellPos(cell_id, rect)
-			pmenu.vertexData.setCellColor(cell_id, fg, bg)
+			pmenu.vertexData.setCellFg(cell_id, fg)
+			pmenu.vertexData.setCellBg(cell_id, bg)
 		}
 	}
 	pmenu.hidden = false
@@ -173,16 +174,19 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 	if !pmenu.hidden {
 		ok, index := pmenu.intersects(pos)
 		if ok {
-			pmenu.vertexData.setAllCellsColors(
-				EditorSingleton.grid.default_bg, EditorSingleton.grid.default_fg)
+			// Fill all cells with default colors.
+			for i := 0; i < pmenu.width*pmenu.height; i++ {
+				pmenu.vertexData.setCellFg(i, EditorSingleton.grid.default_bg)
+				pmenu.vertexData.setCellBg(i, EditorSingleton.grid.default_fg)
+			}
 			if index != -1 {
 				row := index
-				// clear all buttons color
 				if row < len(pmenu.cells) {
+					// Highlight this row.
 					for col := 1; col < pmenu.width-1; col++ {
 						cell_id := row*pmenu.width + col
-						pmenu.vertexData.setCellColor(
-							cell_id, EditorSingleton.grid.default_fg, EditorSingleton.grid.default_bg)
+						pmenu.vertexData.setCellFg(cell_id, EditorSingleton.grid.default_fg)
+						pmenu.vertexData.setCellBg(cell_id, EditorSingleton.grid.default_bg)
 					}
 				}
 				EditorSingleton.render()

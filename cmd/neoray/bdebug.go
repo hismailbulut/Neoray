@@ -76,7 +76,7 @@ func close_function_time_tracker() {
 }
 
 // This assert only works on debug build.
-func dassert(cond bool, message ...interface{}) {
+func assert_debug(cond bool, message ...interface{}) {
 	if !cond {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Debug assertion failed:", message)
 	}

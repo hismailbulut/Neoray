@@ -217,7 +217,7 @@ func (editor *Editor) draw() {
 
 func (editor *Editor) debugEvalCell(x, y int) {
 	cell := editor.grid.getCell(x, y)
-	vertices := editor.renderer.getCellData(x, y)
+	vertices := editor.renderer.debugGetCellData(x, y)
 	format := `Cell information:
 	pos: %d %d
 	char: %s %d

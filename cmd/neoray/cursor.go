@@ -124,10 +124,10 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	bg := EditorSingleton.grid.default_fg
 	if info.attr_id != 0 {
 		attrib := EditorSingleton.grid.attributes[info.attr_id]
-		if !colorIsBlack(attrib.foreground) {
+		if attrib.foreground.A > 0 {
 			fg = attrib.foreground
 		}
-		if !colorIsBlack(attrib.background) {
+		if attrib.background.A > 0 {
 			bg = attrib.background
 		}
 	}
@@ -179,12 +179,15 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 		underline = attrib.underline
 		strikethrough = attrib.strikethrough
 		if attrib.undercurl {
-			cursor.vertexData.setCellSpColor(0, fg)
+			cursor.vertexData.setCellSp(0, fg)
 		}
 	}
 	atlas_pos := EditorSingleton.renderer.getCharPos(
 		cell.char, italic, bold, underline, strikethrough)
-	cursor.vertexData.setCellTexPos(0, atlas_pos)
+	if atlas_pos.W > EditorSingleton.cellWidth {
+		atlas_pos.W /= 2
+	}
+	cursor.vertexData.setCellTex(0, atlas_pos)
 }
 
 func (cursor *Cursor) Draw() {
@@ -201,15 +204,17 @@ func (cursor *Cursor) Draw() {
 				cursor.drawWithCell(cell, fg)
 			} else {
 				// Clear foreground of the cursor.
-				cursor.vertexData.setCellTexPos(0, IntRect{})
-				cursor.vertexData.setCellSpColor(0, U8Color{})
+				cursor.vertexData.setCellTex(0, IntRect{})
+				cursor.vertexData.setCellSp(0, U8Color{})
 			}
-			cursor.vertexData.setCellColor(0, fg, bg)
+			cursor.vertexData.setCellFg(0, fg)
+			cursor.vertexData.setCellBg(0, bg)
 		} else {
 			// No cell drawing needed. Clear foreground.
-			cursor.vertexData.setCellTexPos(0, IntRect{})
-			cursor.vertexData.setCellColor(0, U8Color{}, bg)
-			cursor.vertexData.setCellSpColor(0, U8Color{})
+			cursor.vertexData.setCellTex(0, IntRect{})
+			cursor.vertexData.setCellFg(0, U8Color{})
+			cursor.vertexData.setCellBg(0, bg)
+			cursor.vertexData.setCellSp(0, U8Color{})
 		}
 		cursor.vertexData.setCellPos(0, rect)
 		EditorSingleton.render()
