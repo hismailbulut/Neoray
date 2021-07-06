@@ -233,11 +233,6 @@ func hl_attr_define(args []interface{}) {
 		// attribute id and second is a map which
 		// contains attribute keys
 		id := int(v.Index(0).Elem().Convert(t_uint).Uint())
-		assert(id != 0, "hl id is zero")
-		// if id == 0 {
-		//     // `id` 0 will always be used for the default highlight with colors
-		//     continue
-		// }
 		mapIter := v.Index(1).Elem().MapRange()
 		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes

@@ -299,11 +299,6 @@ func (renderer *Renderer) setCellFg(x, y int, color U8Color) {
 	}
 }
 
-func (renderer *Renderer) getCellFg(x, y int) F32Color {
-	begin := cellVertexPos(x, y)
-	return renderer.vertexData[begin].fg
-}
-
 func (renderer *Renderer) setCellBg(x, y int, color U8Color) {
 	c := color.ToF32Color()
 	begin := cellVertexPos(x, y)
@@ -312,7 +307,7 @@ func (renderer *Renderer) setCellBg(x, y int, color U8Color) {
 	}
 }
 
-func (renderer *Renderer) setCellSpColor(x, y int, color U8Color) {
+func (renderer *Renderer) setCellSp(x, y int, color U8Color) {
 	c := color.ToF32Color()
 	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
@@ -450,13 +445,17 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 		// Get suitable font and check for glyph
 		fontFace, ok := renderer.getSupportedFace(char, italic, bold)
 		if !ok {
-			// If this character can't be drawed, an empty rectangle will be drawed.
-			// And we are reducing this rectangle count in the font atlas to 1.
-			// Every unsupported glyph will use it.
-			id = UNSUPPORTED_GLYPH_ID
-			pos, ok := renderer.fontAtlas.characters[id]
-			if ok {
-				return pos
+			if isDebugBuild() {
+				log_debug("Unsupported glyph:", string(char), char)
+			} else {
+				// If this character can't be drawed, an empty rectangle will be drawed.
+				// And we are reducing this rectangle count in the font atlas to 1.
+				// Every unsupported glyph will use it.
+				id = UNSUPPORTED_GLYPH_ID
+				pos, ok := renderer.fontAtlas.characters[id]
+				if ok {
+					return pos
+				}
 			}
 		}
 		// Render character to an image
@@ -506,14 +505,14 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
 			renderer.setCellFg(x, y, U8Color{})
 		}
 		renderer.setCellTex(x, y, IntRect{})
-		renderer.setCellSpColor(x, y, U8Color{})
+		renderer.setCellSp(x, y, U8Color{})
 		return
 	}
 	if undercurl {
 		renderer.checkUndercurlPos()
-		renderer.setCellSpColor(x, y, sp)
+		renderer.setCellSp(x, y, sp)
 	} else {
-		renderer.setCellSpColor(x, y, U8Color{})
+		renderer.setCellSp(x, y, U8Color{})
 	}
 	// get character position in atlas texture
 	atlasPos := renderer.getCharPos(char, italic, bold, underline, strikethrough)
@@ -523,7 +522,7 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
 		// Draw the parts more than width to the next cell.
 		// Only do this if foreground colors are same or the next cell is empty.
 		// NOTE: Foreground checking is not working because of the precision
-		if renderer.isCellTexEmpty(x, y+1) || renderer.getCellFg(x, y) == renderer.getCellFg(x, y+1) {
+		if renderer.isCellTexEmpty(x, y+1) {
 			secAtlasPos := IntRect{
 				X: atlasPos.X + EditorSingleton.cellWidth,
 				Y: atlasPos.Y,

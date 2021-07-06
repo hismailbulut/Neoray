@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/neovim/go-client/nvim"
 )
@@ -70,7 +69,7 @@ func (proc *NvimProcess) checkNeovimVersion() {
 	}
 
 	cmd := exec.Command(path, "--version")
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	cmd.SysProcAttr = getSysProcAttr()
 	output, err := cmd.Output()
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get neovim version information:", err)

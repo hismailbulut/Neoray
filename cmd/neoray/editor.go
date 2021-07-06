@@ -88,12 +88,6 @@ type Editor struct {
 func (editor *Editor) Initialize() {
 	defer measure_execution_time()()
 
-	// On some system which has many fonts, this function
-	// takes so long. And this operation is thread safe.
-	// Updates systemFontListReady AtomicBool value to true
-	// when finished. And CreateFont will wait for it.
-	go CheckSystemFonts()
-
 	editor.options = CreateDefaultOptions()
 	editor.nvim = CreateNvimProcess()
 

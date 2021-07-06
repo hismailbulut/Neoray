@@ -132,7 +132,6 @@ func CharEventHandler(w *glfw.Window, char rune) {
 			keycode += "D-"
 		}
 		if sp != c || len(keycode) > 0 {
-			// Surround with <>
 			keycode = "<" + keycode + sp + ">"
 		} else {
 			keycode = sp

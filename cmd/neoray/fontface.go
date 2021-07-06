@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	DEFAULT_FONT_HINTING = font.HintingFull
+	FONT_HINTING = font.HintingFull
 )
 
 type FontFace struct {
@@ -30,15 +30,15 @@ type FontFace struct {
 	height  int
 }
 
-func CreateFontFace(fileName string, size float32) (FontFace, error) {
+func CreateFace(fileName string, size float32) (FontFace, error) {
 	fileData, err := os.ReadFile(fileName)
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to read file: %s\n", err)
 	}
-	return CreateFontFaceMemory(fileData, size)
+	return CreateFaceFromMem(fileData, size)
 }
 
-func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
+func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 	sfont, err := opentype.Parse(data)
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to parse font data: %s\n", err)
@@ -47,7 +47,7 @@ func CreateFontFaceMemory(data []byte, size float32) (FontFace, error) {
 	face, err := opentype.NewFace(sfont, &opentype.FaceOptions{
 		Size:    float64(size),
 		DPI:     EditorSingleton.window.dpi,
-		Hinting: DEFAULT_FONT_HINTING,
+		Hinting: FONT_HINTING,
 	})
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to create font face: %s\n", err)
@@ -78,7 +78,7 @@ func (fontFace *FontFace) Resize(newsize float32) {
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
 		DPI:     EditorSingleton.window.dpi,
-		Hinting: DEFAULT_FONT_HINTING,
+		Hinting: FONT_HINTING,
 	})
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)

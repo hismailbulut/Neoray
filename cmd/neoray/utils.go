@@ -2,15 +2,8 @@ package main
 
 import (
 	"math"
-	"os"
 	"sync/atomic"
 	"time"
-)
-
-var (
-	COLOR_WHITE       = U8Color{R: 255, G: 255, B: 255, A: 255}
-	COLOR_BLACK       = U8Color{R: 0, G: 0, B: 0, A: 255}
-	COLOR_TRANSPARENT = U8Color{R: 0, G: 0, B: 0, A: 0}
 )
 
 type U8Color struct {
@@ -65,10 +58,6 @@ func (c U8Color) ToF32Color() F32Color {
 		A: float32(c.A) / 256,
 	}
 }
-
-// func colorIsBlack(color U8Color) bool {
-//     return color.R == 0 && color.G == 0 && color.B == 0
-// }
 
 func triangulateRect(rect IntRect) [4]F32Vec2 {
 	return [4]F32Vec2{
@@ -158,12 +147,7 @@ func boolFromInterface(val interface{}) bool {
 	case int, int32, int64:
 		return val != 0
 	default:
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Value type can not be a bool:", val)
+		assert_debug(false, "Value type can not be a bool:", val)
 		return false
 	}
-}
-
-func fileExists(name string) bool {
-	_, err := os.Stat(name)
-	return err == nil
 }

@@ -53,13 +53,13 @@ in vec2 ucPos;
 uniform sampler2D atlas;
 
 void main() {
-	// Mix colors with special.
+	// Mix colors with special. (For undercurl)
 	vec4 ucColor = texture(atlas, ucPos);
-	vec4 foreground = mix(fgColor, spColor, ucColor.a * spColor.a);
-	vec4 background = mix(bgColor, spColor, ucColor.a * spColor.a);
-	// Mix background and foreground color.
+	vec4 foreground = mix(fgColor, spColor, min(ucColor.a, spColor.a));
+	vec4 background = mix(bgColor, spColor, min(ucColor.a, spColor.a));
+	// Mix background and foreground color with textures.
 	vec4 tex1Color = texture(atlas, texPos);
-	vec4 tex2Color = texture(atlas, tex2Pos);
+	vec4 tex2Color = texture(atlas, tex2Pos); // (For tex2. We are doing it for multiwidth char.)
 	vec4 result = mix(background, foreground, max(tex1Color.a, tex2Color.a));
 	gl_FragColor = result;
 }
