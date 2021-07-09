@@ -1,4 +1,4 @@
-SOURCEFOLDER=./cmd/neoray
+SOURCEFOLDER=./src
 
 ifeq ($(OS),Windows_NT)
 	DEBUGEXE=bin/neoray_debug.exe

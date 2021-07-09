@@ -7,11 +7,8 @@ import (
 )
 
 const (
-	MINIMUM_FONT_SIZE        = 7
-	DEFAULT_FONT_SIZE        = 12
-	DEFAULT_CURSOR_ANIM_TIME = 0.8
-	DEFAULT_TRANSPARENCY     = 1
-	DEFAULT_TARGET_TPS       = 60
+	MINIMUM_FONT_SIZE = 7
+	DEFAULT_FONT_SIZE = 12
 )
 
 type Options struct {
@@ -96,7 +93,7 @@ func (editor *Editor) Initialize() {
 	}
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
 
-	editor.window = CreateWindow(800, 600, TITLE)
+	editor.window = CreateWindow(WINDOW_SIZE_AUTO, WINDOW_SIZE_AUTO, TITLE)
 	InitializeInputEvents()
 
 	editor.grid = CreateGrid()
@@ -113,9 +110,9 @@ func (editor *Editor) Initialize() {
 
 func CreateDefaultOptions() Options {
 	return Options{
-		cursorAnimTime:      DEFAULT_CURSOR_ANIM_TIME,
-		transparency:        DEFAULT_TRANSPARENCY,
-		targetTPS:           DEFAULT_TARGET_TPS,
+		cursorAnimTime:      0.8,
+		transparency:        1,
+		targetTPS:           60,
 		popupMenuEnabled:    true,
 		keyToggleFullscreen: "<F11>",
 		keyIncreaseFontSize: "<C-kPlus>",
@@ -176,7 +173,7 @@ MAINLOOP:
 		// quit command to neovim and if there are unsaved files
 		// the neovim will handle them and user will not lose its progress.
 		editor.window.handle.SetShouldClose(false)
-		go editor.nvim.executeVimScript(":qa")
+		go editor.nvim.executeVimScript("qa")
 		goto MAINLOOP
 	}
 	log_debug("Average TPS:", editor.averageTPS)

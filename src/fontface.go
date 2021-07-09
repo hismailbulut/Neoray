@@ -96,7 +96,8 @@ func (fontFace *FontFace) Resize(newsize float32) {
 	fontFace.height = face.Metrics().Height.Floor()
 }
 
-func (fontFace *FontFace) IsDrawable(char rune) bool {
+// ContainsGlyph returns the whether font contains the given glyph.
+func (fontFace *FontFace) ContainsGlyph(char rune) bool {
 	i, err := fontFace.fontHandle.GlyphIndex(&fontFace.buffer, char)
 	return i != 0 && err == nil
 }
@@ -134,6 +135,7 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 }
 
 // Renders given rune and returns rendered RGBA image.
+// Width of the image is always equal to cellWidth or cellWidth*2
 func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
 	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
 	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
@@ -156,7 +158,6 @@ func (fontFace *FontFace) RenderChar(char rune, underline, strikethrough bool) *
 	// Render glyph
 	img := fontFace.renderGlyph(char)
 	if img == nil {
-		// This is very rare but Glyph may fail.
 		return nil
 	}
 	// We are rendering underline and strikethrough as a single line

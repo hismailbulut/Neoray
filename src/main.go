@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -77,4 +78,8 @@ func buildTypeString() string {
 		return "Debug"
 	}
 	return "Release"
+}
+
+func versionString() string {
+	return fmt.Sprintf("%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)
 }

@@ -1,9 +1,5 @@
 package main
 
-import ()
-
-// DefaultCursorAnimLifetime = 0.08
-
 type Cursor struct {
 	X          int
 	Y          int
@@ -12,6 +8,7 @@ type Cursor struct {
 	hidden     bool
 	vertexData VertexDataStorage
 	// blinking variables
+	bHidden  bool
 	time     float32
 	nextTime float32
 }
@@ -37,7 +34,7 @@ func (cursor *Cursor) resetBlinking() {
 		return
 	}
 	cursor.time = 0
-	cursor.Show()
+	cursor.blinkShow()
 	cursor.nextTime = float32(info.blinkwait) / 1000
 }
 
@@ -49,13 +46,13 @@ func (cursor *Cursor) updateBlinking() {
 	}
 	if cursor.time >= cursor.nextTime {
 		cursor.time = 0
-		if cursor.hidden {
+		if cursor.bHidden {
 			// show cursor
-			cursor.Show()
+			cursor.blinkShow()
 			cursor.nextTime = float32(info.blinkon) / 1000
 		} else {
 			// hide cursor
-			cursor.Hide()
+			cursor.blinkHide()
 			cursor.nextTime = float32(info.blinkoff) / 1000
 		}
 	}
@@ -149,6 +146,21 @@ func (cursor *Cursor) animPosition() IntVec2 {
 			X: int(float32(EditorSingleton.cellWidth) * aPos.Y),
 			Y: int(float32(EditorSingleton.cellHeight) * aPos.X),
 		}
+	}
+}
+
+func (cursor *Cursor) blinkShow() {
+	if !cursor.hidden && cursor.bHidden {
+		cursor.bHidden = false
+		cursor.Draw()
+	}
+}
+
+func (cursor *Cursor) blinkHide() {
+	if !cursor.hidden && !cursor.bHidden {
+		cursor.bHidden = true
+		cursor.vertexData.setCellPos(0, IntRect{})
+		EditorSingleton.render()
 	}
 }
 

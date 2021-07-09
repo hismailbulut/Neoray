@@ -34,11 +34,6 @@ Options:
 	Prints this message and quits.
 
 All other flags will send to neovim.
-
-Copyrights:
-
-Default font is Cascadia Code, Copyright (c) 2019 - Present,
-Microsoft Corporation, licensed under SIL OPEN FONT LICENSE Version 1.1
 `
 
 type ParsedArgs struct {

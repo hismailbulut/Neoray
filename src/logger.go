@@ -34,12 +34,12 @@ const (
 )
 
 var (
-	verbose_output bool
-	log_file       *os.File
+	log_file_initialized bool
+	log_file             *os.File
 )
 
 func init_log_file(filename string) {
-	assert(!verbose_output, "log file already initialized")
+	assert(!log_file_initialized, "log file already initialized")
 	path, err := filepath.Abs(filename)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
@@ -50,9 +50,9 @@ func init_log_file(filename string) {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create log file:", err)
 		return
 	}
-	verbose_output = true
-	// Print time to log file
-	log_file.WriteString(fmt.Sprintln("\nNEORAY LOG", time.Now().UTC()))
+	log_file_initialized = true
+	// Print informations to log file.
+	log_file.WriteString(fmt.Sprintln("\nNEORAY LOG", time.Now().UTC(), "v"+versionString(), buildTypeString()))
 }
 
 func close_logger() {
@@ -60,20 +60,29 @@ func close_logger() {
 	// Also the stack trace will be printed after
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
-		log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, pmsg)
-		log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, string(debug.Stack()))
-		// Print some information.
+		if log_file_initialized {
+			log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, pmsg)
+			log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, string(debug.Stack()))
+		} else {
+			// Create crash report.
+			crash_file, err := os.OpenFile("neoray_crash.log", os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC, 0666)
+			if err == nil {
+				defer crash_file.Close()
+				crash_file.WriteString("Message: " + fmt.Sprintln(pmsg))
+				crash_file.WriteString("Stack Trace: " + fmt.Sprintln(string(debug.Stack())))
+			}
+		}
 	}
 	// If logfile is initialized then close it.
-	if verbose_output {
+	if log_file_initialized {
 		log_file.Close()
 		// We don't need but anyway
-		verbose_output = false
+		log_file_initialized = false
 	}
 }
 
 func log_message(log_level, log_type int, message ...interface{}) {
-	if log_level < MINIMUM_LOG_LEVEL && !verbose_output {
+	if log_level < MINIMUM_LOG_LEVEL && !log_file_initialized {
 		return
 	}
 
@@ -116,7 +125,7 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		log_string += " " + fmt.Sprint(msg)
 	}
 
-	if verbose_output {
+	if log_file_initialized {
 		log_file.WriteString(log_string + "\n")
 	}
 

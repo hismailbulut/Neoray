@@ -13,6 +13,8 @@ const (
 	WINDOW_STATE_MAXIMIZED  = "maximized"
 	WINDOW_STATE_FULLSCREEN = "fullscreen"
 	WINDOW_STATE_CENTERED   = "centered"
+
+	WINDOW_SIZE_AUTO = 1 << 31
 )
 
 type Window struct {
@@ -31,6 +33,18 @@ type Window struct {
 
 func CreateWindow(width int, height int, title string) Window {
 	defer measure_execution_time()()
+
+	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
+	rW := videoMode.Width
+	rH := videoMode.Height
+
+	if width == WINDOW_SIZE_AUTO {
+		width = (rW / 4) * 3
+	}
+	if height == WINDOW_SIZE_AUTO {
+		height = (rH / 4) * 3
+	}
+
 	window := Window{
 		title:  title,
 		width:  width,

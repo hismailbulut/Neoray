@@ -8,7 +8,7 @@ leaves no footprints on your computer.
 
 You can install neoray with go install command.
 ```
-go install github.com/hismailbulut/neoray/cmd/neoray@latest
+go install github.com/hismailbulut/neoray/src@latest
 ```
 
 Neoray doesn't need any additional configuration, but you
@@ -135,6 +135,4 @@ and you will ready to fly.
 ___
 ### copyright
 Neoray is licensed under MIT license. You can use, change, distribute
-it however you want. It ships with Cascadia Mono as default font (my best)
-and Cascadia Mono is powered by Microsoft Corporation, licensed under SFL v1.1
-The font's regular version is packed with nerdfonts.
+it however you want.

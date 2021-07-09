@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"unicode"
 )
 
 const (
@@ -11,7 +12,8 @@ const (
 
 var (
 	// Generate index data using this order.
-	IndexDataOrder = [6]uint32{0, 1, 2, 2, 3, 0}
+	IndexDataOrder         = [6]uint32{0, 1, 2, 2, 3, 0}
+	debugUnsupportedGlyphs = map[rune]string{}
 )
 
 type FontAtlas struct {
@@ -395,21 +397,21 @@ func (renderer *Renderer) getSupportedFace(char rune, italic, bold bool) (*FontF
 	// First try the user font for this character.
 	if renderer.userFont.size > 0 {
 		face := renderer.userFont.GetSuitableFace(italic, bold)
-		if face.IsDrawable(char) {
+		if face.ContainsGlyph(char) {
 			return face, true
 		}
 	}
 	// If this is not regular font, try with default non regular fonts.
 	if italic || bold {
 		face := renderer.defaultFont.GetSuitableFace(italic, bold)
-		if face.IsDrawable(char) {
+		if face.ContainsGlyph(char) {
 			return face, true
 		}
 	}
 	// Use default font if user font not supports this glyph.
 	// Default regular font has more glyphs.
 	face := renderer.defaultFont.GetSuitableFace(false, false)
-	return face, face.IsDrawable(char)
+	return face, face.ContainsGlyph(char)
 }
 
 func (renderer *Renderer) checkUndercurlPos() {
@@ -434,8 +436,12 @@ func (renderer *Renderer) checkUndercurlPos() {
 
 // Returns given character position at the font atlas.
 func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) IntRect {
-	assert_debug(char != ' ', "char is space")
-	assert_debug(char != 0, "char is zero")
+	assert_debug(char != ' ' && char != 0, "char is zero or space")
+	// disable underline or strikethrough if this glyph is not alphanumeric
+	if !unicode.IsLetter(char) {
+		underline = false
+		strikethrough = false
+	}
 	// generate specific id for this character
 	id := fmt.Sprintf("%d%t%t%t%t", char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
@@ -446,16 +452,19 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 		fontFace, ok := renderer.getSupportedFace(char, italic, bold)
 		if !ok {
 			if isDebugBuild() {
-				log_debug("Unsupported glyph:", string(char), char)
-			} else {
-				// If this character can't be drawed, an empty rectangle will be drawed.
-				// And we are reducing this rectangle count in the font atlas to 1.
-				// Every unsupported glyph will use it.
-				id = UNSUPPORTED_GLYPH_ID
-				pos, ok := renderer.fontAtlas.characters[id]
-				if ok {
-					return pos
+				_, ok := debugUnsupportedGlyphs[char]
+				if !ok {
+					log_debug("Unsupported glyph:", string(char), char)
+					debugUnsupportedGlyphs[char] = string(char)
 				}
+			}
+			// If this character can't be drawed, an empty rectangle will be drawed.
+			// And we are reducing this rectangle count in the font atlas to 1.
+			// Every unsupported glyph will use it.
+			id = UNSUPPORTED_GLYPH_ID
+			pos, ok := renderer.fontAtlas.characters[id]
+			if ok {
+				return pos
 			}
 		}
 		// Render character to an image

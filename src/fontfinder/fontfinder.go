@@ -19,12 +19,19 @@ type FontPathInfo struct {
 }
 
 type fontSearchInfo struct {
-	handle     *sysfont.Font
-	basename   string
-	styles     string
-	hasRegular bool
-	hasItalic  bool
-	hasBold    bool
+	handle    *sysfont.Font
+	nameWords []string
+	// Style words is not actually styles. But extracted from filename
+	// and removed unneeded stuff and splitted to words. On very wide
+	// range of the fonts this gives correct hints of the style.
+	// But for the fonts which filename has no info (like consola, consolai)
+	// we are using the font name if the name is in the sysfont data.
+	// Otherwise this package wouldn't help you.
+	styleWords   []string
+	baseNameWExt string
+	hasRegular   bool
+	hasItalic    bool
+	hasBold      bool
 }
 
 var (
@@ -32,6 +39,8 @@ var (
 	systemFontList      []*sysfont.Font
 	systemFontListReady int32
 
+	// Add more if you know any other filename used in
+	// font names. All characters must be lowercase.
 	regularStrings = []string{"regular", "normal"}
 	italicStrings  = []string{"italic", "oblique", "slanted", "it"}
 	boldStrings    = []string{"bold"}
@@ -42,7 +51,7 @@ func init() {
 	// On some system which has many fonts, this function takes so long.
 	// Because of this we are doing this in initilization and in another
 	// goroutine. Updates systemFontListReady value to true when finished.
-	// And Find() will wait for this to be done.
+	// And Find() will wait for this to be done only for first time.
 
 	go func() {
 		if systemFontList == nil {
@@ -63,60 +72,37 @@ func Find(name string) FontPathInfo {
 }
 
 func find(name string) FontPathInfo {
+
 	fonts := []fontSearchInfo{}
+
 	for _, f := range systemFontList {
 		if fontContains(f, name) {
-			basename := filepath.Base(f.Filename)
-			baseWithoutExt := strings.Replace(basename, filepath.Ext(basename), "", 1)
+			base := filepath.Base(f.Filename)
+			baseWithoutExt := strings.Replace(base, filepath.Ext(base), "", 1)
 			styles := strings.Replace(baseWithoutExt, name, "", 1)
 			fonts = append(fonts, fontSearchInfo{
-				handle:   f,
-				basename: basename,
-				styles:   strings.ToLower(styles),
+				handle:       f,
+				nameWords:    SplitWords(f.Name),
+				styleWords:   SplitWords(styles),
+				baseNameWExt: baseWithoutExt,
 			})
 		}
 	}
 
-	// Remove same words in style names.
-	styles := []string{}
-	for _, f := range fonts {
-		styles = append(styles, f.styles)
-	}
-
-	RemoveSameWords(&styles)
-	for i := range fonts {
-		fonts[i].styles = styles[i]
-	}
-
 	for i := 0; i < len(fonts); i++ {
 		f := &fonts[i]
-		for _, s := range regularStrings {
-			if fontNameContains(f.handle, s) || strings.Contains(f.styles, s) {
-				f.hasRegular = true
-				break
-			}
-		}
-		for _, s := range italicStrings {
-			if fontNameContains(f.handle, s) || strings.Contains(f.styles, s) {
-				f.hasItalic = true
-				break
-			}
-		}
-		for _, s := range boldStrings {
-			if fontNameContains(f.handle, s) || strings.Contains(f.styles, s) {
-				f.hasBold = true
-				break
-			}
-		}
+		f.hasRegular = fontHasStyle(f, regularStrings)
+		f.hasItalic = fontHasStyle(f, italicStrings)
+		f.hasBold = fontHasStyle(f, boldStrings)
 	}
 
-	// Sort fonts according to file name length.
+	// Sort fonts according to file name lengths in descending order.
 	sortFileNameLen(&fonts)
 
 	info := FontPathInfo{}
-
 	regularFounded := false
 	for _, f := range fonts {
+		// Order is important here.
 		if f.hasItalic && f.hasBold {
 			info.BoldItalic = f.handle.Filename
 		} else if f.hasItalic {
@@ -125,6 +111,10 @@ func find(name string) FontPathInfo {
 			info.Bold = f.handle.Filename
 		} else if f.hasRegular {
 			info.Regular = f.handle.Filename
+			// If a font has 'Regular' string, it is the regular.
+			// No look for others. If no font has 'Regular' or 'Normal'
+			// then the font has smallest filename length and has no
+			// italic or bold will be the regular.
 			regularFounded = true
 		} else if !regularFounded {
 			info.Regular = f.handle.Filename
@@ -134,40 +124,30 @@ func find(name string) FontPathInfo {
 	return info
 }
 
+func fontHasStyle(info *fontSearchInfo, stylenames []string) bool {
+	for _, s := range stylenames {
+		// Split font name to words and look for exact match.
+		for _, w := range info.nameWords {
+			if s == strings.ToLower(w) {
+				return true
+			}
+		}
+		// Do the same thing for the stylenames extracted from filename.
+		for _, w := range info.styleWords {
+			if s == strings.ToLower(w) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func sortFileNameLen(fonts *[]fontSearchInfo) {
 	sort.Slice(*fonts, func(i, j int) bool {
 		fi := (*fonts)[i]
 		fj := (*fonts)[j]
-		return len(fi.handle.Filename) > len(fj.handle.Filename)
+		return len(fi.baseNameWExt) > len(fj.baseNameWExt)
 	})
-}
-
-// Finds and removes all same words in array of strings.
-// TODO: optimize
-func RemoveSameWords(strs *[]string) {
-	strwords := [][]string{}
-	for _, s := range *strs {
-		strwords = append(strwords, SplitWords(s))
-	}
-	for i, s1 := range strwords {
-		for _, w1 := range s1 {
-			total := 0
-			for j, s2 := range strwords {
-				if i != j {
-					for _, w2 := range s2 {
-						if w1 == w2 {
-							total++
-						}
-					}
-				}
-			}
-			if total == len(strwords)-1 {
-				for i := 0; i < len(*strs); i++ {
-					(*strs)[i] = strings.Replace((*strs)[i], w1, "", 1)
-				}
-			}
-		}
-	}
 }
 
 // Splits string to words according to delimiters and casing.
@@ -214,11 +194,6 @@ func SplitWords(str string) []string {
 		arr = append(arr, string(word))
 	}
 	return arr
-}
-
-func fontNameContains(f *sysfont.Font, str string) bool {
-	return strings.Contains(strings.ToLower(f.Name), str) ||
-		strings.Contains(strings.ToLower(f.Family), str)
 }
 
 func fontContains(f *sysfont.Font, str string) bool {

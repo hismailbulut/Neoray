@@ -3,8 +3,8 @@ package main
 import (
 	"path/filepath"
 
-	"github.com/hismailbulut/neoray/cmd/neoray/cascadia"
-	"github.com/hismailbulut/neoray/cmd/neoray/fontfinder"
+	"github.com/hismailbulut/neoray/src/fontfinder"
+	"github.com/hismailbulut/neoray/src/gomononerd"
 )
 
 type Font struct {
@@ -28,19 +28,19 @@ func CreateDefaultFont() Font {
 	}
 	var err error
 	// regular
-	regular, err := CreateFaceFromMem(cascadia.Regular, font.size)
+	regular, err := CreateFaceFromMem(gomononerd.Regular, font.size)
 	check(err)
 	font.regular = regular
 	// bold italic
-	bold_italic, err := CreateFaceFromMem(cascadia.BoldItalic, font.size)
+	bold_italic, err := CreateFaceFromMem(gomononerd.BoldItalic, font.size)
 	check(err)
 	font.bold_italic = bold_italic
 	// italic
-	italic, err := CreateFaceFromMem(cascadia.Italic, font.size)
+	italic, err := CreateFaceFromMem(gomononerd.Italic, font.size)
 	check(err)
 	font.italic = italic
 	// bold
-	bold, err := CreateFaceFromMem(cascadia.Bold, font.size)
+	bold, err := CreateFaceFromMem(gomononerd.Bold, font.size)
 	check(err)
 	font.bold = bold
 	return font
@@ -116,6 +116,7 @@ func (font *Font) Resize(newsize float32) {
 }
 
 func (font *Font) GetSuitableFace(italic bool, bold bool) *FontFace {
+	// TODO: Return nil.
 	if font.bold_italic.loaded && italic && bold {
 		return &font.bold_italic
 	} else if font.italic.loaded && italic {

@@ -76,23 +76,35 @@ func (grid *Grid) makeAllCellsChanged() {
 // you should create an alternative function.
 // If `repeat` is present, the cell should be
 // repeated `repeat` times (including the first time)
-func (grid *Grid) setCells(x int, y *int, char rune, hl_id int, repeat int) {
+func (grid *Grid) setCells(x int, y *int, char rune, attribId int, repeat int) {
 	cell_count := 1
 	if repeat > 0 {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		cell := &grid.cells[x][*y]
-		cell.char = char
-		cell.attribId = hl_id
-		cell.needsDraw = true
+		grid.setCell(x, *y, char, attribId)
 		*y++
+	}
+}
+
+func (grid *Grid) setCell(x, y int, char rune, attribId int) {
+	if x >= 0 && y >= 0 && x < len(grid.cells) && y < len(grid.cells[x]) {
+		grid.cells[x][y].char = char
+		grid.cells[x][y].attribId = attribId
+		grid.cells[x][y].needsDraw = true
+	} else {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Index out of bounds in setCell.")
 	}
 }
 
 // This function returns a copy of the cell.
 func (grid *Grid) getCell(x, y int) Cell {
-	return grid.cells[x][y]
+	if x >= 0 && y >= 0 && x < len(grid.cells) && y < len(grid.cells[x]) {
+		return grid.cells[x][y]
+	} else {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Index out of bounds in getCell.")
+		return Cell{}
+	}
 }
 
 func (grid *Grid) copyRow(dst, src, left, right int) {
