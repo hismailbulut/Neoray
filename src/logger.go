@@ -60,7 +60,10 @@ func close_logger() {
 	// Also the stack trace will be printed after
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
-		if log_file_initialized {
+		// Always print to stdout in debug build. Otherwise if the log file is initialized
+		// then it will be printed to both file and stdout. If is release build and verbose
+		// is not set then create a crash log.
+		if log_file_initialized || isDebugBuild() {
 			log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, pmsg)
 			log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, string(debug.Stack()))
 		} else {

@@ -83,8 +83,6 @@ type Editor struct {
 }
 
 func (editor *Editor) Initialize() {
-	defer measure_execution_time()()
-
 	editor.options = CreateDefaultOptions()
 	editor.nvim = CreateNvimProcess()
 
@@ -126,6 +124,7 @@ func (editor *Editor) MainLoop() {
 	programBegin := time.Now()
 	// Ticker's interval
 	interval := time.Second / time.Duration(editor.options.targetTPS)
+	log_debug("Interval:", interval, "TTPS:", time.Duration(editor.options.targetTPS))
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	// For measuring tps.

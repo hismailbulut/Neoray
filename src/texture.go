@@ -32,23 +32,23 @@ func CreateTexture(width, height int) Texture {
 	return texture
 }
 
-func (texture *Texture) Bind() {
+func (texture *Texture) bind() {
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
 }
 
-func (texture *Texture) Clear() {
+func (texture *Texture) clear() {
 	gl.ClearTexImage(texture.id, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	rglCheckError("texture clear")
 }
 
-func (texture *Texture) UpdatePartFromImage(image *image.RGBA, dest IntRect) {
+func (texture *Texture) updatePart(image *image.RGBA, dest IntRect) {
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0,
 		int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
 	rglCheckError("texture update part")
 }
 
-func (texture *Texture) GetRectGLCoordinates(rect IntRect) F32Rect {
+func (texture *Texture) glCoords(rect IntRect) F32Rect {
 	return F32Rect{
 		X: float32(rect.X) / float32(texture.width),
 		Y: float32(rect.Y) / float32(texture.height),

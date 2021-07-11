@@ -10,25 +10,25 @@ var ButtonNames = []string{
 }
 
 var MenuButtonEvents = map[string]func(){
-	ButtonNames[0]: func() {
+	ButtonNames[0]: func() { //cut
 		text := EditorSingleton.nvim.cutSelected()
 		if text != "" {
 			glfw.SetClipboardString(text)
 		}
 	},
-	ButtonNames[1]: func() {
+	ButtonNames[1]: func() { //copy
 		text := EditorSingleton.nvim.copySelected()
 		if text != "" {
 			glfw.SetClipboardString(text)
 		}
 	},
-	ButtonNames[2]: func() {
+	ButtonNames[2]: func() { //paste
 		EditorSingleton.nvim.paste(glfw.GetClipboardString())
 	},
-	ButtonNames[3]: func() {
+	ButtonNames[3]: func() { //select all
 		EditorSingleton.nvim.selectAll()
 	},
-	ButtonNames[4]: func() {
+	ButtonNames[4]: func() { //open file
 		filename, err := dialog.File().Load()
 		if err == nil && filename != "" && filename != " " {
 			EditorSingleton.nvim.openFile(filename)
@@ -99,6 +99,10 @@ func (pmenu *PopupMenu) updateChars() {
 			if char != 0 {
 				atlasPos = EditorSingleton.renderer.getCharPos(
 					char, false, false, false, false)
+				// For multiwidth character.
+				if atlasPos.W > EditorSingleton.cellWidth {
+					atlasPos.W /= 2
+				}
 			}
 			pmenu.vertexData.setCellTex(cell_id, atlasPos)
 		}
@@ -107,8 +111,8 @@ func (pmenu *PopupMenu) updateChars() {
 
 func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 	pmenu.pos = pos
-	fg := EditorSingleton.grid.default_bg
-	bg := EditorSingleton.grid.default_fg
+	fg := EditorSingleton.grid.defaultBg
+	bg := EditorSingleton.grid.defaultFg
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
@@ -176,8 +180,8 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 		if ok {
 			// Fill all cells with default colors.
 			for i := 0; i < pmenu.width*pmenu.height; i++ {
-				pmenu.vertexData.setCellFg(i, EditorSingleton.grid.default_bg)
-				pmenu.vertexData.setCellBg(i, EditorSingleton.grid.default_fg)
+				pmenu.vertexData.setCellFg(i, EditorSingleton.grid.defaultBg)
+				pmenu.vertexData.setCellBg(i, EditorSingleton.grid.defaultFg)
 			}
 			if index != -1 {
 				row := index
@@ -185,8 +189,8 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 					// Highlight this row.
 					for col := 1; col < pmenu.width-1; col++ {
 						cell_id := row*pmenu.width + col
-						pmenu.vertexData.setCellFg(cell_id, EditorSingleton.grid.default_fg)
-						pmenu.vertexData.setCellBg(cell_id, EditorSingleton.grid.default_bg)
+						pmenu.vertexData.setCellFg(cell_id, EditorSingleton.grid.defaultFg)
+						pmenu.vertexData.setCellBg(cell_id, EditorSingleton.grid.defaultBg)
 					}
 				}
 				EditorSingleton.render()

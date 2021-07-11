@@ -10,8 +10,6 @@ var (
 )
 
 func HandleNvimRedrawEvents() {
-	defer measure_execution_time()()
-
 	EditorSingleton.nvim.update_mutex.Lock()
 	defer EditorSingleton.nvim.update_mutex.Unlock()
 
@@ -214,15 +212,13 @@ func default_colors_set(args []interface{}) {
 		fg := v.Index(0).Elem().Convert(t_uint).Uint()
 		bg := v.Index(1).Elem().Convert(t_uint).Uint()
 		sp := v.Index(2).Elem().Convert(t_uint).Uint()
-		EditorSingleton.grid.default_fg = unpackColor(uint32(fg))
-		EditorSingleton.grid.default_bg = unpackColor(uint32(bg))
-		EditorSingleton.grid.default_sp = unpackColor(uint32(sp))
+		EditorSingleton.grid.defaultFg = unpackColor(uint32(fg))
+		EditorSingleton.grid.defaultBg = unpackColor(uint32(bg))
+		EditorSingleton.grid.defaultSp = unpackColor(uint32(sp))
 		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
-		// Maybe not clear all cells but it's working. And without
-		// it it's also working.
-		EditorSingleton.grid.clearCells()
+		EditorSingleton.grid.makeAllCellsChanged()
 	}
 }
 
@@ -284,12 +280,12 @@ func hl_attr_define(args []interface{}) {
 func grid_line(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		_ = int(v.Index(1).Elem().Convert(t_int).Int())
+		_ = int(v.Index(0).Elem().Convert(t_int).Int())
 		row := int(v.Index(1).Elem().Convert(t_int).Int())
 		col_start := int(v.Index(2).Elem().Convert(t_int).Int())
 		// cells is an array of arrays each with 1 to 3 elements
 		cells := v.Index(3).Elem().Interface().([]interface{})
-		hl_id := 0 // if hl_id is not present, we will use the last one
+		attribId := 0 // if hl_id is not present, we will use the last one
 		for _, cell := range cells {
 			// cell is a slice, may have 1 to 3 elements
 			// first one is character
@@ -308,12 +304,12 @@ func grid_line(args []interface{}) {
 			}
 			repeat := 0
 			if cellv.Len() >= 2 {
-				hl_id = int(cellv.Index(1).Elem().Convert(t_int).Int())
+				attribId = int(cellv.Index(1).Elem().Convert(t_int).Int())
 			}
 			if cellv.Len() == 3 {
 				repeat = int(cellv.Index(2).Elem().Convert(t_int).Int())
 			}
-			EditorSingleton.grid.setCells(row, &col_start, char, hl_id, repeat)
+			EditorSingleton.grid.setCells(row, &col_start, char, attribId, repeat)
 		}
 	}
 }
@@ -337,7 +333,11 @@ func grid_scroll(args []interface{}) {
 		left := v.Index(3).Elem().Convert(t_int).Int()
 		right := v.Index(4).Elem().Convert(t_int).Int()
 		rows := v.Index(5).Elem().Convert(t_int).Int()
-		//cols := r.Index(6).Elem().Convert(t).Int()
+
+		// This is reserved for further use.
+		cols := v.Index(6).Elem().Convert(t_int).Int()
+		assert_debug(cols == 0)
+
 		EditorSingleton.grid.scroll(int(top), int(bot), int(rows), int(left), int(right))
 	}
 }

@@ -154,7 +154,6 @@ func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
 // Renders given char to an RGBA image and returns.
 // Also renders underline and strikethrough if specified.
 func (fontFace *FontFace) RenderChar(char rune, underline, strikethrough bool) *image.RGBA {
-	defer measure_execution_time()()
 	// Render glyph
 	img := fontFace.renderGlyph(char)
 	if img == nil {

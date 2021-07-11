@@ -117,8 +117,8 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, b
 
 func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	// initialize swapped
-	fg := EditorSingleton.grid.default_bg
-	bg := EditorSingleton.grid.default_fg
+	fg := EditorSingleton.grid.defaultBg
+	bg := EditorSingleton.grid.defaultFg
 	if info.attr_id != 0 {
 		attrib := EditorSingleton.grid.attributes[info.attr_id]
 		if attrib.foreground.A > 0 {
@@ -203,7 +203,6 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 }
 
 func (cursor *Cursor) Draw() {
-	defer measure_execution_time()()
 	if !cursor.hidden {
 		mode_info := EditorSingleton.mode.Current()
 		fg, bg := cursor.modeColors(mode_info)

@@ -135,25 +135,6 @@ func rglClearScreen(color U8Color) {
 	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.options.transparency)
 }
 
-// func rglReadPixelsToImage() *image.RGBA {
-//     defer measure_execution_time()()
-//     img := image.NewRGBA(image.Rect(0, 0, rgl_width, rgl_height))
-//     gl.ReadPixels(0, 0, int32(rgl_width), int32(rgl_height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&img.Pix[0]))
-//     rglCheckError("read pixels")
-//     // The image is upside down, we need to flip.
-//     for y := 0; y < rgl_height/2; y++ {
-//         k := (rgl_height - 1) - y
-//         yBegin := img.PixOffset(0, y)
-//         yEnd := img.PixOffset(0, y+1)
-//         kBegin := img.PixOffset(0, k)
-//         kEnd := img.PixOffset(0, k+1)
-//         temp := append([]uint8(nil), img.Pix[yBegin:yEnd]...)
-//         copy(img.Pix[yBegin:yEnd], img.Pix[kBegin:kEnd])
-//         copy(img.Pix[kBegin:kEnd], temp)
-//     }
-//     return img
-// }
-
 func rglUpdateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(VertexStructSize), gl.Ptr(data), gl.STATIC_DRAW)

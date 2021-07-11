@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
-	"strconv"
-	"strings"
+	"reflect"
 	"sync"
 
 	"github.com/neovim/go-client/nvim"
@@ -36,8 +34,6 @@ func CreateNvimProcess() NvimProcess {
 		update_stack: make([][][]interface{}, 0),
 	}
 
-	proc.checkNeovimVersion()
-
 	args := append([]string{"--embed"}, EditorParsedArgs.others...)
 	nv, err := nvim.NewChildProcess(
 		nvim.ChildProcessArgs(args...),
@@ -46,68 +42,42 @@ func CreateNvimProcess() NvimProcess {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Failed to start neovim instance:", err)
 	}
 
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
+		"Neovim started with command:", EditorParsedArgs.execPath, args)
+
 	proc.handle = nv
+
 	proc.requestApiInfo()
 	proc.introduce()
 
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
 
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
-		"Neovim started with command:", EditorParsedArgs.execPath, args)
-
 	return proc
 }
 
-func (proc *NvimProcess) checkNeovimVersion() {
-	defer measure_execution_time()()
-
-	path, err := exec.LookPath(EditorParsedArgs.execPath)
+func (proc *NvimProcess) requestApiInfo() {
+	// TODO: Reserved.
+	info, err := proc.handle.APIInfo()
 	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
-			"Neovim executable not found! Specify with --nvim option or add it to path.")
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
+		return
 	}
-
-	cmd := exec.Command(path, "--version")
-	cmd.SysProcAttr = getSysProcAttr()
-	output, err := cmd.Output()
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get neovim version information:", err)
-	}
-
-	// The version string is like this: NVIM v0.4.5
-	// NOTE: Hardcoded search may fail if new versions of neovim contains
-	// more than 9 number or this pre value is changed. Like 0.10.0.
-	// But i think this wouldn't happen in ten years.
-	// And this is very easy to fix but we don't need.
-	// NOTE: Also we can split first line of the output with dots and
-	// second element will be minor value of the version.
-	versionPre := "NVIM v"
-	versionStringIndex := strings.Index(string(output), versionPre)
-	vMinorString := "0"
-	if versionStringIndex == -1 {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Neoray version string can not be parsed.")
-	}
-	vMinorString = string(output[versionStringIndex+len(versionPre)+2])
-
-	vMinor, err := strconv.Atoi(vMinorString)
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Version output of the neovim is not valid.")
-	}
+	// Check the version.
+	// info[1] is dictionary of infos and it has a key named 'version',
+	// and this key contains a map which has major, minor and patch informations.
+	vInfo := reflect.ValueOf(info[1]).MapIndex(reflect.ValueOf("version")).Elem()
+	vMajor := vInfo.MapIndex(reflect.ValueOf("major")).Elem().Convert(t_int).Int()
+	vMinor := vInfo.MapIndex(reflect.ValueOf("minor")).Elem().Convert(t_int).Int()
+	vPatch := vInfo.MapIndex(reflect.ValueOf("patch")).Elem().Convert(t_int).Int()
 
 	if vMinor < 4 {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
 			"Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")
 	}
-}
 
-func (proc *NvimProcess) requestApiInfo() {
-	// TODO: Reserved.
-	_, err := proc.handle.APIInfo()
-	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
-		return
-	}
+	vStr := fmt.Sprintf("v%d.%d.%d", vMajor, vMinor, vPatch)
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim version", vStr)
 }
 
 func (proc *NvimProcess) introduce() {

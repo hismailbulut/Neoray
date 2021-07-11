@@ -39,7 +39,7 @@ func CreateWindow(width int, height int, title string) Window {
 	rH := videoMode.Height
 
 	if width == WINDOW_SIZE_AUTO {
-		width = (rW / 4) * 3
+		width = (rW / 5) * 3
 	}
 	if height == WINDOW_SIZE_AUTO {
 		height = (rH / 4) * 3

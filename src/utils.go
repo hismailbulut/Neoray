@@ -59,7 +59,7 @@ func (c U8Color) ToF32Color() F32Color {
 	}
 }
 
-func triangulateRect(rect IntRect) [4]F32Vec2 {
+func (rect IntRect) positions() [4]F32Vec2 {
 	return [4]F32Vec2{
 		{float32(rect.X), float32(rect.Y)},                   //0
 		{float32(rect.X), float32(rect.Y + rect.H)},          //1
@@ -68,7 +68,7 @@ func triangulateRect(rect IntRect) [4]F32Vec2 {
 	}
 }
 
-func triangulateFRect(rect F32Rect) [4]F32Vec2 {
+func (rect F32Rect) positions() [4]F32Vec2 {
 	return [4]F32Vec2{
 		{rect.X, rect.Y},                   //0
 		{rect.X, rect.Y + rect.H},          //1
