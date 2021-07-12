@@ -116,11 +116,11 @@ func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
-			rect := IntRect{
-				X: pos.X + y*EditorSingleton.cellWidth,
-				Y: pos.Y + x*EditorSingleton.cellHeight,
-				W: EditorSingleton.cellWidth,
-				H: EditorSingleton.cellHeight,
+			rect := F32Rect{
+				X: float32(pos.X + y*EditorSingleton.cellWidth),
+				Y: float32(pos.Y + x*EditorSingleton.cellHeight),
+				W: float32(EditorSingleton.cellWidth),
+				H: float32(EditorSingleton.cellHeight),
 			}
 			pmenu.vertexData.setCellPos(cell_id, rect)
 			pmenu.vertexData.setCellFg(cell_id, fg)
@@ -135,7 +135,7 @@ func (pmenu *PopupMenu) Hide() {
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
-			pmenu.vertexData.setCellPos(cell_id, IntRect{})
+			pmenu.vertexData.setCellPos(cell_id, F32Rect{})
 		}
 	}
 	pmenu.hidden = true

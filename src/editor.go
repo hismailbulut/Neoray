@@ -209,19 +209,15 @@ func (editor *Editor) draw() {
 
 func (editor *Editor) debugEvalCell(x, y int) {
 	cell := editor.grid.getCell(x, y)
-	vertices := editor.renderer.debugGetCellData(x, y)
+	vertex := editor.renderer.debugGetCellData(x, y)
 	format := `Cell information:
 	pos: %d %d
 	char: %s %d
 	attrib_id: %d
 	needs_redraw: %t
-	Data 0: %+v
-	Data 1: %+v
-	Data 2: %+v
-	Data 3: %+v`
+	Data : %+v`
 	logf_debug(format, x, y, string(cell.char), cell.char,
-		cell.attribId, cell.needsDraw,
-		vertices[0], vertices[1], vertices[2], vertices[3])
+		cell.attribId, cell.needsDraw, vertex)
 }
 
 func (editor *Editor) Shutdown() {

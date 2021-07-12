@@ -10,11 +10,6 @@ const (
 	UNDERCURL_GLYPH_ID   = "Undercurl"
 )
 
-var (
-	// Generate index data using this order.
-	IndexDataOrder = [6]uint32{0, 1, 2, 2, 3, 0}
-)
-
 type FontAtlas struct {
 	texture    Texture
 	pos        IntVec2
@@ -26,13 +21,8 @@ type Renderer struct {
 	defaultFont Font
 	fontSize    float32
 	fontAtlas   FontAtlas
-	// Vertex data holds vertices for cells. Every cell has 4 vertice and every vertice
-	// holds position, atlas texture position, foreground and background color for cell.
-	// Positions doesn't change excepts cursor and only updating when initializing and resizing.
+	// Vertex data holds vertices for cells. Every cell has 1 vertex.
 	vertexData []Vertex
-	// Index data holds indices for cells. Every cell has 6 indices. Index data is created
-	// and updated only when initializing and resizing.
-	indexData []uint32
 	// If this is true, the Render function will be called from Update.
 	renderCall bool
 	// If this is true, the DrawAllChangedCells function will be called from Update.
@@ -57,7 +47,10 @@ func CreateRenderer() Renderer {
 	}
 
 	renderer.defaultFont = CreateDefaultFont()
-	EditorSingleton.cellWidth, EditorSingleton.cellHeight = renderer.defaultFont.GetCellSize()
+
+	cellWidth, cellHeight := renderer.defaultFont.GetCellSize()
+	EditorSingleton.cellWidth = cellWidth
+	EditorSingleton.cellHeight = cellHeight
 	EditorSingleton.calculateCellCount()
 
 	rglCreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
@@ -138,27 +131,16 @@ func (renderer *Renderer) clearAtlas() {
 
 func (renderer *Renderer) createVertexData(rows, cols int) {
 	defer measure_execution_time()()
+
 	cellCount := rows * cols
-	vertex_data_size := 4 * (cellCount + 1)
-	renderer.vertexData = make([]Vertex, vertex_data_size, vertex_data_size)
-	index_data_size := 6 * (cellCount + 1)
-	renderer.indexData = make([]uint32, index_data_size, index_data_size)
+
+	renderer.vertexData = make([]Vertex, cellCount, cellCount)
 	for y := 0; y < rows; y++ {
 		for x := 0; x < cols; x++ {
-			cell_rect := cellRect(y, x)
-			positions := cell_rect.positions()
-			vBegin := cellVertexPos(y, x)
-			// prepare vertex buffer
-			for i, pos := range positions {
-				renderer.vertexData[vBegin+i].pos = pos
-			}
-			// prepare element buffer
-			eBegin := cellElementPos(y, x)
-			for i, e := range IndexDataOrder {
-				renderer.indexData[eBegin+i] = uint32(vBegin) + e
-			}
+			renderer.vertexData[cellVertexPos(y, x)].pos = cellPos(y, x)
 		}
 	}
+
 	// Add cursor to data.
 	EditorSingleton.cursor.createVertexData()
 	// Add popup menu to data.
@@ -167,13 +149,11 @@ func (renderer *Renderer) createVertexData(rows, cols int) {
 	if isDebugBuild() {
 		renderer.debugDrawFontAtlas()
 	}
-	// Update element buffer
-	rglUpdateIndices(renderer.indexData)
 }
 
 func (renderer *Renderer) debugDrawFontAtlas() {
-	atlas_pos := IntRect{
-		X: EditorSingleton.window.width - FONT_ATLAS_DEFAULT_SIZE,
+	atlas_pos := F32Rect{
+		X: float32(EditorSingleton.window.width - FONT_ATLAS_DEFAULT_SIZE),
 		Y: 0,
 		W: FONT_ATLAS_DEFAULT_SIZE,
 		H: FONT_ATLAS_DEFAULT_SIZE,
@@ -184,64 +164,38 @@ func (renderer *Renderer) debugDrawFontAtlas() {
 	storage.setCellFg(0, U8Color{R: 255, G: 255, B: 255, A: 255})
 }
 
-func (storage VertexDataStorage) setCellPos(index int, pos IntRect) {
-	cBegin := storage.begin + (index * 4)
-	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	positions := pos.positions()
-	for i := 0; i < 4; i++ {
-		storage.renderer.vertexData[cBegin+i].pos = positions[i]
-	}
+func (storage VertexDataStorage) setCellPos(index int, pos F32Rect) {
+	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	storage.renderer.vertexData[storage.begin+index].pos = pos
 }
 
 func (storage VertexDataStorage) setCellTex(index int, texPos IntRect) {
-	cBegin := storage.begin + (index * 4)
-	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	texPositions := storage.renderer.fontAtlas.texture.glCoords(texPos).positions()
+	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	tex1pos := storage.renderer.fontAtlas.texture.glCoords(texPos)
 	for i := 0; i < 4; i++ {
-		storage.renderer.vertexData[cBegin+i].tex = texPositions[i]
-	}
-}
-
-func (storage VertexDataStorage) setCellFg(index int, fg U8Color) {
-	cBegin := storage.begin + (index * 4)
-	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	fgc := fg.toF32()
-	for i := 0; i < 4; i++ {
-		storage.renderer.vertexData[cBegin+i].fg = fgc
-	}
-}
-
-func (storage VertexDataStorage) setCellBg(index int, bg U8Color) {
-	cBegin := storage.begin + (index * 4)
-	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	bgc := bg.toF32()
-	for i := 0; i < 4; i++ {
-		storage.renderer.vertexData[cBegin+i].bg = bgc
-	}
-}
-
-func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
-	cBegin := storage.begin + (index * 4)
-	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	spc := sp.toF32()
-	for i := 0; i < 4; i++ {
-		storage.renderer.vertexData[cBegin+i].sp = spc
+		storage.renderer.vertexData[storage.begin+index].tex1 = tex1pos
 	}
 }
 
 func (storage VertexDataStorage) setCellTex2(index int, texPos IntRect) {
-	cBegin := storage.begin + (index * 4)
-	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
-		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	texPositions := storage.renderer.fontAtlas.texture.glCoords(texPos).positions()
-	for i := 0; i < 4; i++ {
-		storage.renderer.vertexData[cBegin+i].tex2 = texPositions[i]
-	}
+	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	tex2pos := storage.renderer.fontAtlas.texture.glCoords(texPos)
+	storage.renderer.vertexData[storage.begin+index].tex2 = tex2pos
+}
+
+func (storage VertexDataStorage) setCellFg(index int, fg U8Color) {
+	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	storage.renderer.vertexData[storage.begin+index].fg = fg.toF32()
+}
+
+func (storage VertexDataStorage) setCellBg(index int, bg U8Color) {
+	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	storage.renderer.vertexData[storage.begin+index].bg = bg.toF32()
+}
+
+func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
+	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	storage.renderer.vertexData[storage.begin+index].sp = sp.toF32()
 }
 
 // Reserve calculates needed vertex size for given cell count,
@@ -251,13 +205,7 @@ func (storage VertexDataStorage) setCellTex2(index int, texPos IntRect) {
 func (renderer *Renderer) reserveVertexData(cellCount int) VertexDataStorage {
 	begin := len(renderer.vertexData)
 	for i := 0; i < cellCount; i++ {
-		cbegin := len(renderer.vertexData)
-		for i := 0; i < 4; i++ {
-			renderer.vertexData = append(renderer.vertexData, Vertex{})
-		}
-		for _, e := range IndexDataOrder {
-			renderer.indexData = append(renderer.indexData, uint32(cbegin)+e)
-		}
+		renderer.vertexData = append(renderer.vertexData, Vertex{})
 	}
 	return VertexDataStorage{
 		renderer: renderer,
@@ -275,79 +223,51 @@ func (renderer *Renderer) copyRowData(dst, src, left, right int) {
 	for i := 0; i < src_end-src_begin; i++ {
 		dst_data := &renderer.vertexData[dst_begin+i]
 		src_data := renderer.vertexData[src_begin+i]
-		dst_data.tex = src_data.tex
+		dst_data.tex2 = src_data.tex2
+		dst_data.tex1 = src_data.tex1
 		dst_data.fg = src_data.fg
 		dst_data.bg = src_data.bg
 		dst_data.sp = src_data.sp
-		dst_data.tex2 = src_data.tex2
 	}
 }
 
 func (renderer *Renderer) setCellTex(x, y int, pos IntRect) {
-	coords := renderer.fontAtlas.texture.glCoords(pos).positions()
-	begin := cellVertexPos(x, y)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].tex = coords[i]
-	}
+	tex1pos := renderer.fontAtlas.texture.glCoords(pos)
+	renderer.vertexData[cellVertexPos(x, y)].tex1 = tex1pos
 }
 
-func (renderer *Renderer) setCellFg(x, y int, color U8Color) {
-	c := color.toF32()
-	begin := cellVertexPos(x, y)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].fg = c
-	}
+func (renderer *Renderer) setCellTex2(x, y int, pos IntRect) {
+	tex2pos := renderer.fontAtlas.texture.glCoords(pos)
+	renderer.vertexData[cellVertexPos(x, y)].tex2 = tex2pos
 }
 
-func (renderer *Renderer) setCellBg(x, y int, color U8Color) {
-	c := color.toF32()
-	begin := cellVertexPos(x, y)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].bg = c
-	}
+func (renderer *Renderer) setCellFg(x, y int, fg U8Color) {
+	renderer.vertexData[cellVertexPos(x, y)].fg = fg.toF32()
 }
 
-func (renderer *Renderer) setCellSp(x, y int, color U8Color) {
-	c := color.toF32()
-	begin := cellVertexPos(x, y)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].sp = c
-	}
+func (renderer *Renderer) setCellBg(x, y int, bg U8Color) {
+	renderer.vertexData[cellVertexPos(x, y)].bg = bg.toF32()
 }
 
-func (renderer *Renderer) setCellTex2(x, y int, src IntRect) {
-	coords := renderer.fontAtlas.texture.glCoords(src).positions()
-	begin := cellVertexPos(x, y)
-	for i := 0; i < 4; i++ {
-		renderer.vertexData[begin+i].tex2 = coords[i]
-	}
+func (renderer *Renderer) setCellSp(x, y int, sp U8Color) {
+	renderer.vertexData[cellVertexPos(x, y)].sp = sp.toF32()
 }
 
-func (renderer *Renderer) debugGetCellData(x, y int) [4]Vertex {
-	begin := cellVertexPos(x, y)
-	return [4]Vertex{
-		renderer.vertexData[begin+0],
-		renderer.vertexData[begin+1],
-		renderer.vertexData[begin+2],
-		renderer.vertexData[begin+3],
-	}
+func (renderer *Renderer) debugGetCellData(x, y int) Vertex {
+	return renderer.vertexData[cellVertexPos(x, y)]
 }
 
-func cellRect(x, y int) IntRect {
-	return IntRect{
-		X: y * EditorSingleton.cellWidth,
-		Y: x * EditorSingleton.cellHeight,
-		W: EditorSingleton.cellWidth,
-		H: EditorSingleton.cellHeight,
+func cellPos(x, y int) F32Rect {
+	return F32Rect{
+		X: float32(y * EditorSingleton.cellWidth),
+		Y: float32(x * EditorSingleton.cellHeight),
+		W: float32(EditorSingleton.cellWidth),
+		H: float32(EditorSingleton.cellHeight),
 	}
 }
 
 func cellVertexPos(x, y int) int {
-	return (x*EditorSingleton.columnCount + y) * 4
-}
-
-func cellElementPos(x, y int) int {
-	return (x*EditorSingleton.columnCount + y) * 6
+	return x*EditorSingleton.columnCount + y
 }
 
 func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {

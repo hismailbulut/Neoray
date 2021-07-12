@@ -64,6 +64,11 @@ func (cursor *Cursor) createVertexData() {
 }
 
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
+	if x < 0 || y < 0 || x > EditorSingleton.rowCount || y > EditorSingleton.columnCount {
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY,
+			"Cursor set position args invalid:", x, y, immediately)
+		return
+	}
 	if !immediately {
 		cursor.anim = CreateAnimation(
 			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
@@ -81,38 +86,33 @@ func (cursor *Cursor) isInArea(x, y, w, h int) bool {
 		cursor.X < x+w && cursor.Y < y+h
 }
 
-func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (IntRect, bool) {
-	var cursor_rect IntRect
-	var draw_char bool
+func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, bool) {
 	switch info.cursor_shape {
 	case "block":
-		cursor_rect = IntRect{
-			X: cell_pos.X,
-			Y: cell_pos.Y,
-			W: EditorSingleton.cellWidth,
-			H: EditorSingleton.cellHeight,
-		}
-		draw_char = true
-		break
+		return F32Rect{
+			X: float32(cell_pos.X),
+			Y: float32(cell_pos.Y),
+			W: float32(EditorSingleton.cellWidth),
+			H: float32(EditorSingleton.cellHeight),
+		}, true
 	case "horizontal":
-		height := int(float32(EditorSingleton.cellHeight) / (100 / float32(info.cell_percentage)))
-		cursor_rect = IntRect{
-			X: cell_pos.X,
-			Y: cell_pos.Y + (EditorSingleton.cellHeight - height),
-			W: EditorSingleton.cellWidth,
+		height := float32(EditorSingleton.cellHeight) / (100 / float32(info.cell_percentage))
+		return F32Rect{
+			X: float32(cell_pos.X),
+			Y: float32(cell_pos.Y) + (float32(EditorSingleton.cellHeight) - height),
+			W: float32(EditorSingleton.cellWidth),
 			H: height,
-		}
-		break
+		}, false
 	case "vertical":
-		cursor_rect = IntRect{
-			X: cell_pos.X,
-			Y: cell_pos.Y,
-			W: int(float32(EditorSingleton.cellWidth) / (100 / float32(info.cell_percentage))),
-			H: EditorSingleton.cellHeight,
-		}
-		break
+		return F32Rect{
+			X: float32(cell_pos.X),
+			Y: float32(cell_pos.Y),
+			W: float32(EditorSingleton.cellWidth) / (100 / float32(info.cell_percentage)),
+			H: float32(EditorSingleton.cellHeight),
+		}, false
+	default:
+		return F32Rect{}, false
 	}
-	return cursor_rect, draw_char
 }
 
 func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
@@ -159,7 +159,7 @@ func (cursor *Cursor) blinkShow() {
 func (cursor *Cursor) blinkHide() {
 	if !cursor.hidden && !cursor.bHidden {
 		cursor.bHidden = true
-		cursor.vertexData.setCellPos(0, IntRect{})
+		cursor.vertexData.setCellPos(0, F32Rect{})
 		EditorSingleton.render()
 	}
 }
@@ -174,7 +174,7 @@ func (cursor *Cursor) Show() {
 func (cursor *Cursor) Hide() {
 	if !cursor.hidden {
 		cursor.hidden = true
-		cursor.vertexData.setCellPos(0, IntRect{})
+		cursor.vertexData.setCellPos(0, F32Rect{})
 		EditorSingleton.render()
 	}
 }

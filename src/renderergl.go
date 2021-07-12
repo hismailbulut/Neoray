@@ -10,17 +10,17 @@ import (
 
 type Vertex struct {
 	// position of this vertex
-	pos F32Vec2 // layout 0
+	pos F32Rect // layout 0
 	// texture position
-	tex F32Vec2 // layout 1
-	// foreground color
-	fg F32Color // layout 2
-	// background color
-	bg F32Color // layout 3
-	// special color
-	sp F32Color // layout 4
+	tex1 F32Rect // layout 1
 	// second texture position for multiwidth characters
-	tex2 F32Vec2 // layout 5
+	tex2 F32Rect // layout 2
+	// foreground color
+	fg F32Color // layout 3
+	// background color
+	bg F32Color // layout 4
+	// special color
+	sp F32Color // layout 5
 }
 
 const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
@@ -29,14 +29,12 @@ const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
 var (
 	rgl_vao uint32
 	rgl_vbo uint32
-	rgl_ebo uint32
 
 	//go:embed shader.glsl
 	rgl_shader_sources string
 	rgl_shader_program uint32
 
-	rgl_vertex_buffer_len  int
-	rgl_element_buffer_len int
+	rgl_vertex_buffer_len int
 )
 
 func rglInit() {
@@ -61,36 +59,32 @@ func rglInit() {
 	gl.GenBuffers(1, &rgl_vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, rgl_vbo)
 
-	// Initialize ebo
-	gl.GenBuffers(1, &rgl_ebo)
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rgl_ebo)
-
-	rglCheckError("gl bind buffers")
+	rglCheckError("gl bind buffer")
 
 	// position
 	offset := 0
 	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointerWithOffset(0, 2, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// texture coords
-	offset += 2 * 4
+	gl.VertexAttribPointerWithOffset(0, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	// main texture
+	offset += 4 * 4
 	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// foreground color
-	offset += 2 * 4
+	gl.VertexAttribPointerWithOffset(1, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	// second texture
+	offset += 4 * 4
 	gl.EnableVertexAttribArray(2)
 	gl.VertexAttribPointerWithOffset(2, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// background color
+	// foreground color
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(3)
 	gl.VertexAttribPointerWithOffset(3, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// special color
+	// background color
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(4)
 	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// second texture
+	// special color
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(5)
-	gl.VertexAttribPointerWithOffset(5, 2, gl.FLOAT, false, VertexStructSize, uintptr(offset))
+	gl.VertexAttribPointerWithOffset(5, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
 
 	rglCheckError("gl enable attributes")
 
@@ -146,29 +140,21 @@ func rglUpdateVertices(data []Vertex) {
 	}
 }
 
-func rglUpdateIndices(data []uint32) {
-	if rgl_element_buffer_len != len(data) {
-		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(data)*4, gl.Ptr(data), gl.STATIC_DRAW)
-		rglCheckError("index buffer data")
-		rgl_element_buffer_len = len(data)
-	} else {
-		gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, len(data)*4, gl.Ptr(data))
-		rglCheckError("index buffer subdata")
-	}
-}
-
 func rglRender() {
-	gl.DrawElements(gl.TRIANGLES, int32(rgl_element_buffer_len), gl.UNSIGNED_INT, nil)
-	rglCheckError("draw elements")
+	gl.DrawArrays(gl.POINTS, 0, int32(rgl_vertex_buffer_len))
+	rglCheckError("draw arrays")
 }
 
 func rglInitShaders() {
-	vertexShaderSource, fragmentShaderSource := rglLoadDefaultShaders()
-	vertexShader := rglCompileShader(vertexShaderSource, gl.VERTEX_SHADER)
-	fragmentShader := rglCompileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+	vsSource, fsSource, gsSource := rglLoadDefaultShaders()
+
+	vertexShader := rglCompileShader(vsSource, gl.VERTEX_SHADER)
+	geomShader := rglCompileShader(gsSource, gl.GEOMETRY_SHADER)
+	fragmentShader := rglCompileShader(fsSource, gl.FRAGMENT_SHADER)
 
 	rgl_shader_program = gl.CreateProgram()
 	gl.AttachShader(rgl_shader_program, vertexShader)
+	gl.AttachShader(rgl_shader_program, geomShader)
 	gl.AttachShader(rgl_shader_program, fragmentShader)
 	gl.LinkProgram(rgl_shader_program)
 
@@ -184,25 +170,27 @@ func rglInitShaders() {
 	}
 
 	gl.DeleteShader(vertexShader)
+	gl.DeleteShader(geomShader)
 	gl.DeleteShader(fragmentShader)
 }
 
-func rglLoadDefaultShaders() (string, string) {
+func rglLoadDefaultShaders() (string, string, string) {
 	vertexSourceBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
+	geomSourceBegin := strings.Index(rgl_shader_sources, "// Geometry Shader")
 	fragSourceBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
-	assert(vertexSourceBegin != -1 && fragSourceBegin != -1, "Shaders are not correctly prefixed!")
+
+	assert(vertexSourceBegin != -1 && geomSourceBegin != -1 && fragSourceBegin != -1,
+		"Shaders are not correctly tagged!")
 
 	var vertexShaderSource string
+	var geomShaderSource string
 	var fragmentShaderSource string
-	if vertexSourceBegin < fragSourceBegin {
-		vertexShaderSource = rgl_shader_sources[vertexSourceBegin:fragSourceBegin]
-		fragmentShaderSource = rgl_shader_sources[fragSourceBegin:]
-	} else {
-		fragmentShaderSource = rgl_shader_sources[fragSourceBegin:vertexSourceBegin]
-		vertexShaderSource = rgl_shader_sources[vertexSourceBegin:]
-	}
 
-	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00"
+	vertexShaderSource = rgl_shader_sources[vertexSourceBegin:geomSourceBegin]
+	geomShaderSource = rgl_shader_sources[geomSourceBegin:fragSourceBegin]
+	fragmentShaderSource = rgl_shader_sources[fragSourceBegin:]
+
+	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00", geomShaderSource + "\x00"
 }
 
 func rglCompileShader(source string, shader_type uint32) uint32 {

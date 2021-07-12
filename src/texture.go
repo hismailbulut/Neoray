@@ -48,12 +48,12 @@ func (texture *Texture) updatePart(image *image.RGBA, dest IntRect) {
 	rglCheckError("texture update part")
 }
 
-func (texture *Texture) glCoords(rect IntRect) F32Rect {
+func (texture *Texture) glCoords(pos IntRect) F32Rect {
 	return F32Rect{
-		X: float32(rect.X) / float32(texture.width),
-		Y: float32(rect.Y) / float32(texture.height),
-		W: float32(rect.W) / float32(texture.width),
-		H: float32(rect.H) / float32(texture.height),
+		X: float32(pos.X) / float32(texture.width),
+		Y: float32(pos.Y) / float32(texture.height),
+		W: float32(pos.W) / float32(texture.width),
+		H: float32(pos.H) / float32(texture.height),
 	}
 }
 

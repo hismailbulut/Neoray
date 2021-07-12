@@ -59,6 +59,7 @@ func (c U8Color) toF32() F32Color {
 	}
 }
 
+/*
 func (rect IntRect) positions() [4]F32Vec2 {
 	return [4]F32Vec2{
 		{float32(rect.X), float32(rect.Y)},                   //0
@@ -76,6 +77,7 @@ func (rect F32Rect) positions() [4]F32Vec2 {
 		{rect.X + rect.W, rect.Y},          //3
 	}
 }
+*/
 
 func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
