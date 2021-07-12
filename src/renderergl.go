@@ -115,7 +115,7 @@ func rglGetUniformLocation(name string) int32 {
 
 func rglCreateViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
-	projection := orthoProjection(0, 0, float32(w), float32(h), -1, 1)
+	projection := ortho(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rglGetUniformLocation("projection"), 1, true, &projection[0])
 }
 
@@ -131,7 +131,7 @@ func rglSetUndercurlRect(val F32Rect) {
 
 func rglClearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
-	c := color.ToF32Color()
+	c := color.toF32()
 	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.options.transparency)
 }
 

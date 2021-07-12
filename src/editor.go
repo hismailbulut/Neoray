@@ -123,8 +123,10 @@ func (editor *Editor) MainLoop() {
 	// For measuring total time of the program.
 	programBegin := time.Now()
 	// Ticker's interval
+	// NOTE: Ticker doesn't tick correctly on windows. Max 60~75.
+	// We need to wait for the go devs to fix this issue. Or we can
+	// create our own ticker but we don't need at the moment.
 	interval := time.Second / time.Duration(editor.options.targetTPS)
-	log_debug("Interval:", interval, "TTPS:", time.Duration(editor.options.targetTPS))
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	// For measuring tps.

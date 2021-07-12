@@ -50,7 +50,7 @@ func unpackColor(color uint32) U8Color {
 	}
 }
 
-func (c U8Color) ToF32Color() F32Color {
+func (c U8Color) toF32() F32Color {
 	return F32Color{
 		R: float32(c.R) / 256,
 		G: float32(c.G) / 256,
@@ -77,7 +77,7 @@ func (rect F32Rect) positions() [4]F32Vec2 {
 	}
 }
 
-func orthoProjection(top, left, right, bottom, near, far float32) [16]float32 {
+func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
 	return [16]float32{
 		float32(2. / rml), 0, 0, 0, // 1

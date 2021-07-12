@@ -14,7 +14,7 @@ const (
 	WINDOW_STATE_FULLSCREEN = "fullscreen"
 	WINDOW_STATE_CENTERED   = "centered"
 
-	WINDOW_SIZE_AUTO = 1 << 31
+	WINDOW_SIZE_AUTO = 1 << 30
 )
 
 type Window struct {
@@ -119,6 +119,7 @@ func (window *Window) raise() {
 	if window.minimized {
 		window.handle.Restore()
 	}
+	// TODO
 	window.handle.SetAttrib(glfw.Floating, glfw.True)
 	window.handle.SetAttrib(glfw.Floating, glfw.False)
 }
@@ -184,11 +185,11 @@ func (window *Window) toggleFullscreen() {
 
 func (window *Window) calculateDPI() {
 	monitor := glfw.GetPrimaryMonitor()
-	pWidth, pHeight := monitor.GetPhysicalSize()
+	pWidth, pHeight := monitor.GetPhysicalSize() // returns size in millimeters
 	pDiagonal := math.Sqrt(float64(pWidth*pWidth) + float64(pHeight*pHeight))
 	pDiagonalInch := pDiagonal * 0.0393700787
-	mWidth := float32(monitor.GetVideoMode().Width)
-	mHeight := float32(monitor.GetVideoMode().Height)
+	mWidth := monitor.GetVideoMode().Width
+	mHeight := monitor.GetVideoMode().Height
 	mDiagonal := math.Sqrt(float64(mWidth*mWidth) + float64(mHeight*mHeight))
 	window.dpi = mDiagonal / pDiagonalInch
 	log_debug("Monitor diagonal:", pDiagonalInch, "dpi:", window.dpi)

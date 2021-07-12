@@ -16,7 +16,7 @@ const (
 	VERSION_MAJOR = 0
 	VERSION_MINOR = 0
 	VERSION_PATCH = 5
-	WEBPAGE       = "github.com/hismailbulut/Neoray"
+	WEBPAGE       = "github.com/hismailbulut/neoray"
 	LICENSE       = "MIT"
 )
 

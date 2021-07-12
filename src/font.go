@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/hismailbulut/neoray/src/fontfinder"
-	"github.com/hismailbulut/neoray/src/gomononerd"
+	"github.com/hismailbulut/neoray/src/hacknerd"
 )
 
 type Font struct {
@@ -28,19 +28,19 @@ func CreateDefaultFont() Font {
 	}
 	var err error
 	// regular
-	regular, err := CreateFaceFromMem(gomononerd.Regular, font.size)
+	regular, err := CreateFaceFromMem(hacknerd.Regular, font.size)
 	check(err)
 	font.regular = regular
 	// bold italic
-	bold_italic, err := CreateFaceFromMem(gomononerd.BoldItalic, font.size)
+	bold_italic, err := CreateFaceFromMem(hacknerd.BoldItalic, font.size)
 	check(err)
 	font.bold_italic = bold_italic
 	// italic
-	italic, err := CreateFaceFromMem(gomononerd.Italic, font.size)
+	italic, err := CreateFaceFromMem(hacknerd.Italic, font.size)
 	check(err)
 	font.italic = italic
 	// bold
-	bold, err := CreateFaceFromMem(gomononerd.Bold, font.size)
+	bold, err := CreateFaceFromMem(hacknerd.Bold, font.size)
 	check(err)
 	font.bold = bold
 	return font

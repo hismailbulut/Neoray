@@ -208,7 +208,7 @@ func (storage VertexDataStorage) setCellFg(index int, fg U8Color) {
 	cBegin := storage.begin + (index * 4)
 	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	fgc := fg.ToF32Color()
+	fgc := fg.toF32()
 	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].fg = fgc
 	}
@@ -218,7 +218,7 @@ func (storage VertexDataStorage) setCellBg(index int, bg U8Color) {
 	cBegin := storage.begin + (index * 4)
 	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	bgc := bg.ToF32Color()
+	bgc := bg.toF32()
 	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].bg = bgc
 	}
@@ -228,7 +228,7 @@ func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
 	cBegin := storage.begin + (index * 4)
 	assert_debug(cBegin >= storage.begin && cBegin+4 <= storage.end,
 		"Trying to modify not owned cell. Index:", index, "Begin:", storage.begin, "End:", storage.end)
-	spc := sp.ToF32Color()
+	spc := sp.toF32()
 	for i := 0; i < 4; i++ {
 		storage.renderer.vertexData[cBegin+i].sp = spc
 	}
@@ -292,7 +292,7 @@ func (renderer *Renderer) setCellTex(x, y int, pos IntRect) {
 }
 
 func (renderer *Renderer) setCellFg(x, y int, color U8Color) {
-	c := color.ToF32Color()
+	c := color.toF32()
 	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].fg = c
@@ -300,7 +300,7 @@ func (renderer *Renderer) setCellFg(x, y int, color U8Color) {
 }
 
 func (renderer *Renderer) setCellBg(x, y int, color U8Color) {
-	c := color.ToF32Color()
+	c := color.toF32()
 	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].bg = c
@@ -308,7 +308,7 @@ func (renderer *Renderer) setCellBg(x, y int, color U8Color) {
 }
 
 func (renderer *Renderer) setCellSp(x, y int, color U8Color) {
-	c := color.ToF32Color()
+	c := color.toF32()
 	begin := cellVertexPos(x, y)
 	for i := 0; i < 4; i++ {
 		renderer.vertexData[begin+i].sp = c

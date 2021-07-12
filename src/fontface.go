@@ -58,7 +58,7 @@ func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 		return FontFace{}, fmt.Errorf("Failed to get glyph advance!")
 	}
 
-	fontFace := FontFace{
+	return FontFace{
 		loaded:     true,
 		handle:     face,
 		fontHandle: sfont,
@@ -66,9 +66,7 @@ func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 		ascent:     face.Metrics().Ascent.Floor(),
 		descent:    face.Metrics().Descent.Floor(),
 		height:     face.Metrics().Height.Floor(),
-	}
-
-	return fontFace, nil
+	}, nil
 }
 
 func (fontFace *FontFace) Resize(newsize float32) {
