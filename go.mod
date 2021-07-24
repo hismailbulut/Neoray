@@ -3,12 +3,14 @@ module github.com/hismailbulut/neoray
 go 1.16
 
 require (
+	github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d // indirect
 	github.com/adrg/strutil v0.2.3 // indirect
 	github.com/adrg/sysfont v0.1.2
 	github.com/adrg/xdg v0.3.3 // indirect
 	github.com/go-gl/gl v0.0.0-20210501111010-69f74958bac0
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20210410170116-ea3d685f79fb
 	github.com/neovim/go-client v1.1.7
-	github.com/sqweek/dialog v0.0.0-20200911184034-8a3d98e8211d
-	golang.org/x/image v0.0.0-20210607152325-775e3b0c77b9
+	github.com/sqweek/dialog v0.0.0-20210702151303-c326b49d3f01
+	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d
+	golang.org/x/text v0.3.6 // indirect
 )

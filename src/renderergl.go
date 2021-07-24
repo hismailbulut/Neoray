@@ -13,7 +13,7 @@ type Vertex struct {
 	pos F32Rect // layout 0
 	// texture position
 	tex1 F32Rect // layout 1
-	// second texture position for multiwidth characters
+	// second texture position used for multiwidth characters
 	tex2 F32Rect // layout 2
 	// foreground color
 	fg F32Color // layout 3
@@ -25,7 +25,7 @@ type Vertex struct {
 
 const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
 
-// render subsystem global variables
+// renderer gl global variables
 var (
 	rgl_vao uint32
 	rgl_vbo uint32
@@ -146,16 +146,16 @@ func rglRender() {
 }
 
 func rglInitShaders() {
-	vsSource, fsSource, gsSource := rglLoadDefaultShaders()
+	vsSource, gsSource, fsSource := rglLoadDefaultShaders()
 
-	vertexShader := rglCompileShader(vsSource, gl.VERTEX_SHADER)
+	vertShader := rglCompileShader(vsSource, gl.VERTEX_SHADER)
 	geomShader := rglCompileShader(gsSource, gl.GEOMETRY_SHADER)
-	fragmentShader := rglCompileShader(fsSource, gl.FRAGMENT_SHADER)
+	fragShader := rglCompileShader(fsSource, gl.FRAGMENT_SHADER)
 
 	rgl_shader_program = gl.CreateProgram()
-	gl.AttachShader(rgl_shader_program, vertexShader)
+	gl.AttachShader(rgl_shader_program, vertShader)
 	gl.AttachShader(rgl_shader_program, geomShader)
-	gl.AttachShader(rgl_shader_program, fragmentShader)
+	gl.AttachShader(rgl_shader_program, fragShader)
 	gl.LinkProgram(rgl_shader_program)
 
 	var status int32
@@ -165,32 +165,30 @@ func rglInitShaders() {
 		gl.GetProgramiv(rgl_shader_program, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetProgramInfoLog(rgl_shader_program, logLength, nil, gl.Str(log))
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER,
-			"Failed to link shader program:", log)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to link shader program:", log)
 	}
 
-	gl.DeleteShader(vertexShader)
+	gl.DeleteShader(vertShader)
 	gl.DeleteShader(geomShader)
-	gl.DeleteShader(fragmentShader)
+	gl.DeleteShader(fragShader)
 }
 
 func rglLoadDefaultShaders() (string, string, string) {
-	vertexSourceBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
-	geomSourceBegin := strings.Index(rgl_shader_sources, "// Geometry Shader")
-	fragSourceBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
+	vsBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
+	gsBegin := strings.Index(rgl_shader_sources, "// Geometry Shader")
+	fsBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
 
-	assert(vertexSourceBegin != -1 && geomSourceBegin != -1 && fragSourceBegin != -1,
-		"Shaders are not correctly tagged!")
+	assert(vsBegin != -1 && gsBegin != -1 && fsBegin != -1,
+		"Shader sources are not correctly tagged!")
 
-	var vertexShaderSource string
-	var geomShaderSource string
-	var fragmentShaderSource string
+	assert(vsBegin < gsBegin && gsBegin < fsBegin,
+		"Shader sources are not correctly ordered!")
 
-	vertexShaderSource = rgl_shader_sources[vertexSourceBegin:geomSourceBegin]
-	geomShaderSource = rgl_shader_sources[geomSourceBegin:fragSourceBegin]
-	fragmentShaderSource = rgl_shader_sources[fragSourceBegin:]
+	vsSource := rgl_shader_sources[vsBegin:gsBegin]
+	gsSource := rgl_shader_sources[gsBegin:fsBegin]
+	fsSource := rgl_shader_sources[fsBegin:]
 
-	return vertexShaderSource + "\x00", fragmentShaderSource + "\x00", geomShaderSource + "\x00"
+	return vsSource + "\x00", gsSource + "\x00", fsSource + "\x00"
 }
 
 func rglCompileShader(source string, shader_type uint32) uint32 {
@@ -207,8 +205,7 @@ func rglCompileShader(source string, shader_type uint32) uint32 {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER,
-			"Shader compilation failed:", source, log)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, log)
 	}
 
 	return shader

@@ -15,6 +15,7 @@ import (
 
 const (
 	FONT_HINTING = font.HintingFull
+	ADVANCE_CHAR = 'o'
 )
 
 type FontFace struct {
@@ -25,7 +26,7 @@ type FontFace struct {
 	buffer     sfnt.Buffer
 
 	advance int
-	ascent  int
+	// ascent  int
 	descent int
 	height  int
 }
@@ -53,7 +54,7 @@ func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 		return FontFace{}, fmt.Errorf("Failed to create font face: %s\n", err)
 	}
 
-	advance, ok := face.GlyphAdvance('m')
+	advance, ok := face.GlyphAdvance(ADVANCE_CHAR)
 	if !ok {
 		return FontFace{}, fmt.Errorf("Failed to get glyph advance!")
 	}
@@ -63,9 +64,9 @@ func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 		handle:     face,
 		fontHandle: sfont,
 		advance:    advance.Ceil(),
-		ascent:     face.Metrics().Ascent.Floor(),
-		descent:    face.Metrics().Descent.Floor(),
-		height:     face.Metrics().Height.Floor(),
+		// ascent:     face.Metrics().Ascent.Floor(),
+		descent: face.Metrics().Descent.Floor(),
+		height:  face.Metrics().Height.Floor(),
 	}, nil
 }
 
@@ -82,16 +83,19 @@ func (fontFace *FontFace) Resize(newsize float32) {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)
 		return
 	}
-	advance, ok := face.GlyphAdvance('m')
+	advance, ok := face.GlyphAdvance(ADVANCE_CHAR)
 	if !ok {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get glyph advance!")
 		return
 	}
 	fontFace.handle = face
 	fontFace.advance = advance.Ceil()
-	fontFace.ascent = face.Metrics().Ascent.Floor()
+	// fontFace.ascent = face.Metrics().Ascent.Floor()
 	fontFace.descent = face.Metrics().Descent.Floor()
 	fontFace.height = face.Metrics().Height.Floor()
+}
+
+func (fontFace *FontFace) calcMetrics() {
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
@@ -115,13 +119,13 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 	y := EditorSingleton.cellHeight - fontFace.descent
 	for x := 0; x < img.Rect.Dx(); x++ {
 		img.Set(x, y, color.White)
-		// This evaluation will be true when x is not
-		// center of a part (there are 4 parts) and x is not divisible by 3.
-		// The 3 is for reducing count, we will do it for 2 of 3 times.
-		// This makes curls more softer.
+		// This evaluation will be true when x is not center of a part (there
+		// are 4 parts) and x is not divisible by 3. The 3 is for reducing
+		// count, we will do it for 2 of 3 times. This makes curls more
+		// softer.
 		if (x%4)%3 != 0 {
-			// Divide image to 4 parts to get the number of the part.
-			// If the part number is 0 or 2, then increase y, otherwise decrease it.
+			// Divide image to 4 parts to get the number of the part. If the
+			// part number is 0 or 2, then increase y, otherwise decrease it.
 			if ((x/4)%4)%2 == 0 {
 				y++
 			} else {
@@ -135,14 +139,19 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 // Renders given rune and returns rendered RGBA image.
 // Width of the image is always equal to cellWidth or cellWidth*2
 func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
-	dot := fixed.P(0, EditorSingleton.cellHeight-fontFace.descent)
+	cellHeight := EditorSingleton.cellHeight
+	dot := fixed.P(0, cellHeight-fontFace.descent)
 	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
 	if ok {
 		width := EditorSingleton.cellWidth
 		if mask.Bounds().Dx() > width {
-			width = 2 * EditorSingleton.cellWidth
+			width *= 2
 		}
-		img := image.NewRGBA(image.Rect(0, 0, width, EditorSingleton.cellHeight))
+		if mask.Bounds().Dy() > cellHeight {
+			// Center image if the image height is taller than our cell height.
+			maskp = image.Pt(0, (cellHeight-mask.Bounds().Dy())/2)
+		}
+		img := image.NewRGBA(image.Rect(0, 0, width, cellHeight))
 		draw.DrawMask(img, dr, image.White, image.Point{}, mask, maskp, draw.Over)
 		return img
 	}

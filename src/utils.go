@@ -59,26 +59,6 @@ func (c U8Color) toF32() F32Color {
 	}
 }
 
-/*
-func (rect IntRect) positions() [4]F32Vec2 {
-	return [4]F32Vec2{
-		{float32(rect.X), float32(rect.Y)},                   //0
-		{float32(rect.X), float32(rect.Y + rect.H)},          //1
-		{float32(rect.X + rect.W), float32(rect.Y + rect.H)}, //2
-		{float32(rect.X + rect.W), float32(rect.Y)},          //3
-	}
-}
-
-func (rect F32Rect) positions() [4]F32Vec2 {
-	return [4]F32Vec2{
-		{rect.X, rect.Y},                   //0
-		{rect.X, rect.Y + rect.H},          //1
-		{rect.X + rect.W, rect.Y + rect.H}, //2
-		{rect.X + rect.W, rect.Y},          //3
-	}
-}
-*/
-
 func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
 	return [16]float32{
@@ -121,20 +101,18 @@ func (anim *Animation) GetCurrentStep(deltaTime float32) (F32Vec2, bool) {
 	return anim.target, true
 }
 
-type AtomicBool struct {
-	value int32
-}
+type AtomicBool int32
 
 func (atomicBool *AtomicBool) Set(value bool) {
 	var val int32 = 0
 	if value == true {
 		val = 1
 	}
-	atomic.StoreInt32(&atomicBool.value, val)
+	atomic.StoreInt32((*int32)(atomicBool), val)
 }
 
 func (atomicBool *AtomicBool) Get() bool {
-	val := atomic.LoadInt32(&atomicBool.value)
+	val := atomic.LoadInt32((*int32)(atomicBool))
 	return val != 0
 }
 
@@ -148,10 +126,21 @@ func boolFromInterface(val interface{}) bool {
 	switch val.(type) {
 	case bool:
 		return val == true
-	case int, int32, int64:
+	case int, int32, int64, uint, uint32, uint64:
 		return val != 0
 	default:
-		assert_debug(false, "Value type can not be a bool:", val)
+		assert_debug(false, "Value type can not be converted to a bool:", val)
 		return false
 	}
+}
+
+func mergeStringArray(arr []string) string {
+	str := ""
+	for i, arg := range arr {
+		str += arg
+		if i < len(arr)-1 {
+			str += " "
+		}
+	}
+	return str
 }

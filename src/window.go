@@ -64,6 +64,7 @@ func CreateWindow(width int, height int, title string) Window {
 	if err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
+
 	window.handle = windowHandle
 
 	window.handle.SetFramebufferSizeCallback(windowResizeHandler)
@@ -88,7 +89,7 @@ func windowMinimizeHandler(w *glfw.Window, minimized bool) {
 	EditorSingleton.window.minimized = minimized
 }
 
-func (window *Window) Update() {
+func (window *Window) update() {
 	if isDebugBuild() {
 		fps_string := fmt.Sprintf(" | TPS: %d | Delta: %f",
 			EditorSingleton.updatesPerSecond, EditorSingleton.deltaTime)
@@ -186,11 +187,11 @@ func (window *Window) toggleFullscreen() {
 func (window *Window) calculateDPI() {
 	monitor := glfw.GetPrimaryMonitor()
 	pWidth, pHeight := monitor.GetPhysicalSize() // returns size in millimeters
-	pDiagonal := math.Sqrt(float64(pWidth*pWidth) + float64(pHeight*pHeight))
+	pDiagonal := math.Sqrt(float64(pWidth*pWidth + pHeight*pHeight))
 	pDiagonalInch := pDiagonal * 0.0393700787
 	mWidth := monitor.GetVideoMode().Width
 	mHeight := monitor.GetVideoMode().Height
-	mDiagonal := math.Sqrt(float64(mWidth*mWidth) + float64(mHeight*mHeight))
+	mDiagonal := math.Sqrt(float64(mWidth*mWidth + mHeight*mHeight))
 	window.dpi = mDiagonal / pDiagonalInch
 	log_debug("Monitor diagonal:", pDiagonalInch, "dpi:", window.dpi)
 }

@@ -108,7 +108,7 @@ func PrintHelp() {
 	msg := fmt.Sprintf(usageTemplate,
 		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
 		buildTypeString(), LICENSE, WEBPAGE)
-	dialog.Message(msg).Title(TITLE).Info()
+	dialog.Message(msg).Title("Neoray Help").Info()
 }
 
 // Call this before starting neovim.
@@ -122,18 +122,18 @@ func (options ParsedArgs) ProcessBefore() bool {
 			return false
 		}
 		ok := false
-		if client.SendSignal(SIGNAL_CHECK_CONNECTION) {
+		if client.sendSignal(SIGNAL_CHECK_CONNECTION) {
 			if options.file != "" {
 				fullPath, err := filepath.Abs(options.file)
 				if err == nil {
-					client.SendSignal(SIGNAL_OPEN_FILE, fullPath)
+					client.sendSignal(SIGNAL_OPEN_FILE, fullPath)
 				}
 			}
 			if options.line != -1 {
-				client.SendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
+				client.sendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
 			}
 			if options.column != -1 {
-				client.SendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
+				client.sendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
 			}
 			ok = true
 		}

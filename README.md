@@ -17,10 +17,10 @@ can customize it in your init.vim.
 These are some options you can specify for now:
 
 The cursor is moving smoothly in neoray and you can specify
-how long it's move takes. Default is 0.08 (1.0 is one second)
+how long it's move takes. Default is 0.06 (1.0 is one second)
 You can disable it by setting to 0.
 ```vim
-let neoray_cursor_animation_time=0.08
+let neoray_cursor_animation_time=0.06
 ```
 
 Transparency of the window background. Default is 1 means

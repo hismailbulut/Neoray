@@ -29,12 +29,14 @@ type NvimProcess struct {
 
 func CreateNvimProcess() NvimProcess {
 	defer measure_execution_time()()
+
 	proc := NvimProcess{
 		update_mutex: &sync.Mutex{},
 		update_stack: make([][][]interface{}, 0),
 	}
 
 	args := append([]string{"--embed"}, EditorParsedArgs.others...)
+
 	nv, err := nvim.NewChildProcess(
 		nvim.ChildProcessArgs(args...),
 		nvim.ChildProcessCommand(EditorParsedArgs.execPath))
@@ -43,7 +45,7 @@ func CreateNvimProcess() NvimProcess {
 	}
 
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
-		"Neovim started with command:", EditorParsedArgs.execPath, args)
+		"Neovim started with command:", EditorParsedArgs.execPath, mergeStringArray(args))
 
 	proc.handle = nv
 
@@ -57,7 +59,8 @@ func CreateNvimProcess() NvimProcess {
 }
 
 func (proc *NvimProcess) requestApiInfo() {
-	// TODO: Reserved.
+	defer measure_execution_time()()
+
 	info, err := proc.handle.APIInfo()
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
@@ -81,6 +84,8 @@ func (proc *NvimProcess) requestApiInfo() {
 }
 
 func (proc *NvimProcess) introduce() {
+	defer measure_execution_time()()
+
 	// Short name for the connected client
 	name := TITLE
 	// Dictionary describing the version
@@ -109,6 +114,7 @@ func (proc *NvimProcess) introduce() {
 // Like 'mousehide'. Don't use this as long as the nvim_get_option is working.
 func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
 	defer measure_execution_time()()
+
 	eventName := "optc_" + name
 	var opt interface{}
 	okc := make(chan bool)
@@ -125,14 +131,14 @@ func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
 	return opt
 }
 
-func (proc *NvimProcess) startUI() {
+func (proc *NvimProcess) startUI(columns, rows int) {
 	defer measure_execution_time()()
 
 	options := make(map[string]interface{})
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 
-	proc.handle.AttachUI(EditorSingleton.columnCount, EditorSingleton.rowCount, options)
+	proc.handle.AttachUI(columns, rows, options)
 
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
@@ -147,16 +153,12 @@ func (proc *NvimProcess) startUI() {
 			return
 		}
 		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process closed.")
-		EditorSingleton.quitRequestedChan <- true
+		EditorSingleton.quitRequested.Set(true)
 	}()
-
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
-		"UI Connected. Rows:", EditorSingleton.rowCount, "Cols:", EditorSingleton.columnCount)
-
-	proc.requestVariables()
 }
 
 func (proc *NvimProcess) requestVariables() {
+	defer measure_execution_time()()
 	proc.handle.Var(OPTION_CURSOR_ANIM, &EditorSingleton.options.cursorAnimTime)
 	proc.handle.Var(OPTION_TRANSPARENCY, &EditorSingleton.options.transparency)
 	proc.handle.Var(OPTION_TARGET_TPS, &EditorSingleton.options.targetTPS)
@@ -302,6 +304,7 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 
 func (proc *NvimProcess) requestResize() {
 	if EditorSingleton.calculateCellCount() {
+		log_debug("Resize request. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
 		err := proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
 		if err != nil {
 			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)

@@ -9,7 +9,7 @@ var (
 	t_uint = reflect.TypeOf(uint(0))
 )
 
-func HandleNvimRedrawEvents() {
+func handleRedrawEvents() {
 	EditorSingleton.nvim.update_mutex.Lock()
 	defer EditorSingleton.nvim.update_mutex.Unlock()
 

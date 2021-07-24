@@ -42,13 +42,17 @@ func init_function_time_tracker() {
 	trackerAverages = make(map[string]function_measure)
 }
 
-func measure_execution_time() func() {
+func measure_execution_time() func(uname ...string) {
 	now := time.Now()
-	return func() {
+	return func(uname ...string) {
 		name := "Unrecognized"
-		pc, _, _, ok := runtime.Caller(1)
-		if ok {
-			name = runtime.FuncForPC(pc).Name()
+		if len(uname) > 0 {
+			name = uname[0]
+		} else {
+			pc, _, _, ok := runtime.Caller(1)
+			if ok {
+				name = runtime.FuncForPC(pc).Name()
+			}
 		}
 		elapsed := time.Since(now)
 		trackerMutex.Lock()

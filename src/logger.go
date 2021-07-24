@@ -11,23 +11,20 @@ import (
 	"github.com/sqweek/dialog"
 )
 
+type LogLevel uint32
+type LogType uint32
+
 const (
 	// log levels
-	LOG_LEVEL_DEBUG = iota
+	LOG_LEVEL_DEBUG LogLevel = iota
 	LOG_LEVEL_TRACE
 	LOG_LEVEL_WARN
 	LOG_LEVEL_ERROR
-	// Panic is only for printing panic string to
-	// beginning of the message and only used for
-	// printing panics to file. It will not panic
-	// itself. Don't use it.
-	LOG_LEVEL_PANIC
 	// The fatal will be printed to logfile and a
-	// fatal popup will be shown. The program will
-	// be panicked. Not immediately exits.
+	// fatal popup will be shown. The program exits immediately.
 	LOG_LEVEL_FATAL
 	// Log types, makes easy to understand where the message coming from
-	LOG_TYPE_NVIM
+	LOG_TYPE_NVIM LogType = iota
 	LOG_TYPE_NEORAY
 	LOG_TYPE_RENDERER
 	LOG_TYPE_PERFORMANCE
@@ -39,7 +36,7 @@ var (
 )
 
 func init_log_file(filename string) {
-	assert(!log_file_initialized, "log file already initialized")
+	assert(!log_file_initialized, "multiple initialization of log file")
 	path, err := filepath.Abs(filename)
 	if err != nil {
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
@@ -60,31 +57,31 @@ func close_logger() {
 	// Also the stack trace will be printed after
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
-		// Always print to stdout in debug build. Otherwise if the log file is initialized
-		// then it will be printed to both file and stdout. If is release build and verbose
-		// is not set then create a crash log.
-		if log_file_initialized || isDebugBuild() {
-			log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, pmsg)
-			log_message(LOG_LEVEL_PANIC, LOG_TYPE_NEORAY, string(debug.Stack()))
-		} else {
-			// Create crash report.
-			crash_file, err := os.OpenFile("neoray_crash.log", os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC, 0666)
-			if err == nil {
-				defer crash_file.Close()
-				crash_file.WriteString("Message: " + fmt.Sprintln(pmsg))
-				crash_file.WriteString("Stack Trace: " + fmt.Sprintln(string(debug.Stack())))
-			}
-		}
+		// Create crash report.
+		crash_msg := "An unexpected error occured and generated a crash report."
+		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, crash_msg)
+		dialog.Message(crash_msg).Error()
+		crash_report("PANIC", pmsg)
 	}
 	// If logfile is initialized then close it.
 	if log_file_initialized {
 		log_file.Close()
-		// We don't need but anyway
-		log_file_initialized = false
 	}
 }
 
-func log_message(log_level, log_type int, message ...interface{}) {
+func crash_report(msg ...interface{}) {
+	crash_file, err := os.Create("neoray_crash.log")
+	if err == nil {
+		defer crash_file.Close()
+		crash_file.WriteString("NEORAY v" + versionString() + " " + buildTypeString() + " Crash Report\n")
+		crash_file.WriteString("Please open an issue in github with this file.\n")
+		crash_file.WriteString("The program is crashed because of the following reasons.\n")
+		crash_file.WriteString("Message: " + fmt.Sprintln(msg...))
+		crash_file.WriteString(fmt.Sprintln(string(debug.Stack())))
+	}
+}
+
+func log_message(log_level LogLevel, log_type LogType, message ...interface{}) {
 	if log_level < MINIMUM_LOG_LEVEL && !log_file_initialized {
 		return
 	}
@@ -115,8 +112,6 @@ func log_message(log_level, log_type int, message ...interface{}) {
 		log_string += "WARNING:"
 	case LOG_LEVEL_ERROR:
 		log_string += "ERROR:"
-	case LOG_LEVEL_PANIC:
-		log_string += "PANIC:"
 	case LOG_LEVEL_FATAL:
 		log_string += "FATAL:"
 		fatal = true
@@ -135,8 +130,9 @@ func log_message(log_level, log_type int, message ...interface{}) {
 	log.Println(log_string)
 
 	if fatal {
-		dialog.Message(log_string).Title("Fatal error").Error()
-		panic("fatal error occured")
+		dialog.Message(log_string).Error()
+		crash_report(log_string)
+		os.Exit(1)
 	}
 }
 
@@ -150,6 +146,6 @@ func logf_debug(format string, message ...interface{}) {
 
 func assert(cond bool, message ...interface{}) {
 	if cond == false {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", message)
+		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}
 }

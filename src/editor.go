@@ -31,8 +31,9 @@ type Editor struct {
 	// Main window of this program.
 	// window.go
 	window Window
-	// Grid is a neovim window if multigrid option is enabled, otherwise full screen.
-	// Grid has cells and it's attributes, and contains all information how cells and fonts will be rendered.
+	// Grid is a neovim window if multigrid option is enabled, otherwise full
+	// screen. Grid has cells and it's attributes, and contains all
+	// information how cells and fonts will be rendered.
 	// grid.go
 	grid Grid
 	// Cursor represents a neovim cursor and all it's information
@@ -57,15 +58,14 @@ type Editor struct {
 	// Tcp server for singleinstance
 	// tcp.go
 	server *TCPServer
-
 	// These are the global variables of neoray. They are same in everywhere.
 	// Some of them are initialized at runtime. Therefore we must be carefull when we
 	// use them. If you add more here just write some information about it.
 	// If quitRequested is true the program will quit.
-	quitRequestedChan chan bool
-	// This is for resizing from nvim side, first we will send resize request to neovim,
-	// than we wait for the resize call from neovim side. When waiting this we dont want
-	// to render.
+	quitRequested AtomicBool
+	// This is for resizing from nvim side, first we will send resize request
+	// to neovim, than we wait for the resize call from neovim side. When
+	// waiting this we dont want to render.
 	waitingResize bool
 	// Initializing in CreateRenderer
 	cellWidth  int
@@ -79,12 +79,14 @@ type Editor struct {
 	// For debugging.
 	averageTPS float32
 	// Last elapsed time between updates.
-	deltaTime float32
+	deltaTime float64
 }
 
 func (editor *Editor) Initialize() {
 	editor.options = CreateDefaultOptions()
+
 	editor.nvim = CreateNvimProcess()
+	editor.nvim.startUI(99, 33)
 
 	if err := glfw.Init(); err != nil {
 		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
@@ -92,23 +94,23 @@ func (editor *Editor) Initialize() {
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
 
 	editor.window = CreateWindow(WINDOW_SIZE_AUTO, WINDOW_SIZE_AUTO, TITLE)
+
 	InitializeInputEvents()
+
+	editor.uiOptions = UIOptions{}
 
 	editor.grid = CreateGrid()
 	editor.mode = CreateMode()
 	editor.cursor = CreateCursor()
 	editor.popupMenu = CreatePopupMenu()
-	editor.uiOptions = UIOptions{}
-
 	editor.renderer = CreateRenderer()
 
-	editor.quitRequestedChan = make(chan bool)
-	editor.nvim.startUI()
+	editor.nvim.requestVariables()
 }
 
 func CreateDefaultOptions() Options {
 	return Options{
-		cursorAnimTime:      0.8,
+		cursorAnimTime:      0.06,
 		transparency:        1,
 		targetTPS:           60,
 		popupMenuEnabled:    true,
@@ -123,66 +125,69 @@ func (editor *Editor) MainLoop() {
 	// For measuring total time of the program.
 	programBegin := time.Now()
 	// Ticker's interval
-	// NOTE: Ticker doesn't tick correctly on windows. Max 60~75.
-	// We need to wait for the go devs to fix this issue. Or we can
-	// create our own ticker but we don't need at the moment.
-	interval := time.Second / time.Duration(editor.options.targetTPS)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	// For measuring tps.
-	var elapsed float32
-	ticks := 0
-	// For measuring delta time
-	loopBegin := time.Now()
-	// For secure quit.
-	quitRequestedFromNvim := false
+	interval := 1 / float64(editor.options.targetTPS)
+	// For measuring tps
+	var tpsTimer float64
+	updates := 0
+	// For measuring elpased time
+	prevTick := glfw.GetTime()
 	// Mainloop
 MAINLOOP:
 	for !editor.window.handle.ShouldClose() {
-		select {
-		case ticktime := <-ticker.C:
-			// Calculate delta time
-			editor.deltaTime = float32(ticktime.Sub(loopBegin)) / float32(time.Second)
-			loopBegin = ticktime
-			elapsed += editor.deltaTime
-			ticks++
-			// Calculate ticks per second
-			if elapsed >= 1 {
-				editor.updatesPerSecond = ticks
-				editor.averageTPS = (editor.averageTPS + float32(editor.updatesPerSecond)) / 2
-				ticks = 0
-				elapsed = 0
-			}
-			// Update program. Order is important!
-			if editor.server != nil {
-				editor.server.Process()
-			}
-			HandleNvimRedrawEvents()
-			if !editor.waitingResize {
-				editor.window.Update()
-				editor.cursor.Update()
-				editor.renderer.Update()
-			}
-			glfw.PollEvents()
-		case <-editor.quitRequestedChan:
+		// Calculate time between loops
+		tick := glfw.GetTime()
+		editor.deltaTime = tick - prevTick
+		prevTick = tick
+		// Update program
+		editor.update()
+		// Check for quit
+		if editor.quitRequested.Get() {
 			editor.window.handle.SetShouldClose(true)
-			quitRequestedFromNvim = true
+		}
+		// Increment counters
+		tpsTimer += editor.deltaTime
+		updates++
+		// Calculate ticks per second
+		if tpsTimer >= 1 {
+			editor.updatesPerSecond = updates
+			editor.averageTPS = (editor.averageTPS + float32(editor.updatesPerSecond)) / 2
+			updates = 0
+			tpsTimer -= 1
+		}
+		if interval > editor.deltaTime {
+			freeTime := interval - editor.deltaTime
+			sleepTime := time.Duration(freeTime * float64(time.Second))
+			time.Sleep(sleepTime)
 		}
 	}
-	if !quitRequestedFromNvim {
-		// Instead of immediately closing we will send simple
-		// quit command to neovim and if there are unsaved files
-		// the neovim will handle them and user will not lose its progress.
+	if !editor.quitRequested.Get() {
+		// Instead of immediately closing we will send simple quit command to
+		// neovim and if there are unsaved files the neovim will handle them
+		// and user will not lose its progress.
 		editor.window.handle.SetShouldClose(false)
 		go editor.nvim.executeVimScript("qa")
 		goto MAINLOOP
 	}
-	log_debug("Average TPS:", editor.averageTPS)
 	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
+	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Average TPS:", editor.averageTPS)
+}
+
+func (editor *Editor) update() {
+	// Order is important!
+	if editor.server != nil {
+		editor.server.update()
+	}
+	handleRedrawEvents()
+	if !editor.waitingResize {
+		editor.window.update()
+		editor.cursor.update()
+		editor.renderer.update()
+	}
+	glfw.PollEvents()
 }
 
 // Calculates dimensions of the window as cell size.
-// Returns true if the cell count or rows or columns changed.
+// Returns true if the dimensions has changed.
 func (editor *Editor) calculateCellCount() bool {
 	cols := editor.window.width / editor.cellWidth
 	rows := editor.window.height / editor.cellHeight

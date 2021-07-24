@@ -35,6 +35,7 @@ type VertexDataStorage struct {
 }
 
 func CreateRenderer() Renderer {
+	defer measure_execution_time()()
 	// Init opengl subsystem first.
 	rglInit()
 
@@ -47,11 +48,7 @@ func CreateRenderer() Renderer {
 	}
 
 	renderer.defaultFont = CreateDefaultFont()
-
-	cellWidth, cellHeight := renderer.defaultFont.GetCellSize()
-	EditorSingleton.cellWidth = cellWidth
-	EditorSingleton.cellHeight = cellHeight
-	EditorSingleton.calculateCellCount()
+	renderer.updateCellSize(&renderer.defaultFont)
 
 	rglCreateViewport(EditorSingleton.window.width, EditorSingleton.window.height)
 	rglSetAtlasTexture(&renderer.fontAtlas.texture)
@@ -121,26 +118,24 @@ func (renderer *Renderer) resize(rows, cols int) {
 }
 
 func (renderer *Renderer) clearAtlas() {
+	defer measure_execution_time()()
 	renderer.fontAtlas.texture.clear()
 	renderer.fontAtlas.characters = make(map[string]IntRect)
 	renderer.fontAtlas.pos = IntVec2{}
-	EditorSingleton.grid.makeAllCellsChanged()
 	EditorSingleton.popupMenu.updateChars()
+	EditorSingleton.grid.makeAllCellsChanged()
 	renderer.drawCall = true
 }
 
 func (renderer *Renderer) createVertexData(rows, cols int) {
 	defer measure_execution_time()()
-
 	cellCount := rows * cols
-
 	renderer.vertexData = make([]Vertex, cellCount, cellCount)
 	for y := 0; y < rows; y++ {
 		for x := 0; x < cols; x++ {
 			renderer.vertexData[cellVertexPos(y, x)].pos = cellPos(y, x)
 		}
 	}
-
 	// Add cursor to data.
 	EditorSingleton.cursor.createVertexData()
 	// Add popup menu to data.
@@ -281,10 +276,22 @@ func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
 		// Fully filled
 		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
 		renderer.clearAtlas()
-		pos = IntVec2{}
+		// The clear atlas function calls a popup menu function to create its
+		// chars. This means the nextAtlasPosition is recursively calling
+		// itself when the font atlas is full. And the atlas pos is changed.
+		// We need to reset pos to atlas pos for resuming from where it is.
+		// Even if the popup menu function is not called, the clear atlas
+		// function will clear the atlas pos and ve resume from beginning.
+		// NOTE: When the current characters on the screen can't fit the texture
+		// the characters being wrongly positioned. It doesn't crash but sometimes
+		// the position is going out of bounds from texture. And assertion will fail.
+		// This only happens in debug mode to me because texture size is small in debug.
+		pos = atlas.pos
 	}
 	atlas.pos.X = pos.X + width
 	atlas.pos.Y = pos.Y
+	assert(pos.X+width < FONT_ATLAS_DEFAULT_SIZE, "Pos width out of bounds, pos:", pos, "width:", width)
+	assert(pos.Y+EditorSingleton.cellHeight < FONT_ATLAS_DEFAULT_SIZE, "Pos height out of bounds, pos:", pos)
 	return pos
 }
 
@@ -470,7 +477,7 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 	}
 }
 
-func (renderer *Renderer) Update() {
+func (renderer *Renderer) update() {
 	if renderer.drawCall {
 		renderer.drawAllChangedCells()
 		renderer.drawCall = false
@@ -481,8 +488,8 @@ func (renderer *Renderer) Update() {
 	}
 }
 
-// Don't call this function directly. Set drawCall value to true in the renderer.
 // This function sets renderCall to true and draws cursor one more time.
+// Dont use directly. Use EditorSingleton.draw()
 func (renderer *Renderer) drawAllChangedCells() {
 	defer measure_execution_time()()
 	// Set changed cells vertex data
@@ -504,10 +511,10 @@ func (renderer *Renderer) drawAllChangedCells() {
 	renderer.renderCall = true
 }
 
-// Don't call this function directly. Set renderCall value to true in the renderer.
+// Don't call this function directly. Use EditorSingleton.render()
 func (renderer *Renderer) render() {
-	rglClearScreen(EditorSingleton.grid.defaultBg)
 	rglUpdateVertices(renderer.vertexData)
+	rglClearScreen(EditorSingleton.grid.defaultBg)
 	rglRender()
 	EditorSingleton.window.handle.SwapBuffers()
 }

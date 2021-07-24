@@ -74,7 +74,7 @@ func CreateClient() (*TCPClient, error) {
 	return &client, nil
 }
 
-func (client *TCPClient) SendSignal(signal string, args ...string) bool {
+func (client *TCPClient) sendSignal(signal string, args ...string) bool {
 	log_debug("Sending signal:", signal, args)
 	for _, arg := range args {
 		signal += "\x00" + arg
@@ -97,7 +97,7 @@ func (client *TCPClient) SendSignal(signal string, args ...string) bool {
 }
 
 func (client *TCPClient) Close() {
-	client.SendSignal(SIGNAL_CLOSE_CONNECTION)
+	client.sendSignal(SIGNAL_CLOSE_CONNECTION)
 	close(client.data)
 	close(client.resp)
 }
@@ -165,7 +165,7 @@ func CreateServer() (*TCPServer, error) {
 	return &server, nil
 }
 
-func (server *TCPServer) Process() {
+func (server *TCPServer) update() {
 	if server.dataReceived.Get() {
 		server.dataMutex.Lock()
 		defer server.dataMutex.Unlock()

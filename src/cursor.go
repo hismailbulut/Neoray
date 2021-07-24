@@ -9,15 +9,15 @@ type Cursor struct {
 	vertexData VertexDataStorage
 	// blinking variables
 	bHidden  bool
-	time     float32
-	nextTime float32
+	time     float64
+	nextTime float64
 }
 
 func CreateCursor() Cursor {
 	return Cursor{}
 }
 
-func (cursor *Cursor) Update() {
+func (cursor *Cursor) update() {
 	cursor.time += EditorSingleton.deltaTime
 	// Blinking
 	cursor.updateBlinking()
@@ -35,7 +35,7 @@ func (cursor *Cursor) resetBlinking() {
 	}
 	cursor.time = 0
 	cursor.blinkShow()
-	cursor.nextTime = float32(info.blinkwait) / 1000
+	cursor.nextTime = float64(info.blinkwait) / 1000
 }
 
 func (cursor *Cursor) updateBlinking() {
@@ -49,11 +49,11 @@ func (cursor *Cursor) updateBlinking() {
 		if cursor.bHidden {
 			// show cursor
 			cursor.blinkShow()
-			cursor.nextTime = float32(info.blinkon) / 1000
+			cursor.nextTime = float64(info.blinkon) / 1000
 		} else {
 			// hide cursor
 			cursor.blinkHide()
-			cursor.nextTime = float32(info.blinkoff) / 1000
+			cursor.nextTime = float64(info.blinkoff) / 1000
 		}
 	}
 }
@@ -64,11 +64,9 @@ func (cursor *Cursor) createVertexData() {
 }
 
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
-	if x < 0 || y < 0 || x > EditorSingleton.rowCount || y > EditorSingleton.columnCount {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY,
-			"Cursor set position args invalid:", x, y, immediately)
-		return
-	}
+	assert(x >= 0 && y >= 0 &&
+		x < EditorSingleton.rowCount && y < EditorSingleton.columnCount,
+		"cursor pos incorrect", x, y, immediately)
 	if !immediately {
 		cursor.anim = CreateAnimation(
 			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
@@ -134,7 +132,7 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 // animPosition returns the current rendering position of the cursor
 // Not grid position.
 func (cursor *Cursor) animPosition() IntVec2 {
-	aPos, finished := cursor.anim.GetCurrentStep(EditorSingleton.deltaTime)
+	aPos, finished := cursor.anim.GetCurrentStep(float32(EditorSingleton.deltaTime))
 	if finished {
 		cursor.needsDraw = false
 		return IntVec2{

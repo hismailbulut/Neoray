@@ -1,0 +1,18 @@
+NEORAY v0.0.5 Debug Crash Report
+Please open an issue in github with this file.
+The program is crashed because of the following reasons.
+Message:  [NEORAY] FATAL: Assertion Failed: est:-20ms
+goroutine 1 [running, locked to thread]:
+runtime/debug.Stack(0xc0001fa040, 0xc0005e8080, 0x36)
+	C:/Users/bulut/scoop/apps/go/current/src/runtime/debug/stack.go:24 +0xb2
+main.crash_report(0xc0000c7ac8, 0x1, 0x1)
+	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:80 +0x39d
+main.log_message(0x600000004, 0xc0000c7b30, 0x2, 0x2)
+	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:134 +0x405
+main.assert(0xfffffffffeced300, 0xc0000c7c60, 0x2, 0x2)
+	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:149 +0xf3
+main.(*Editor).MainLoop(0x147dae0)
+	C:/ismailbulut/Developer/go-projects/neoray/src/editor.go:165 +0x52c
+main.main()
+	C:/ismailbulut/Developer/go-projects/neoray/src/main.go:69 +0x3da
+

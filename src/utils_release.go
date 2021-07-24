@@ -12,7 +12,7 @@ func start_pprof() {}
 
 func init_function_time_tracker() {}
 
-func measure_execution_time() func() { return func() {} }
+func measure_execution_time() func(uname ...string) { return func(uname ...string) {} }
 
 func close_function_time_tracker() {}
 

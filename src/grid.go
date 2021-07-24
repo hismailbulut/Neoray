@@ -118,8 +118,12 @@ func (grid *Grid) scroll(top, bot, rows, left, right int) {
 	if cursor.isInArea(top, left, bot-top, right-left) {
 		// This is for cursor animation when scrolling. Simply we are moving cursor
 		// with scroll area immediately, and returning back to its position smoothly.
-		cursor.SetPosition(cursor.X-rows, cursor.Y, true)
-		cursor.SetPosition(cursor.X+rows, cursor.Y, false)
+		target := cursor.X - rows
+		if target >= 0 && target < EditorSingleton.rowCount {
+			current := cursor.X
+			cursor.SetPosition(target, cursor.Y, true)
+			cursor.SetPosition(current, cursor.Y, false)
+		}
 	}
 	EditorSingleton.draw()
 }

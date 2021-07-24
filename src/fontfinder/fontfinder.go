@@ -152,8 +152,8 @@ func sortFileNameLen(fonts *[]fontSearchInfo) {
 
 // Splits string to words according to delimiters and casing.
 // Example:
-//	This: 			"HelloWorld_from-Turkey"
-//  Turns to this: 	[Hello, World, from, Turkey]
+//  This:           "HelloWorld_from-Turkey"
+//  Turns to this:  [Hello, World, from, Turkey]
 func SplitWords(str string) []string {
 	// CamelCase pascalCase and "-_ "
 	arr := []string{}
