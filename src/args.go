@@ -88,7 +88,7 @@ func ParseArgs(args []string) ParsedArgs {
 			break
 		case "--verbose":
 			assert(len(args) > i+1, "specify filename after --verbose")
-			init_log_file(args[i+1])
+			initVerboseFile(args[i+1])
 			i++
 			break
 		case "--help", "-h":
@@ -118,7 +118,7 @@ func (options ParsedArgs) ProcessBefore() bool {
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
 		if err != nil {
-			log_debug("No instance found or tcp client creation failed:", err)
+			logDebug("No instance found or tcp client creation failed:", err)
 			return false
 		}
 		ok := false
@@ -148,18 +148,18 @@ func (options ParsedArgs) ProcessAfter() {
 	if options.singleinst {
 		server, err := CreateServer()
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create TCP listener:", err)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create TCP listener:", err)
 		} else {
-			EditorSingleton.server = server
+			singleton.server = server
 		}
 	}
 	if options.file != "" {
-		EditorSingleton.nvim.openFile(options.file)
+		singleton.nvim.openFile(options.file)
 	}
 	if options.line != -1 {
-		EditorSingleton.nvim.gotoLine(options.line)
+		singleton.nvim.gotoLine(options.line)
 	}
 	if options.column != -1 {
-		EditorSingleton.nvim.gotoColumn(options.column)
+		singleton.nvim.gotoColumn(options.column)
 	}
 }
