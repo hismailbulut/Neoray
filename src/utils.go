@@ -59,6 +59,10 @@ func (c U8Color) toF32() F32Color {
 	}
 }
 
+func posInArea(pos IntVec2, area IntRect) bool {
+	return pos.X >= area.X && pos.Y >= area.Y && pos.X < area.X+area.W && pos.Y < area.Y+area.H
+}
+
 func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
 	return [16]float32{
