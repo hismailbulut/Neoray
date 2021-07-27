@@ -5,7 +5,7 @@ package main
 const (
 	MINIMUM_LOG_LEVEL       = LOG_LEVEL_ERROR
 	BUILD_TYPE              = RELEASE
-	FONT_ATLAS_DEFAULT_SIZE = 1024
+	FONT_ATLAS_DEFAULT_SIZE = 2048
 )
 
 func start_pprof() {}
