@@ -12,5 +12,4 @@ require (
 	github.com/neovim/go-client v1.1.7
 	github.com/sqweek/dialog v0.0.0-20210702151303-c326b49d3f01
 	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d
-	golang.org/x/text v0.3.6 // indirect
 )
