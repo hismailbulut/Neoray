@@ -122,6 +122,7 @@ func (editor *Editor) MainLoop() {
 	programBegin := time.Now()
 	// Ticker's interval
 	interval := time.Second / time.Duration(editor.options.targetTPS)
+	// NOTE: Ticker is not working correctly on windows.
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	// For measuring tps
