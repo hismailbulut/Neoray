@@ -155,8 +155,7 @@ func (pmenu *PopupMenu) globalRect() IntRect {
 // and if the position is on the button, returns button index.
 func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
 	menuRect := pmenu.globalRect()
-	if pos.X >= menuRect.X && pos.Y >= menuRect.Y &&
-		pos.X < menuRect.X+menuRect.W && pos.Y < menuRect.Y+menuRect.H {
+	if posInArea(pos, menuRect) {
 		// Areas are intersecting. Now we need to find button under the cursor.
 		// This is very simple. First we find the cell at the position.
 		relativePos := IntVec2{
