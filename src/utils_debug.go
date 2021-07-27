@@ -3,9 +3,12 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,7 +32,7 @@ func start_pprof() {
 }
 
 type function_measure struct {
-	totalCall int64
+	totalCall int
 	totalTime time.Duration
 }
 
@@ -70,12 +73,61 @@ func measure_execution_time() func(uname ...string) {
 	}
 }
 
+// This function is only for beautifully printing average times and its stuff are unnecessary.
 func close_function_time_tracker() {
 	trackerMutex.Lock()
 	defer trackerMutex.Unlock()
+	type funcTimeSummary struct {
+		name    string
+		calls   string
+		time    string
+		average time.Duration
+	}
+	maxNameLen := 0
+	maxCallLen := 0
+	maxTimeLen := 0
+	sorted := []funcTimeSummary{}
 	for key, val := range trackerAverages {
-		logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
-			key, "Calls:", val.totalCall, "Time:", val.totalTime, "Average:", val.totalTime/time.Duration(val.totalCall))
+		sum := funcTimeSummary{
+			name:    strings.Replace(key, "main.", "", 1),
+			calls:   fmt.Sprint(val.totalCall),
+			time:    fmt.Sprint(val.totalTime),
+			average: val.totalTime / time.Duration(val.totalCall),
+		}
+		sorted = append(sorted, sum)
+		if len(sum.name) > maxNameLen {
+			maxNameLen = len(sum.name)
+		}
+		callLen := len(sum.calls)
+		if callLen > maxCallLen {
+			maxCallLen = callLen
+		}
+		timeLen := len([]rune(sum.time))
+		if timeLen > maxTimeLen {
+			maxTimeLen = timeLen
+		}
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].average > sorted[j].average
+	})
+	for _, ft := range sorted {
+		spaces := maxNameLen - len(ft.name)
+		msg := ft.name
+		for i := 0; i < spaces; i++ {
+			msg += " "
+		}
+		msg += " Calls: " + ft.calls
+		spaces = maxCallLen - len(ft.calls)
+		for i := 0; i < spaces; i++ {
+			msg += " "
+		}
+		msg += " Time: " + ft.time
+		spaces = maxTimeLen - len([]rune(ft.time))
+		for i := 0; i < spaces; i++ {
+			msg += " "
+		}
+		msg += " Avg:"
+		logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, msg, ft.average)
 	}
 }
 
