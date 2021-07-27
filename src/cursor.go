@@ -18,7 +18,7 @@ func CreateCursor() Cursor {
 }
 
 func (cursor *Cursor) update() {
-	cursor.time += EditorSingleton.deltaTime
+	cursor.time += singleton.deltaTime
 	// Blinking
 	cursor.updateBlinking()
 	// Draw cursor if it needs.
@@ -28,7 +28,7 @@ func (cursor *Cursor) update() {
 }
 
 func (cursor *Cursor) resetBlinking() {
-	info := EditorSingleton.mode.Current()
+	info := singleton.mode.Current()
 	// When one of the numbers is zero, there is no blinking.
 	if info.blinkwait <= 0 || info.blinkon <= 0 || info.blinkoff <= 0 {
 		return
@@ -39,7 +39,7 @@ func (cursor *Cursor) resetBlinking() {
 }
 
 func (cursor *Cursor) updateBlinking() {
-	info := EditorSingleton.mode.Current()
+	info := singleton.mode.Current()
 	// When one of the numbers is zero, there is no blinking.
 	if info.blinkwait <= 0 || info.blinkon <= 0 || info.blinkoff <= 0 {
 		return
@@ -60,18 +60,15 @@ func (cursor *Cursor) updateBlinking() {
 
 func (cursor *Cursor) createVertexData() {
 	// Reserve vertex data for cursor and cursor is only one cell.
-	cursor.vertexData = EditorSingleton.renderer.reserveVertexData(1)
+	cursor.vertexData = singleton.renderer.reserveVertexData(1)
 }
 
 func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
-	assert(x >= 0 && y >= 0 &&
-		x < EditorSingleton.rowCount && y < EditorSingleton.columnCount,
-		"cursor pos incorrect", x, y, immediately)
 	if !immediately {
 		cursor.anim = CreateAnimation(
 			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
 			F32Vec2{X: float32(x), Y: float32(y)},
-			EditorSingleton.options.cursorAnimTime)
+			singleton.options.cursorAnimTime)
 	}
 	cursor.X = x
 	cursor.Y = y
@@ -90,23 +87,23 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, b
 		return F32Rect{
 			X: float32(cell_pos.X),
 			Y: float32(cell_pos.Y),
-			W: float32(EditorSingleton.cellWidth),
-			H: float32(EditorSingleton.cellHeight),
+			W: float32(singleton.cellWidth),
+			H: float32(singleton.cellHeight),
 		}, true
 	case "horizontal":
-		height := float32(EditorSingleton.cellHeight) / (100 / float32(info.cell_percentage))
+		height := float32(singleton.cellHeight) / (100 / float32(info.cell_percentage))
 		return F32Rect{
 			X: float32(cell_pos.X),
-			Y: float32(cell_pos.Y) + (float32(EditorSingleton.cellHeight) - height),
-			W: float32(EditorSingleton.cellWidth),
+			Y: float32(cell_pos.Y) + (float32(singleton.cellHeight) - height),
+			W: float32(singleton.cellWidth),
 			H: height,
 		}, false
 	case "vertical":
 		return F32Rect{
 			X: float32(cell_pos.X),
 			Y: float32(cell_pos.Y),
-			W: float32(EditorSingleton.cellWidth) / (100 / float32(info.cell_percentage)),
-			H: float32(EditorSingleton.cellHeight),
+			W: float32(singleton.cellWidth) / (100 / float32(info.cell_percentage)),
+			H: float32(singleton.cellHeight),
 		}, false
 	default:
 		return F32Rect{}, false
@@ -115,10 +112,10 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, b
 
 func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	// initialize swapped
-	fg := EditorSingleton.grid.defaultBg
-	bg := EditorSingleton.grid.defaultFg
+	fg := singleton.grid.defaultBg
+	bg := singleton.grid.defaultFg
 	if info.attr_id != 0 {
-		attrib := EditorSingleton.grid.attributes[info.attr_id]
+		attrib := singleton.grid.attributes[info.attr_id]
 		if attrib.foreground.A > 0 {
 			fg = attrib.foreground
 		}
@@ -132,17 +129,17 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 // animPosition returns the current rendering position of the cursor
 // Not grid position.
 func (cursor *Cursor) animPosition() IntVec2 {
-	aPos, finished := cursor.anim.GetCurrentStep(float32(EditorSingleton.deltaTime))
+	aPos, finished := cursor.anim.GetCurrentStep(float32(singleton.deltaTime))
 	if finished {
 		cursor.needsDraw = false
 		return IntVec2{
-			X: EditorSingleton.cellWidth * cursor.Y,
-			Y: EditorSingleton.cellHeight * cursor.X,
+			X: singleton.cellWidth * cursor.Y,
+			Y: singleton.cellHeight * cursor.X,
 		}
 	} else {
 		return IntVec2{
-			X: int(float32(EditorSingleton.cellWidth) * aPos.Y),
-			Y: int(float32(EditorSingleton.cellHeight) * aPos.X),
+			X: int(float32(singleton.cellWidth) * aPos.Y),
+			Y: int(float32(singleton.cellHeight) * aPos.X),
 		}
 	}
 }
@@ -158,7 +155,7 @@ func (cursor *Cursor) blinkHide() {
 	if !cursor.hidden && !cursor.bHidden {
 		cursor.bHidden = true
 		cursor.vertexData.setCellPos(0, F32Rect{})
-		EditorSingleton.render()
+		singleton.render()
 	}
 }
 
@@ -173,7 +170,7 @@ func (cursor *Cursor) Hide() {
 	if !cursor.hidden {
 		cursor.hidden = true
 		cursor.vertexData.setCellPos(0, F32Rect{})
-		EditorSingleton.render()
+		singleton.render()
 	}
 }
 
@@ -183,7 +180,7 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 	underline := false
 	strikethrough := false
 	if cell.attribId > 0 {
-		attrib := EditorSingleton.grid.attributes[cell.attribId]
+		attrib := singleton.grid.attributes[cell.attribId]
 		italic = attrib.italic
 		bold = attrib.bold
 		underline = attrib.underline
@@ -192,40 +189,40 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 			cursor.vertexData.setCellSp(0, fg)
 		}
 	}
-	atlas_pos := EditorSingleton.renderer.getCharPos(
+	atlas_pos := singleton.renderer.getCharPos(
 		cell.char, italic, bold, underline, strikethrough)
-	if atlas_pos.W > EditorSingleton.cellWidth {
+	if atlas_pos.W > singleton.cellWidth {
 		atlas_pos.W /= 2
 	}
-	cursor.vertexData.setCellTex(0, atlas_pos)
+	cursor.vertexData.setCellTex1(0, atlas_pos)
 }
 
 func (cursor *Cursor) Draw() {
 	if !cursor.hidden {
-		mode_info := EditorSingleton.mode.Current()
+		mode_info := singleton.mode.Current()
 		fg, bg := cursor.modeColors(mode_info)
 		pos := cursor.animPosition()
 		rect, draw_char := cursor.modeRectangle(pos, mode_info)
 		if draw_char && !cursor.needsDraw {
-			cell := EditorSingleton.grid.getCell(cursor.X, cursor.Y)
+			cell := singleton.grid.getCell(cursor.X, cursor.Y)
 			if cell.char != 0 {
 				// We need to draw cell character to the cursor foreground.
 				cursor.drawWithCell(cell, fg)
 			} else {
 				// Clear foreground of the cursor.
-				cursor.vertexData.setCellTex(0, IntRect{})
+				cursor.vertexData.setCellTex1(0, IntRect{})
 				cursor.vertexData.setCellSp(0, U8Color{})
 			}
 			cursor.vertexData.setCellFg(0, fg)
 			cursor.vertexData.setCellBg(0, bg)
 		} else {
 			// No cell drawing needed. Clear foreground.
-			cursor.vertexData.setCellTex(0, IntRect{})
+			cursor.vertexData.setCellTex1(0, IntRect{})
 			cursor.vertexData.setCellFg(0, U8Color{})
 			cursor.vertexData.setCellBg(0, bg)
 			cursor.vertexData.setCellSp(0, U8Color{})
 		}
 		cursor.vertexData.setCellPos(0, rect)
-		EditorSingleton.render()
+		singleton.render()
 	}
 }
