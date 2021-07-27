@@ -23,6 +23,9 @@ const (
 	// The fatal will be printed to logfile and a
 	// fatal popup will be shown. The program exits immediately.
 	LOG_LEVEL_FATAL
+)
+
+const (
 	// Log types, makes easy to understand where the message coming from
 	LOG_TYPE_NVIM LogType = iota
 	LOG_TYPE_NEORAY
@@ -31,49 +34,47 @@ const (
 )
 
 var (
-	log_file_initialized bool
-	log_file             *os.File
+	verboseFile *os.File = nil
 )
 
-func init_log_file(filename string) {
-	assert(!log_file_initialized, "multiple initialization of log file")
+func initVerboseFile(filename string) {
+	assert(verboseFile == nil, "multiple initialization of log file")
 	path, err := filepath.Abs(filename)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
 		return
 	}
-	log_file, err = os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_SYNC, 0666)
+	verboseFile, err = os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_SYNC, 0666)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create log file:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create log file:", err)
 		return
 	}
-	log_file_initialized = true
 	// Print informations to log file.
-	log_file.WriteString(fmt.Sprintln("\nNEORAY LOG", time.Now().UTC(), "v"+versionString(), buildTypeString()))
+	verboseFile.WriteString(fmt.Sprintln("\nNEORAY", versionString(), buildTypeString(), "LOG", time.Now().UTC()))
 }
 
-func close_logger() {
+func shutdownLogger() {
 	// If we are panicking print it to logfile.
 	// Also the stack trace will be printed after
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
 		// Create crash report.
 		crash_msg := "An unexpected error occured and generated a crash report."
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, crash_msg)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, crash_msg)
 		dialog.Message(crash_msg).Error()
-		crash_report("PANIC", pmsg)
+		createCrashReport("PANIC", pmsg)
 	}
 	// If logfile is initialized then close it.
-	if log_file_initialized {
-		log_file.Close()
+	if verboseFile != nil {
+		verboseFile.Close()
 	}
 }
 
-func crash_report(msg ...interface{}) {
+func createCrashReport(msg ...interface{}) {
 	crash_file, err := os.Create("neoray_crash.log")
 	if err == nil {
 		defer crash_file.Close()
-		crash_file.WriteString("NEORAY v" + versionString() + " " + buildTypeString() + " Crash Report\n")
+		crash_file.WriteString("NEORAY " + versionString() + " " + buildTypeString() + " Crash Report\n")
 		crash_file.WriteString("Please open an issue in github with this file.\n")
 		crash_file.WriteString("The program is crashed because of the following reasons.\n")
 		crash_file.WriteString("Message: " + fmt.Sprintln(msg...))
@@ -81,8 +82,8 @@ func crash_report(msg ...interface{}) {
 	}
 }
 
-func log_message(log_level LogLevel, log_type LogType, message ...interface{}) {
-	if log_level < MINIMUM_LOG_LEVEL && !log_file_initialized {
+func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
+	if log_level < MINIMUM_LOG_LEVEL && verboseFile == nil {
 		return
 	}
 
@@ -123,29 +124,29 @@ func log_message(log_level LogLevel, log_type LogType, message ...interface{}) {
 		log_string += " " + fmt.Sprint(msg)
 	}
 
-	if log_file_initialized {
-		log_file.WriteString(log_string + "\n")
+	if verboseFile != nil {
+		verboseFile.WriteString(log_string + "\n")
 	}
 
 	log.Println(log_string)
 
 	if fatal {
 		dialog.Message(log_string).Error()
-		crash_report(log_string)
+		createCrashReport(log_string)
 		os.Exit(1)
 	}
 }
 
-func log_debug(message ...interface{}) {
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, message...)
+func logDebug(message ...interface{}) {
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, message...)
 }
 
-func logf_debug(format string, message ...interface{}) {
-	log_message(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
+func logfDebug(format string, message ...interface{}) {
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
 }
 
 func assert(cond bool, message ...interface{}) {
 	if cond == false {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}
 }
