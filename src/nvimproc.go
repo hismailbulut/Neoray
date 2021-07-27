@@ -303,14 +303,16 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 	}
 }
 
-func (proc *NvimProcess) requestResize() {
-	if singleton.calculateCellCount() {
+func (proc *NvimProcess) requestResize(cellWidthChanged bool) {
+	if singleton.calculateCellCount() || cellWidthChanged {
 		err := proc.handle.TryResizeUI(singleton.columnCount, singleton.rowCount)
 		if err != nil {
 			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
 			return
 		}
 		singleton.waitingResize = true
+	} else {
+		logDebug("Resize request won't send because calculateCellCount returned false.")
 	}
 }
 
