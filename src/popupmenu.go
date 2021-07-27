@@ -11,27 +11,27 @@ var ButtonNames = []string{
 
 var MenuButtonEvents = map[string]func(){
 	ButtonNames[0]: func() { //cut
-		text := EditorSingleton.nvim.cutSelected()
+		text := singleton.nvim.cutSelected()
 		if text != "" {
 			glfw.SetClipboardString(text)
 		}
 	},
 	ButtonNames[1]: func() { //copy
-		text := EditorSingleton.nvim.copySelected()
+		text := singleton.nvim.copySelected()
 		if text != "" {
 			glfw.SetClipboardString(text)
 		}
 	},
 	ButtonNames[2]: func() { //paste
-		EditorSingleton.nvim.paste(glfw.GetClipboardString())
+		singleton.nvim.paste(glfw.GetClipboardString())
 	},
 	ButtonNames[3]: func() { //select all
-		EditorSingleton.nvim.selectAll()
+		singleton.nvim.selectAll()
 	},
 	ButtonNames[4]: func() { //open file
 		filename, err := dialog.File().Load()
 		if err == nil && filename != "" && filename != " " {
-			EditorSingleton.nvim.openFile(filename)
+			singleton.nvim.openFile(filename)
 		}
 	},
 }
@@ -87,7 +87,7 @@ func (pmenu *PopupMenu) createCells() {
 }
 
 func (pmenu *PopupMenu) createVertexData() {
-	pmenu.vertexData = EditorSingleton.renderer.reserveVertexData(pmenu.width * pmenu.height)
+	pmenu.vertexData = singleton.renderer.reserveVertexData(pmenu.width * pmenu.height)
 	pmenu.updateChars()
 }
 
@@ -97,30 +97,30 @@ func (pmenu *PopupMenu) updateChars() {
 			cell_id := x*pmenu.width + y
 			var atlasPos IntRect
 			if char != 0 {
-				atlasPos = EditorSingleton.renderer.getCharPos(
+				atlasPos = singleton.renderer.getCharPos(
 					char, false, false, false, false)
 				// For multiwidth character.
-				if atlasPos.W > EditorSingleton.cellWidth {
+				if atlasPos.W > singleton.cellWidth {
 					atlasPos.W /= 2
 				}
 			}
-			pmenu.vertexData.setCellTex(cell_id, atlasPos)
+			pmenu.vertexData.setCellTex1(cell_id, atlasPos)
 		}
 	}
 }
 
 func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 	pmenu.pos = pos
-	fg := EditorSingleton.grid.defaultBg
-	bg := EditorSingleton.grid.defaultFg
+	fg := singleton.grid.defaultBg
+	bg := singleton.grid.defaultFg
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
 			rect := F32Rect{
-				X: float32(pos.X + y*EditorSingleton.cellWidth),
-				Y: float32(pos.Y + x*EditorSingleton.cellHeight),
-				W: float32(EditorSingleton.cellWidth),
-				H: float32(EditorSingleton.cellHeight),
+				X: float32(pos.X + y*singleton.cellWidth),
+				Y: float32(pos.Y + x*singleton.cellHeight),
+				W: float32(singleton.cellWidth),
+				H: float32(singleton.cellHeight),
 			}
 			pmenu.vertexData.setCellPos(cell_id, rect)
 			pmenu.vertexData.setCellFg(cell_id, fg)
@@ -128,7 +128,7 @@ func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 		}
 	}
 	pmenu.hidden = false
-	EditorSingleton.render()
+	singleton.render()
 }
 
 func (pmenu *PopupMenu) Hide() {
@@ -139,15 +139,15 @@ func (pmenu *PopupMenu) Hide() {
 		}
 	}
 	pmenu.hidden = true
-	EditorSingleton.render()
+	singleton.render()
 }
 
 func (pmenu *PopupMenu) globalRect() IntRect {
 	return IntRect{
 		X: pmenu.pos.X,
 		Y: pmenu.pos.Y,
-		W: pmenu.width * EditorSingleton.cellWidth,
-		H: pmenu.height * EditorSingleton.cellHeight,
+		W: pmenu.width * singleton.cellWidth,
+		H: pmenu.height * singleton.cellHeight,
 	}
 }
 
@@ -163,8 +163,8 @@ func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
 			X: pos.X - pmenu.pos.X,
 			Y: pos.Y - pmenu.pos.Y,
 		}
-		row := relativePos.Y / EditorSingleton.cellHeight
-		col := relativePos.X / EditorSingleton.cellWidth
+		row := relativePos.Y / singleton.cellHeight
+		col := relativePos.X / singleton.cellWidth
 		if col > 0 && col < pmenu.width-1 {
 			return true, row
 		}
@@ -180,8 +180,8 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 		if ok {
 			// Fill all cells with default colors.
 			for i := 0; i < pmenu.width*pmenu.height; i++ {
-				pmenu.vertexData.setCellFg(i, EditorSingleton.grid.defaultBg)
-				pmenu.vertexData.setCellBg(i, EditorSingleton.grid.defaultFg)
+				pmenu.vertexData.setCellFg(i, singleton.grid.defaultBg)
+				pmenu.vertexData.setCellBg(i, singleton.grid.defaultFg)
 			}
 			if index != -1 {
 				row := index
@@ -189,11 +189,11 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 					// Highlight this row.
 					for col := 1; col < pmenu.width-1; col++ {
 						cell_id := row*pmenu.width + col
-						pmenu.vertexData.setCellFg(cell_id, EditorSingleton.grid.defaultFg)
-						pmenu.vertexData.setCellBg(cell_id, EditorSingleton.grid.defaultBg)
+						pmenu.vertexData.setCellFg(cell_id, singleton.grid.defaultFg)
+						pmenu.vertexData.setCellBg(cell_id, singleton.grid.defaultBg)
 					}
 				}
-				EditorSingleton.render()
+				singleton.render()
 			}
 		} else {
 			// If this uncommented, the context menu will be hidden
