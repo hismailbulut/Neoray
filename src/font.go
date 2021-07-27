@@ -22,8 +22,8 @@ func CreateDefaultFont() Font {
 	}
 	var check = func(err error) {
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-			log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to load default font! Shutting down.")
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
+			logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to load default font! Shutting down.")
 		}
 	}
 	var err error
@@ -52,7 +52,7 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	assert(fontName != "", "Font name can not be empty!")
 
 	if size < MINIMUM_FONT_SIZE {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
 			"Font size", size, "is small and set to default", DEFAULT_FONT_SIZE)
 		size = DEFAULT_FONT_SIZE
 	}
@@ -65,10 +65,10 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	if info.Regular != "" {
 		font.regular, err = CreateFace(info.Regular, size)
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load regular font.", err)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load regular font.", err)
 			return font, false
 		} else {
-			log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Regular:", filepath.Base(info.Regular))
+			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Regular:", filepath.Base(info.Regular))
 		}
 	} else {
 		return font, false
@@ -77,27 +77,27 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	if info.BoldItalic != "" {
 		font.bold_italic, err = CreateFace(info.BoldItalic, size)
 		if err != nil {
-			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load bold italic font.", err)
+			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load bold italic font.", err)
 		} else {
-			log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold Italic:", filepath.Base(info.BoldItalic))
+			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold Italic:", filepath.Base(info.BoldItalic))
 		}
 	}
 
 	if info.Italic != "" {
 		font.italic, err = CreateFace(info.Italic, size)
 		if err != nil {
-			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load italic font.", err)
+			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load italic font.", err)
 		} else {
-			log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Italic:", filepath.Base(info.Italic))
+			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Italic:", filepath.Base(info.Italic))
 		}
 	}
 
 	if info.Bold != "" {
 		font.bold, err = CreateFace(info.Bold, size)
 		if err != nil {
-			log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load bold font.", err)
+			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load bold font.", err)
 		} else {
-			log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold:", filepath.Base(info.Bold))
+			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold:", filepath.Base(info.Bold))
 		}
 	}
 
