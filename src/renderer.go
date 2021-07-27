@@ -105,7 +105,7 @@ func (renderer *Renderer) updateCellSize(font *Font) bool {
 	if w != singleton.cellWidth || h != singleton.cellHeight {
 		singleton.cellWidth = w
 		singleton.cellHeight = h
-		singleton.nvim.requestResize()
+		singleton.nvim.requestResize(true)
 		return true
 	}
 	return false
@@ -131,9 +131,9 @@ func (renderer *Renderer) createVertexData(rows, cols int) {
 	defer measure_execution_time()()
 	cellCount := rows * cols
 	renderer.vertexData = make([]Vertex, cellCount, cellCount)
-	for y := 0; y < rows; y++ {
-		for x := 0; x < cols; x++ {
-			renderer.vertexData[cellVertexPos(y, x)].pos = cellPos(y, x)
+	for x := 0; x < rows; x++ {
+		for y := 0; y < cols; y++ {
+			renderer.vertexData[cellVertexPos(x, y)].pos = cellPos(x, y)
 		}
 	}
 	// Add cursor to data.
@@ -250,6 +250,21 @@ func (renderer *Renderer) debugGetCellData(x, y int) Vertex {
 	return renderer.vertexData[cellVertexPos(x, y)]
 }
 
+// NOTE: Neovim's coordinates and opengl coordinates we are using are
+// different. The starting positions are same, top left corner. But neovim sends
+// cell info as row, column based. First sends row and second column. But
+// opengl uses row as y and column as x. First needs column and second needs
+// row. We are storing data like neovim and because of this we need to multiply
+// position with other axis.
+// Neovim:
+//     +-----> Column, y, second
+//     |
+//     v Row, x, first
+// Opengl:
+//     +-----> Column, x, first
+//     |
+//     v Row, y, second
+// This function returns position rectangle of the cell needed for opengl.
 func cellPos(x, y int) F32Rect {
 	return F32Rect{
 		X: float32(y * singleton.cellWidth),
@@ -387,8 +402,8 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 	}
 }
 
-func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
-	fg, bg, sp U8Color,
+func (renderer *Renderer) DrawCellCustom(
+	x, y int, char rune, fg, bg, sp U8Color,
 	italic, bold, underline, undercurl, strikethrough bool) {
 	// draw Background
 	renderer.setCellBg(x, y, bg)
@@ -401,10 +416,15 @@ func (renderer *Renderer) DrawCellCustom(x, y int, char rune,
 		renderer.setCellSp(x, y, U8Color{})
 		return
 	}
+
 	if undercurl {
 		renderer.checkUndercurlPos()
 		renderer.setCellSp(x, y, sp)
 	} else {
+		// Setting special color to zero means clear the undercurl. Undercurl
+		// will always be drawed for every cell and multiplied by the special
+		// color. And setting special color to zero makes undercurl fully
+		// transparent. This is also true for other color layouts.
 		renderer.setCellSp(x, y, U8Color{})
 	}
 
@@ -486,30 +506,26 @@ func (renderer *Renderer) update() {
 	}
 }
 
-// This function sets renderCall to true and draws cursor one more time.
-// Dont use directly. Use EditorSingleton.draw()
+// This function draws all canged cells, sets renderCall to true and draws cursor one more time.
+// Dont use directly. Use singleton.draw()
 func (renderer *Renderer) drawAllChangedCells() {
 	defer measure_execution_time()()
 	// Set changed cells vertex data
-	total := 0
 	for x, row := range singleton.grid.cells {
 		for y, cell := range row {
 			if cell.needsDraw {
 				renderer.DrawCell(x, y, cell)
-				total++
 				singleton.grid.cells[x][y].needsDraw = false
 			}
 		}
 	}
-	if total > 0 {
-		// Draw cursor one more time.
-		singleton.cursor.Draw()
-	}
+	// Draw cursor one more time.
+	singleton.cursor.Draw()
 	// Render changes
 	renderer.renderCall = true
 }
 
-// Don't call this function directly. Use EditorSingleton.render()
+// Don't call this function directly. Use singleton.render()
 func (renderer *Renderer) render() {
 	rglUpdateVertices(renderer.vertexData)
 	rglClearScreen(singleton.grid.defaultBg)
