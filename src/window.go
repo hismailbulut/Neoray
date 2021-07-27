@@ -62,13 +62,24 @@ func CreateWindow(width int, height int, title string) Window {
 
 	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
 
 	window.handle = windowHandle
 
-	window.handle.SetFramebufferSizeCallback(windowResizeHandler)
-	window.handle.SetIconifyCallback(windowMinimizeHandler)
+	window.handle.SetFramebufferSizeCallback(
+		func(w *glfw.Window, width, height int) {
+			singleton.window.width = width
+			singleton.window.height = height
+			if width > 0 && height > 0 {
+				singleton.nvim.requestResize()
+			}
+		})
+
+	window.handle.SetIconifyCallback(
+		func(w *glfw.Window, iconified bool) {
+			singleton.window.minimized = iconified
+		})
 
 	window.calculateDPI()
 
@@ -77,22 +88,10 @@ func CreateWindow(width int, height int, title string) Window {
 	return window
 }
 
-func windowResizeHandler(w *glfw.Window, width, height int) {
-	EditorSingleton.window.width = width
-	EditorSingleton.window.height = height
-	if width > 0 && height > 0 {
-		EditorSingleton.nvim.requestResize()
-	}
-}
-
-func windowMinimizeHandler(w *glfw.Window, minimized bool) {
-	EditorSingleton.window.minimized = minimized
-}
-
 func (window *Window) update() {
 	if isDebugBuild() {
 		fps_string := fmt.Sprintf(" | TPS: %d | Delta: %f",
-			EditorSingleton.updatesPerSecond, EditorSingleton.deltaTime)
+			singleton.updatesPerSecond, singleton.deltaTime)
 		idx := strings.LastIndex(window.title, " | TPS:")
 		if idx == -1 {
 			window.setTitle(window.title + fps_string)
@@ -142,7 +141,7 @@ func (window *Window) setState(state string) {
 		window.center()
 		break
 	default:
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
 		break
 	}
 }
@@ -193,7 +192,7 @@ func (window *Window) calculateDPI() {
 	mHeight := monitor.GetVideoMode().Height
 	mDiagonal := math.Sqrt(float64(mWidth*mWidth + mHeight*mHeight))
 	window.dpi = mDiagonal / pDiagonalInch
-	log_debug("Monitor diagonal:", pDiagonalInch, "dpi:", window.dpi)
+	logDebug("Monitor diagonal:", pDiagonalInch, "dpi:", window.dpi)
 }
 
 func (window *Window) Close() {
