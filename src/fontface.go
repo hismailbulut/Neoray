@@ -44,30 +44,21 @@ func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to parse font data: %s\n", err)
 	}
-
 	face, err := opentype.NewFace(sfont, &opentype.FaceOptions{
 		Size:    float64(size),
-		DPI:     EditorSingleton.window.dpi,
+		DPI:     singleton.window.dpi,
 		Hinting: FONT_HINTING,
 	})
 	if err != nil {
 		return FontFace{}, fmt.Errorf("Failed to create font face: %s\n", err)
 	}
-
-	advance, ok := face.GlyphAdvance(ADVANCE_CHAR)
-	if !ok {
-		return FontFace{}, fmt.Errorf("Failed to get glyph advance!")
-	}
-
-	return FontFace{
+	ret := FontFace{
 		loaded:     true,
 		handle:     face,
 		fontHandle: sfont,
-		advance:    advance.Ceil(),
-		// ascent:     face.Metrics().Ascent.Floor(),
-		descent: face.Metrics().Descent.Floor(),
-		height:  face.Metrics().Height.Floor(),
-	}, nil
+	}
+	ret.calcMetrics()
+	return ret, nil
 }
 
 func (fontFace *FontFace) Resize(newsize float32) {
@@ -76,26 +67,26 @@ func (fontFace *FontFace) Resize(newsize float32) {
 	}
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
-		DPI:     EditorSingleton.window.dpi,
+		DPI:     singleton.window.dpi,
 		Hinting: FONT_HINTING,
 	})
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)
-		return
-	}
-	advance, ok := face.GlyphAdvance(ADVANCE_CHAR)
-	if !ok {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get glyph advance!")
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)
 		return
 	}
 	fontFace.handle = face
-	fontFace.advance = advance.Ceil()
-	// fontFace.ascent = face.Metrics().Ascent.Floor()
-	fontFace.descent = face.Metrics().Descent.Floor()
-	fontFace.height = face.Metrics().Height.Floor()
+	fontFace.calcMetrics()
 }
 
 func (fontFace *FontFace) calcMetrics() {
+	advance, ok := fontFace.handle.GlyphAdvance(ADVANCE_CHAR)
+	if !ok {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get font advance!")
+		return
+	}
+	fontFace.advance = advance.Ceil()
+	fontFace.descent = fontFace.handle.Metrics().Descent.Floor()
+	fontFace.height = fontFace.handle.Metrics().Height.Floor()
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
@@ -115,8 +106,8 @@ func (fontFace *FontFace) drawLine(img *image.RGBA, y int) {
 // The undercurl drawing job is done in the shaders.
 // Feel free to change this function howewer you want to draw undercurl.
 func (fontFace *FontFace) renderUndercurl() *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, EditorSingleton.cellWidth, EditorSingleton.cellHeight))
-	y := EditorSingleton.cellHeight - fontFace.descent
+	img := image.NewRGBA(image.Rect(0, 0, singleton.cellWidth, singleton.cellHeight))
+	y := singleton.cellHeight - fontFace.descent
 	for x := 0; x < img.Rect.Dx(); x++ {
 		img.Set(x, y, color.White)
 		// This evaluation will be true when x is not center of a part (there
@@ -139,11 +130,11 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 // Renders given rune and returns rendered RGBA image.
 // Width of the image is always equal to cellWidth or cellWidth*2
 func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
-	cellHeight := EditorSingleton.cellHeight
+	cellHeight := singleton.cellHeight
 	dot := fixed.P(0, cellHeight-fontFace.descent)
 	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
 	if ok {
-		width := EditorSingleton.cellWidth
+		width := singleton.cellWidth
 		if mask.Bounds().Dx() > width {
 			width *= 2
 		}
@@ -168,12 +159,12 @@ func (fontFace *FontFace) RenderChar(char rune, underline, strikethrough bool) *
 	}
 	// We are rendering underline and strikethrough as a single line
 	// and thickness is only 1 pixel. We could change this tickness
-	// as a font size or something else.
+	// as a font size or weight.
 	if underline {
-		fontFace.drawLine(img, EditorSingleton.cellHeight-fontFace.descent)
+		fontFace.drawLine(img, singleton.cellHeight-fontFace.descent)
 	}
 	if strikethrough {
-		fontFace.drawLine(img, EditorSingleton.cellHeight/2)
+		fontFace.drawLine(img, singleton.cellHeight/2)
 	}
 	return img
 }
