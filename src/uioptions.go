@@ -45,18 +45,18 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 		}
 		if name == "" {
 			// Disable user font.
-			EditorSingleton.renderer.DisableUserFont()
-			EditorSingleton.renderer.setFontSize(size)
+			singleton.renderer.DisableUserFont()
+			singleton.renderer.setFontSize(size)
 		} else if name == options.parsed.guifontname {
 			// Names are same, just resize the font
-			EditorSingleton.renderer.setFontSize(size)
+			singleton.renderer.setFontSize(size)
 		} else {
 			// Create and set renderers font.
 			font, ok := CreateFont(name, size)
 			if ok {
-				EditorSingleton.renderer.setFont(font)
+				singleton.renderer.setFont(font)
 			} else {
-				EditorSingleton.nvim.echoErr("Font %s not found!", name)
+				singleton.nvim.echoErr("Font %s not found!", name)
 			}
 		}
 		options.parsed.guifontname = name
