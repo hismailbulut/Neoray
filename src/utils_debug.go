@@ -23,7 +23,7 @@ func start_pprof() {
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to start pprof:", err)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to start pprof:", err)
 		}
 	}()
 }
@@ -74,7 +74,7 @@ func close_function_time_tracker() {
 	trackerMutex.Lock()
 	defer trackerMutex.Unlock()
 	for key, val := range trackerAverages {
-		log_message(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
+		logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE,
 			key, "Calls:", val.totalCall, "Time:", val.totalTime, "Average:", val.totalTime/time.Duration(val.totalCall))
 	}
 }
@@ -82,6 +82,6 @@ func close_function_time_tracker() {
 // This assert only works on debug build.
 func assert_debug(cond bool, message ...interface{}) {
 	if !cond {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Debug assertion failed:", message)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Debug assertion failed:", message)
 	}
 }
