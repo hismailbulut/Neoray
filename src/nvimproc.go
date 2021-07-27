@@ -35,19 +35,18 @@ func CreateNvimProcess() NvimProcess {
 		update_stack: make([][][]interface{}, 0),
 	}
 
-	args := append([]string{"--embed"}, EditorParsedArgs.others...)
+	args := append([]string{"--embed"}, editorParsedArgs.others...)
 
 	nv, err := nvim.NewChildProcess(
 		nvim.ChildProcessArgs(args...),
-		nvim.ChildProcessCommand(EditorParsedArgs.execPath))
+		nvim.ChildProcessCommand(editorParsedArgs.execPath))
 	if err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Failed to start neovim instance:", err)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Failed to start neovim instance:", err)
 	}
-
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
-		"Neovim started with command:", EditorParsedArgs.execPath, mergeStringArray(args))
-
 	proc.handle = nv
+
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
+		"Neovim started with command:", editorParsedArgs.execPath, mergeStringArray(args))
 
 	proc.requestApiInfo()
 	proc.introduce()
@@ -63,7 +62,7 @@ func (proc *NvimProcess) requestApiInfo() {
 
 	info, err := proc.handle.APIInfo()
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
 		return
 	}
 	// Check the version.
@@ -75,12 +74,12 @@ func (proc *NvimProcess) requestApiInfo() {
 	vPatch := vInfo.MapIndex(reflect.ValueOf("patch")).Elem().Convert(t_int).Int()
 
 	if vMinor < 4 {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
 			"Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")
 	}
 
 	vStr := fmt.Sprintf("v%d.%d.%d", vMajor, vMinor, vPatch)
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim version", vStr)
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim version", vStr)
 }
 
 func (proc *NvimProcess) introduce() {
@@ -106,39 +105,20 @@ func (proc *NvimProcess) introduce() {
 	attributes["license"] = LICENSE
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
 	}
 }
 
-// Returns options which implemented in vim but not implemented in neovim.
-// Like 'mousehide'. Don't use this as long as the nvim_get_option is working.
-func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
-	defer measure_execution_time()()
-
-	eventName := "optc_" + name
-	var opt interface{}
-	okc := make(chan bool)
-	proc.handle.RegisterHandler(eventName, func(val interface{}) {
-		opt = val
-		okc <- true
-	})
-	ok := proc.executeVimScript("call rpcnotify(%d, \"%s\", &%s)",
-		proc.handle.ChannelID(), eventName, name)
-	if ok {
-		<-okc
-	}
-	proc.handle.Unsubscribe(eventName)
-	return opt
-}
-
-func (proc *NvimProcess) startUI(columns, rows int) {
+func (proc *NvimProcess) startUI() {
 	defer measure_execution_time()()
 
 	options := make(map[string]interface{})
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 
-	proc.handle.AttachUI(columns, rows, options)
+	if err := proc.handle.AttachUI(60, 20, options); err != nil {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Attaching ui failed:", err)
+	}
 
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
@@ -149,36 +129,57 @@ func (proc *NvimProcess) startUI(columns, rows int) {
 
 	go func() {
 		if err := proc.handle.Serve(); err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process closed with errors:", err)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process closed with errors:", err)
 			return
 		}
-		log_message(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process closed.")
-		EditorSingleton.quitRequested.Set(true)
+		logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process closed.")
+		singleton.quitRequested <- true
 	}()
 }
 
 func (proc *NvimProcess) requestVariables() {
 	defer measure_execution_time()()
-	proc.handle.Var(OPTION_CURSOR_ANIM, &EditorSingleton.options.cursorAnimTime)
-	proc.handle.Var(OPTION_TRANSPARENCY, &EditorSingleton.options.transparency)
-	proc.handle.Var(OPTION_TARGET_TPS, &EditorSingleton.options.targetTPS)
-	proc.handle.Var(OPTION_POPUP_MENU, &EditorSingleton.options.popupMenuEnabled)
-	proc.handle.Var(OPTION_KEY_FULLSCRN, &EditorSingleton.options.keyToggleFullscreen)
-	proc.handle.Var(OPTION_KEY_ZOOMIN, &EditorSingleton.options.keyIncreaseFontSize)
-	proc.handle.Var(OPTION_KEY_ZOOMOUT, &EditorSingleton.options.keyDecreaseFontSize)
+	proc.handle.Var(OPTION_CURSOR_ANIM, &singleton.options.cursorAnimTime)
+	proc.handle.Var(OPTION_TRANSPARENCY, &singleton.options.transparency)
+	proc.handle.Var(OPTION_TARGET_TPS, &singleton.options.targetTPS)
+	proc.handle.Var(OPTION_POPUP_MENU, &singleton.options.popupMenuEnabled)
+	proc.handle.Var(OPTION_KEY_FULLSCRN, &singleton.options.keyToggleFullscreen)
+	proc.handle.Var(OPTION_KEY_ZOOMIN, &singleton.options.keyIncreaseFontSize)
+	proc.handle.Var(OPTION_KEY_ZOOMOUT, &singleton.options.keyDecreaseFontSize)
 	var state string
 	if proc.handle.Var(OPTION_WINDOW_STATE, &state) == nil {
-		EditorSingleton.window.setState(state)
+		singleton.window.setState(state)
 	}
-	EditorSingleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
+	singleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
+}
+
+// Returns options which implemented in vim but not implemented in neovim.
+// Like 'mousehide'. Don't use this as long as the nvim_get_option is working.
+func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
+	defer measure_execution_time()()
+	eventName := "optc_" + name
+	var opt interface{}
+	okc := make(chan bool)
+	defer close(okc)
+	proc.handle.RegisterHandler(eventName, func(val interface{}) {
+		opt = val
+		okc <- true
+	})
+	defer proc.handle.Unsubscribe(eventName)
+	ok := proc.executeVimScript("call rpcnotify(%d, \"%s\", &%s)",
+		proc.handle.ChannelID(), eventName, name)
+	if ok {
+		<-okc
+	}
+	return opt
 }
 
 func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bool {
 	cmd := fmt.Sprintf(format, args...)
-	log_debug("Executing script: [", cmd, "]")
+	logDebug("Executing script: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
 			"Failed to execute vimscript: [", cmd, "] err:", err)
 		return false
 	}
@@ -188,7 +189,7 @@ func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bo
 func (proc *NvimProcess) currentMode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get current mode name:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get current mode name:", err)
 		return ""
 	}
 	return mode.Mode
@@ -208,7 +209,7 @@ func (proc *NvimProcess) getRegister(register string) string {
 	var content string
 	err := proc.handle.Call("getreg", &content, register)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call getreg() failed:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call getreg() failed:", err)
 	}
 	return content
 }
@@ -241,7 +242,7 @@ func (proc *NvimProcess) copySelected() string {
 func (proc *NvimProcess) paste(str string) {
 	err := proc.handle.Call("nvim_paste", nil, str, true, -1)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call nvim_paste() failed:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call nvim_paste() failed:", err)
 	}
 }
 
@@ -259,58 +260,57 @@ func (proc *NvimProcess) selectAll() {
 }
 
 func (proc *NvimProcess) openFile(file string) {
-	log_debug("Open file:", file)
+	logDebug("Open file:", file)
 	proc.executeVimScript("edit %s", file)
 }
 
 func (proc *NvimProcess) gotoLine(line int) {
-	log_debug("Goto Line:", line)
+	logDebug("Goto Line:", line)
 	proc.handle.Call("cursor", nil, line, 0)
 }
 
 func (proc *NvimProcess) gotoColumn(col int) {
-	log_debug("Goto Column:", col)
+	logDebug("Goto Column:", col)
 	proc.handle.Call("cursor", nil, 0, col)
 }
 
 func (proc *NvimProcess) feedKeys(keys string) {
 	keycode, err := proc.handle.ReplaceTermcodes(keys, true, true, true)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to replace termcodes:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to replace termcodes:", err)
 		return
 	}
 	err = proc.handle.FeedKeys(keycode, "m", true)
 	if err != nil {
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to feed keys:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to feed keys:", err)
 	}
 }
 
 func (proc *NvimProcess) input(keycode string) {
 	written, err := proc.handle.Input(keycode)
 	if err != nil {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send input keys:", err)
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send input keys:", err)
 	}
 	if written != len(keycode) {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send some keys.")
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send some keys.")
 	}
 }
 
 func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, column int) {
 	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
 	if err != nil {
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send mouse input:", err)
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send mouse input:", err)
 	}
 }
 
 func (proc *NvimProcess) requestResize() {
-	if EditorSingleton.calculateCellCount() {
-		log_debug("Resize request. Rows:", EditorSingleton.rowCount, "Columns:", EditorSingleton.columnCount)
-		err := proc.handle.TryResizeUI(EditorSingleton.columnCount, EditorSingleton.rowCount)
+	if singleton.calculateCellCount() {
+		err := proc.handle.TryResizeUI(singleton.columnCount, singleton.rowCount)
 		if err != nil {
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
 			return
 		}
-		EditorSingleton.waitingResize = true
+		singleton.waitingResize = true
 	}
 }
 
