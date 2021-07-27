@@ -58,11 +58,8 @@ type Editor struct {
 	// Tcp server for singleinstance
 	// tcp.go
 	server *TCPServer
-	// These are the global variables of neoray. They are same in everywhere.
-	// Some of them are initialized at runtime. Therefore we must be carefull when we
-	// use them. If you add more here just write some information about it.
 	// If quitRequested is true the program will quit.
-	quitRequested AtomicBool
+	quitRequested chan bool
 	// This is for resizing from nvim side, first we will send resize request
 	// to neovim, than we wait for the resize call from neovim side. When
 	// waiting this we dont want to render.
@@ -76,26 +73,25 @@ type Editor struct {
 	cellCount   int
 	// Initializing in Editor.MainLoop
 	updatesPerSecond int
-	// For debugging.
-	averageTPS float32
 	// Last elapsed time between updates.
 	deltaTime float64
 }
 
 func (editor *Editor) Initialize() {
 	editor.options = CreateDefaultOptions()
+	editor.quitRequested = make(chan bool)
 
 	editor.nvim = CreateNvimProcess()
-	editor.nvim.startUI(99, 33)
+	editor.nvim.startUI()
 
 	if err := glfw.Init(); err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
 	}
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
 
 	editor.window = CreateWindow(WINDOW_SIZE_AUTO, WINDOW_SIZE_AUTO, TITLE)
 
-	InitializeInputEvents()
+	initInputEvents()
 
 	editor.uiOptions = UIOptions{}
 
@@ -125,51 +121,45 @@ func (editor *Editor) MainLoop() {
 	// For measuring total time of the program.
 	programBegin := time.Now()
 	// Ticker's interval
-	interval := 1 / float64(editor.options.targetTPS)
+	interval := time.Second / time.Duration(editor.options.targetTPS)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 	// For measuring tps
-	var tpsTimer float64
+	var secondTimer float64
 	updates := 0
 	// For measuring elpased time
-	prevTick := glfw.GetTime()
+	prevTick := time.Now()
 	// Mainloop
-MAINLOOP:
-	for !editor.window.handle.ShouldClose() {
-		// Calculate time between loops
-		tick := glfw.GetTime()
-		editor.deltaTime = tick - prevTick
-		prevTick = tick
-		// Update program
-		editor.update()
-		// Check for quit
-		if editor.quitRequested.Get() {
-			editor.window.handle.SetShouldClose(true)
-		}
-		// Increment counters
-		tpsTimer += editor.deltaTime
-		updates++
-		// Calculate ticks per second
-		if tpsTimer >= 1 {
-			editor.updatesPerSecond = updates
-			editor.averageTPS = (editor.averageTPS + float32(editor.updatesPerSecond)) / 2
-			updates = 0
-			tpsTimer -= 1
-		}
-		if interval > editor.deltaTime {
-			freeTime := interval - editor.deltaTime
-			sleepTime := time.Duration(freeTime * float64(time.Second))
-			time.Sleep(sleepTime)
+	run := true
+	for run {
+		select {
+		case tick := <-ticker.C:
+			// Calculate delta time
+			elapsed := tick.Sub(prevTick)
+			prevTick = tick
+			editor.deltaTime = elapsed.Seconds()
+			// Increment counters
+			secondTimer += editor.deltaTime
+			updates++
+			// Calculate updates per second
+			if secondTimer >= 1 {
+				editor.updatesPerSecond = updates
+				updates = 0
+				secondTimer -= 1
+			}
+			// Update program
+			editor.update()
+			// Check for window close
+			if editor.window.handle.ShouldClose() {
+				// Send quit command to neovim and not quit until neovim quits.
+				editor.window.handle.SetShouldClose(false)
+				go editor.nvim.executeVimScript("qa")
+			}
+		case <-editor.quitRequested:
+			run = false
 		}
 	}
-	if !editor.quitRequested.Get() {
-		// Instead of immediately closing we will send simple quit command to
-		// neovim and if there are unsaved files the neovim will handle them
-		// and user will not lose its progress.
-		editor.window.handle.SetShouldClose(false)
-		go editor.nvim.executeVimScript("qa")
-		goto MAINLOOP
-	}
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Average TPS:", editor.averageTPS)
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
 }
 
 func (editor *Editor) update() {
@@ -221,7 +211,7 @@ func (editor *Editor) debugEvalCell(x, y int) {
 	attrib_id: %d
 	needs_redraw: %t
 	Data : %+v`
-	logf_debug(format, x, y, string(cell.char), cell.char,
+	logfDebug(format, x, y, string(cell.char), cell.char,
 		cell.attribId, cell.needsDraw, vertex)
 }
 
