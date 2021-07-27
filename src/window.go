@@ -72,7 +72,7 @@ func CreateWindow(width int, height int, title string) Window {
 			singleton.window.width = width
 			singleton.window.height = height
 			if width > 0 && height > 0 {
-				singleton.nvim.requestResize()
+				singleton.nvim.requestResize(false)
 			}
 		})
 
