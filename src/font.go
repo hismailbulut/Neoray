@@ -43,6 +43,9 @@ func CreateDefaultFont() Font {
 	bold, err := CreateFaceFromMem(caskaydia.Bold, font.size)
 	check(err)
 	font.bold = bold
+
+	// TODO: Do we need italic and bold for default font?
+
 	return font
 }
 
