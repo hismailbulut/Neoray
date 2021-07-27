@@ -54,7 +54,7 @@ func (grid *Grid) clearCells() {
 			cell.needsDraw = true
 		}
 	}
-	EditorSingleton.draw()
+	singleton.draw()
 }
 
 // This makes all cells will be rendered in the next
@@ -67,7 +67,7 @@ func (grid *Grid) makeAllCellsChanged() {
 			grid.cells[i][j].needsDraw = true
 		}
 	}
-	EditorSingleton.draw()
+	singleton.draw()
 }
 
 // Sets cells with the given parameters, and advances y to the next.
@@ -100,7 +100,7 @@ func (grid *Grid) getCell(x, y int) Cell {
 
 func (grid *Grid) copyRow(dst, src, left, right int) {
 	copy(grid.cells[dst][left:right], grid.cells[src][left:right])
-	EditorSingleton.renderer.copyRowData(dst, src, left, right)
+	singleton.renderer.copyRowData(dst, src, left, right)
 }
 
 func (grid *Grid) scroll(top, bot, rows, left, right int) {
@@ -114,16 +114,16 @@ func (grid *Grid) scroll(top, bot, rows, left, right int) {
 			grid.copyRow(y-rows, y, left, right)
 		}
 	}
-	cursor := &EditorSingleton.cursor
+	cursor := &singleton.cursor
 	if cursor.isInArea(top, left, bot-top, right-left) {
 		// This is for cursor animation when scrolling. Simply we are moving cursor
 		// with scroll area immediately, and returning back to its position smoothly.
 		target := cursor.X - rows
-		if target >= 0 && target < EditorSingleton.rowCount {
+		if target >= 0 && target < singleton.rowCount {
 			current := cursor.X
 			cursor.SetPosition(target, cursor.Y, true)
 			cursor.SetPosition(current, cursor.Y, false)
 		}
 	}
-	EditorSingleton.draw()
+	singleton.draw()
 }
