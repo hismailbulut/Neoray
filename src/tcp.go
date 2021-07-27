@@ -46,26 +46,26 @@ func CreateClient() (*TCPClient, error) {
 		return nil, err
 	}
 	client.connection = c
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Connected to", c.RemoteAddr())
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Connected to", c.RemoteAddr())
 	go func() {
 		for {
 			data := <-client.data
 			_, err := c.Write([]byte(data))
 			if err != nil {
-				log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send signal:", err)
+				logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send signal:", err)
 				client.resp <- false
 				continue
 			}
 			resp, err := bufio.NewReader(c).ReadString('\n')
 			if err != nil {
-				log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to get response:", err)
+				logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to get response:", err)
 				client.resp <- false
 				continue
 			}
 			if resp == SIGNAL_CLOSE_CONNECTION {
 				client.connection.Close()
 				client.resp <- true
-				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Disconnected from server.")
+				logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Disconnected from server.")
 				return
 			}
 			client.resp <- true
@@ -75,7 +75,7 @@ func CreateClient() (*TCPClient, error) {
 }
 
 func (client *TCPClient) sendSignal(signal string, args ...string) bool {
-	log_debug("Sending signal:", signal, args)
+	logDebug("Sending signal:", signal, args)
 	for _, arg := range args {
 		signal += "\x00" + arg
 	}
@@ -90,7 +90,7 @@ func (client *TCPClient) sendSignal(signal string, args ...string) bool {
 		}
 		break
 	case <-time.Tick(time.Second):
-		log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Signal timeout.")
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Signal timeout.")
 		return false
 	}
 	return true
@@ -121,10 +121,10 @@ func CreateServer() (*TCPServer, error) {
 		for {
 			c, err := l.Accept()
 			if err != nil {
-				log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Server closed.")
+				logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Server closed.")
 				return
 			}
-			log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "New client connected:", c.RemoteAddr())
+			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "New client connected:", c.RemoteAddr())
 			// handle connection concurrently
 			go func() {
 				defer c.Close()
@@ -132,7 +132,7 @@ func CreateServer() (*TCPServer, error) {
 					var resp string
 					data, err := bufio.NewReader(c).ReadString('\n')
 					if err != nil {
-						log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to read client data:", err)
+						logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to read client data:", err)
 						break
 					}
 					switch data {
@@ -152,10 +152,10 @@ func CreateServer() (*TCPServer, error) {
 					}
 					_, err = c.Write([]byte(resp))
 					if err != nil {
-						log_message(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send response to client.")
+						logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send response to client.")
 					}
 					if resp == SIGNAL_CLOSE_CONNECTION {
-						log_message(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Client disconnected.")
+						logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Client disconnected.")
 						return
 					}
 				}
@@ -173,26 +173,26 @@ func (server *TCPServer) update() {
 			args := strings.Split(strings.Split(sig, "\n")[0], "\x00")
 			switch args[0] {
 			case SIGNAL_OPEN_FILE:
-				EditorSingleton.nvim.openFile(args[1])
+				singleton.nvim.openFile(args[1])
 				break
 			case SIGNAL_GOTO_LINE:
 				ln, err := strconv.Atoi(args[1])
 				if err == nil {
-					EditorSingleton.nvim.gotoLine(ln)
+					singleton.nvim.gotoLine(ln)
 				}
 				break
 			case SIGNAL_GOTO_COLUMN:
 				cl, err := strconv.Atoi(args[1])
 				if err == nil {
-					EditorSingleton.nvim.gotoColumn(cl)
+					singleton.nvim.gotoColumn(cl)
 				}
 				break
 			default:
-				log_debug("Received invalid signal:", sig)
+				logDebug("Received invalid signal:", sig)
 				break
 			}
 		}
-		EditorSingleton.window.raise()
+		singleton.window.raise()
 		server.data = nil
 		server.dataReceived.Set(false)
 	}
