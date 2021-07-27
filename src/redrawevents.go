@@ -10,20 +10,20 @@ var (
 )
 
 func handleRedrawEvents() {
-	EditorSingleton.nvim.update_mutex.Lock()
-	defer EditorSingleton.nvim.update_mutex.Unlock()
+	singleton.nvim.update_mutex.Lock()
+	defer singleton.nvim.update_mutex.Unlock()
 
-	if len(EditorSingleton.nvim.update_stack) <= 0 {
+	if len(singleton.nvim.update_stack) <= 0 {
 		return
 	}
 
-	for _, updates := range EditorSingleton.nvim.update_stack {
+	for _, updates := range singleton.nvim.update_stack {
 		for _, update := range updates {
 			switch update[0] {
 			// Global events
 			case "set_title":
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
-				EditorSingleton.window.setTitle(title)
+				singleton.window.setTitle(title)
 				break
 			case "set_icon":
 				break
@@ -41,23 +41,23 @@ func handleRedrawEvents() {
 			case "mouse_off":
 				break
 			case "busy_start":
-				EditorSingleton.cursor.Hide()
+				singleton.cursor.Hide()
 				break
 			case "busy_stop":
-				EditorSingleton.cursor.Show()
+				singleton.cursor.Show()
 				break
 			case "suspend":
 				break
 			case "update_menu":
 				break
 			case "bell":
-				log_debug(update...)
+				logDebug(update...)
 				break
 			case "visual_bell":
-				log_debug(update...)
+				logDebug(update...)
 				break
 			case "flush":
-				EditorSingleton.draw()
+				singleton.draw()
 				break
 			// Grid Events (line-based)
 			case "grid_resize":
@@ -75,7 +75,7 @@ func handleRedrawEvents() {
 				grid_line(update[1:])
 				break
 			case "grid_clear":
-				EditorSingleton.grid.clearCells()
+				singleton.grid.clearCells()
 				break
 			case "grid_destroy":
 				break
@@ -91,11 +91,11 @@ func handleRedrawEvents() {
 		}
 	}
 	// clear update stack
-	EditorSingleton.nvim.update_stack = nil
+	singleton.nvim.update_stack = singleton.nvim.update_stack[0:0]
 }
 
 func option_set(args []interface{}) {
-	options := &EditorSingleton.uiOptions
+	options := &singleton.uiOptions
 	for _, arg := range args {
 		val := reflect.ValueOf(arg).Index(1).Elem()
 		switch reflect.ValueOf(arg).Index(0).Elem().String() {
@@ -136,8 +136,8 @@ func option_set(args []interface{}) {
 func mode_info_set(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		EditorSingleton.mode.cursor_style_enabled = v.Index(0).Elem().Bool()
-		EditorSingleton.mode.Clear()
+		singleton.mode.cursor_style_enabled = v.Index(0).Elem().Bool()
+		singleton.mode.Clear()
 		for _, infos := range v.Index(1).Interface().([]interface{}) {
 			mapIter := reflect.ValueOf(infos).MapRange()
 			info := ModeInfo{}
@@ -173,19 +173,17 @@ func mode_info_set(args []interface{}) {
 					break
 				}
 			}
-			EditorSingleton.mode.Add(info)
+			singleton.mode.Add(info)
 		}
-		EditorSingleton.cursor.needsDraw = true
+		singleton.cursor.needsDraw = true
 	}
 }
 
 func mode_change(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		name := v.Index(0).Elem().String()
-		EditorSingleton.mode.current_mode_name = name
-		id := v.Index(1).Elem().Convert(t_int).Int()
-		EditorSingleton.mode.current_mode = int(id)
+		singleton.mode.current_mode_name = v.Index(0).Elem().String()
+		singleton.mode.current_mode = int(v.Index(1).Elem().Convert(t_int).Int())
 	}
 }
 
@@ -196,13 +194,13 @@ func grid_resize(args []interface{}) {
 		cols := int(v.Index(1).Elem().Convert(t_int).Int())
 		rows := int(v.Index(2).Elem().Convert(t_int).Int())
 
-		EditorSingleton.rowCount = rows
-		EditorSingleton.columnCount = cols
-		EditorSingleton.cellCount = rows * cols
+		singleton.rowCount = rows
+		singleton.columnCount = cols
+		singleton.cellCount = rows * cols
 
-		EditorSingleton.grid.resize(rows, cols)
-		EditorSingleton.renderer.resize(rows, cols)
-		EditorSingleton.waitingResize = false
+		singleton.grid.resize(rows, cols)
+		singleton.renderer.resize(rows, cols)
+		singleton.waitingResize = false
 	}
 }
 
@@ -212,13 +210,13 @@ func default_colors_set(args []interface{}) {
 		fg := v.Index(0).Elem().Convert(t_uint).Uint()
 		bg := v.Index(1).Elem().Convert(t_uint).Uint()
 		sp := v.Index(2).Elem().Convert(t_uint).Uint()
-		EditorSingleton.grid.defaultFg = unpackColor(uint32(fg))
-		EditorSingleton.grid.defaultBg = unpackColor(uint32(bg))
-		EditorSingleton.grid.defaultSp = unpackColor(uint32(sp))
+		singleton.grid.defaultFg = unpackColor(uint32(fg))
+		singleton.grid.defaultBg = unpackColor(uint32(bg))
+		singleton.grid.defaultSp = unpackColor(uint32(sp))
 		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
-		EditorSingleton.grid.makeAllCellsChanged()
+		singleton.grid.makeAllCellsChanged()
 	}
 }
 
@@ -272,8 +270,8 @@ func hl_attr_define(args []interface{}) {
 				break
 			}
 		}
-		EditorSingleton.grid.attributes[id] = hl_attr
-		EditorSingleton.grid.makeAllCellsChanged()
+		singleton.grid.attributes[id] = hl_attr
+		singleton.grid.makeAllCellsChanged()
 	}
 }
 
@@ -309,7 +307,7 @@ func grid_line(args []interface{}) {
 			if cellv.Len() == 3 {
 				repeat = int(cellv.Index(2).Elem().Convert(t_int).Int())
 			}
-			EditorSingleton.grid.setCells(row, &col_start, char, attribId, repeat)
+			singleton.grid.setCells(row, &col_start, char, attribId, repeat)
 		}
 	}
 }
@@ -320,7 +318,7 @@ func grid_cursor_goto(args []interface{}) {
 		_ = int(v.Index(0).Elem().Convert(t_int).Int())
 		X := int(v.Index(1).Elem().Convert(t_int).Int())
 		Y := int(v.Index(2).Elem().Convert(t_int).Int())
-		EditorSingleton.cursor.SetPosition(X, Y, false)
+		singleton.cursor.SetPosition(X, Y, false)
 	}
 }
 
@@ -338,6 +336,6 @@ func grid_scroll(args []interface{}) {
 		cols := v.Index(6).Elem().Convert(t_int).Int()
 		assert_debug(cols == 0)
 
-		EditorSingleton.grid.scroll(int(top), int(bot), int(rows), int(left), int(right))
+		singleton.grid.scroll(int(top), int(bot), int(rows), int(left), int(right))
 	}
 }
