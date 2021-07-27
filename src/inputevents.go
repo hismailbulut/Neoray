@@ -92,18 +92,18 @@ var (
 	currentModifiers string
 )
 
-func InitializeInputEvents() {
+func initInputEvents() {
 	// Initialize callbacks
-	wh := EditorSingleton.window.handle
-	wh.SetCharCallback(CharEventHandler)
-	wh.SetKeyCallback(KeyEventHandler)
-	wh.SetMouseButtonCallback(ButtonEventHandler)
-	wh.SetCursorPosCallback(MousePosEventHandler)
-	wh.SetScrollCallback(ScrollEventHandler)
-	wh.SetDropCallback(DropEventHandler)
+	wh := singleton.window.handle
+	wh.SetCharCallback(charCallback)
+	wh.SetKeyCallback(keyCallback)
+	wh.SetMouseButtonCallback(mouseButtonCallback)
+	wh.SetCursorPosCallback(cursorPosCallback)
+	wh.SetScrollCallback(scrollCallback)
+	wh.SetDropCallback(dropCallback)
 }
 
-func CharEventHandler(w *glfw.Window, char rune) {
+func charCallback(w *glfw.Window, char rune) {
 	var keycode string
 	c := string(char)
 
@@ -140,14 +140,14 @@ func CharEventHandler(w *glfw.Window, char rune) {
 		keycode = c
 	}
 
-	EditorSingleton.nvim.input(keycode)
+	singleton.nvim.input(keycode)
 
-	if EditorSingleton.options.mouseHide {
-		EditorSingleton.window.hideCursor()
+	if singleton.options.mouseHide {
+		singleton.window.hideCursor()
 	}
 }
 
-func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	// If this is a modifier key, we will store if it was pressed,
 	// delete if it was released
 	code, ok := ModifierKeys[key]
@@ -216,45 +216,45 @@ func KeyEventHandler(w *glfw.Window, key glfw.Key, scancode int, action glfw.Act
 
 		// Handle neoray keybindings
 		switch keycode {
-		case EditorSingleton.options.keyIncreaseFontSize:
-			EditorSingleton.renderer.increaseFontSize()
+		case singleton.options.keyIncreaseFontSize:
+			singleton.renderer.increaseFontSize()
 			return
-		case EditorSingleton.options.keyDecreaseFontSize:
-			EditorSingleton.renderer.decreaseFontSize()
+		case singleton.options.keyDecreaseFontSize:
+			singleton.renderer.decreaseFontSize()
 			return
-		case EditorSingleton.options.keyToggleFullscreen:
-			EditorSingleton.window.toggleFullscreen()
+		case singleton.options.keyToggleFullscreen:
+			singleton.window.toggleFullscreen()
 			return
 		case "<ESC>":
-			if EditorSingleton.options.popupMenuEnabled && !EditorSingleton.popupMenu.hidden {
-				EditorSingleton.popupMenu.Hide()
+			if singleton.options.popupMenuEnabled && !singleton.popupMenu.hidden {
+				singleton.popupMenu.Hide()
 				return
 			}
 			break
 		}
 
-		EditorSingleton.nvim.input(keycode)
+		singleton.nvim.input(keycode)
 	}
 }
 
-func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
-	if EditorSingleton.options.mouseHide {
-		EditorSingleton.window.showCursor()
+func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+	if singleton.options.mouseHide {
+		singleton.window.showCursor()
 	}
 	var buttonCode string
 	switch button {
 	case glfw.MouseButtonLeft:
-		if action == glfw.Press && EditorSingleton.options.popupMenuEnabled {
-			if EditorSingleton.popupMenu.mouseClick(false, lastMousePos) {
+		if action == glfw.Press && singleton.options.popupMenuEnabled {
+			if singleton.popupMenu.mouseClick(false, lastMousePos) {
 				return
 			}
 		}
 		buttonCode = "left"
 		break
 	case glfw.MouseButtonRight:
-		if action == glfw.Press && EditorSingleton.options.popupMenuEnabled {
+		if action == glfw.Press && singleton.options.popupMenuEnabled {
 			// We don't send right button to neovim if popup menu enabled.
-			EditorSingleton.popupMenu.mouseClick(true, lastMousePos)
+			singleton.popupMenu.mouseClick(true, lastMousePos)
 			return
 		}
 		buttonCode = "right"
@@ -265,9 +265,9 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 	default:
 		// Other mouse buttons will print the cell info under the cursor in debug build.
 		if isDebugBuild() && action == glfw.Release {
-			row := lastMousePos.Y / EditorSingleton.cellHeight
-			col := lastMousePos.X / EditorSingleton.cellWidth
-			EditorSingleton.debugEvalCell(row, col)
+			row := lastMousePos.Y / singleton.cellHeight
+			col := lastMousePos.X / singleton.cellWidth
+			singleton.debugEvalCell(row, col)
 		}
 		return
 	}
@@ -277,46 +277,46 @@ func ButtonEventHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Act
 		actionCode = "release"
 	}
 
-	row := lastMousePos.Y / EditorSingleton.cellHeight
-	col := lastMousePos.X / EditorSingleton.cellWidth
-	EditorSingleton.nvim.inputMouse(buttonCode, actionCode, currentModifiers, 0, row, col)
+	row := lastMousePos.Y / singleton.cellHeight
+	col := lastMousePos.X / singleton.cellWidth
+	singleton.nvim.inputMouse(buttonCode, actionCode, currentModifiers, 0, row, col)
 
 	lastMouseButton = buttonCode
 	lastMouseAction = action
 }
 
-func MousePosEventHandler(w *glfw.Window, xpos, ypos float64) {
-	if EditorSingleton.options.mouseHide {
-		EditorSingleton.window.showCursor()
+func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
+	if singleton.options.mouseHide {
+		singleton.window.showCursor()
 	}
 	lastMousePos.X = int(xpos)
 	lastMousePos.Y = int(ypos)
-	if EditorSingleton.options.popupMenuEnabled {
-		EditorSingleton.popupMenu.mouseMove(lastMousePos)
+	if singleton.options.popupMenuEnabled {
+		singleton.popupMenu.mouseMove(lastMousePos)
 	}
 	// If mouse moving when holding left button, it's drag event
 	if lastMouseAction == glfw.Press {
-		row := lastMousePos.Y / EditorSingleton.cellHeight
-		col := lastMousePos.X / EditorSingleton.cellWidth
-		EditorSingleton.nvim.inputMouse(lastMouseButton, "drag", currentModifiers, 0, row, col)
+		row := lastMousePos.Y / singleton.cellHeight
+		col := lastMousePos.X / singleton.cellWidth
+		singleton.nvim.inputMouse(lastMouseButton, "drag", currentModifiers, 0, row, col)
 	}
 }
 
-func ScrollEventHandler(w *glfw.Window, xpos, ypos float64) {
-	if EditorSingleton.options.mouseHide {
-		EditorSingleton.window.showCursor()
+func scrollCallback(w *glfw.Window, xpos, ypos float64) {
+	if singleton.options.mouseHide {
+		singleton.window.showCursor()
 	}
 	action := "up"
 	if ypos < 0 {
 		action = "down"
 	}
-	row := lastMousePos.Y / EditorSingleton.cellHeight
-	col := lastMousePos.X / EditorSingleton.cellWidth
-	EditorSingleton.nvim.inputMouse("wheel", action, currentModifiers, 0, row, col)
+	row := lastMousePos.Y / singleton.cellHeight
+	col := lastMousePos.X / singleton.cellWidth
+	singleton.nvim.inputMouse("wheel", action, currentModifiers, 0, row, col)
 }
 
-func DropEventHandler(w *glfw.Window, names []string) {
+func dropCallback(w *glfw.Window, names []string) {
 	for _, name := range names {
-		EditorSingleton.nvim.openFile(name)
+		singleton.nvim.openFile(name)
 	}
 }
