@@ -1,18 +1,24 @@
-NEORAY v0.0.5 Debug Crash Report
+NEORAY v0.0.5 Release Crash Report
 Please open an issue in github with this file.
 The program is crashed because of the following reasons.
-Message:  [NEORAY] FATAL: Assertion Failed: est:-20ms
+Message:  [NEORAY] FATAL: Assertion Failed: [cursor pos incorrect 34 12 false]
 goroutine 1 [running, locked to thread]:
-runtime/debug.Stack(0xc0001fa040, 0xc0005e8080, 0x36)
-	C:/Users/bulut/scoop/apps/go/current/src/runtime/debug/stack.go:24 +0xb2
-main.crash_report(0xc0000c7ac8, 0x1, 0x1)
+runtime/debug.Stack(0xc000173628, 0xc0003d43c0, 0x4f)
+	C:/Users/bulut/scoop/apps/go/current/src/runtime/debug/stack.go:24 +0xa5
+main.crash_report(0xc0003fbb00, 0x1, 0x1)
 	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:80 +0x39d
-main.log_message(0x600000004, 0xc0000c7b30, 0x2, 0x2)
-	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:134 +0x405
-main.assert(0xfffffffffeced300, 0xc0000c7c60, 0x2, 0x2)
-	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:149 +0xf3
-main.(*Editor).MainLoop(0x147dae0)
-	C:/ismailbulut/Developer/go-projects/neoray/src/editor.go:165 +0x52c
+main.log_message(0x600000004, 0xc0003fbb78, 0x2, 0x2)
+	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:134 +0x3d9
+main.assert(...)
+	C:/ismailbulut/Developer/go-projects/neoray/src/logger.go:149
+main.(*Cursor).SetPosition(0x1501710, 0x22, 0xc, 0x13f6100)
+	C:/ismailbulut/Developer/go-projects/neoray/src/cursor.go:67 +0x245
+main.grid_cursor_goto(0xc00008a750, 0x1, 0x1)
+	C:/ismailbulut/Developer/go-projects/neoray/src/redrawevents.go:323 +0x32d
+main.HandleNvimRedrawEvents()
+	C:/ismailbulut/Developer/go-projects/neoray/src/redrawevents.go:83 +0x96c
+main.(*Editor).MainLoop(0x1501660)
+	C:/ismailbulut/Developer/go-projects/neoray/src/editor.go:160 +0x2ee
 main.main()
-	C:/ismailbulut/Developer/go-projects/neoray/src/main.go:69 +0x3da
+	C:/ismailbulut/Developer/go-projects/neoray/src/main.go:69 +0x265
 
