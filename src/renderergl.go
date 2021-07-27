@@ -42,7 +42,7 @@ func rglInit() {
 
 	// Initialize opengl
 	if err := gl.Init(); err != nil {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
 	}
 
 	// Init shaders
@@ -95,14 +95,14 @@ func rglInit() {
 		rglCheckError("gl enable blending")
 	}
 
-	log_message(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 }
 
 func rglGetUniformLocation(name string) int32 {
 	uniform_name := gl.Str(name + "\x00")
 	loc := gl.GetUniformLocation(rgl_shader_program, uniform_name)
 	if loc < 0 {
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to find uniform", name)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to find uniform", name)
 	}
 	return loc
 }
@@ -126,7 +126,7 @@ func rglSetUndercurlRect(val F32Rect) {
 func rglClearScreen(color U8Color) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	c := color.toF32()
-	gl.ClearColor(c.R, c.G, c.B, EditorSingleton.options.transparency)
+	gl.ClearColor(c.R, c.G, c.B, singleton.options.transparency)
 }
 
 func rglUpdateVertices(data []Vertex) {
@@ -165,7 +165,7 @@ func rglInitShaders() {
 		gl.GetProgramiv(rgl_shader_program, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetProgramInfoLog(rgl_shader_program, logLength, nil, gl.Str(log))
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to link shader program:", log)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to link shader program:", log)
 	}
 
 	gl.DeleteShader(vertShader)
@@ -205,7 +205,7 @@ func rglCompileShader(source string, shader_type uint32) uint32 {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		log_message(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, log)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, log)
 	}
 
 	return shader
@@ -230,10 +230,10 @@ func rglCheckError(callerName string) {
 		case gl.CONTEXT_LOST:
 			errName = "CONTEXT_LOST"
 		default:
-			log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", err, "on", callerName)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", err, "on", callerName)
 			return
 		}
-		log_message(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
 	}
 }
 
