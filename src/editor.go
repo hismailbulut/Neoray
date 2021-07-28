@@ -78,17 +78,12 @@ type Editor struct {
 }
 
 func (editor *Editor) Initialize() {
-	editor.options = CreateDefaultOptions()
 	editor.quitRequested = make(chan bool)
 
 	editor.nvim = CreateNvimProcess()
 	editor.nvim.startUI()
 
-	if err := glfw.Init(); err != nil {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
-	}
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
-
+	editor.initGlfw()
 	editor.window = CreateWindow(WINDOW_SIZE_AUTO, WINDOW_SIZE_AUTO, TITLE)
 
 	initInputEvents()
@@ -101,7 +96,8 @@ func (editor *Editor) Initialize() {
 	editor.popupMenu = CreatePopupMenu()
 	editor.renderer = CreateRenderer()
 
-	editor.nvim.requestVariables()
+	editor.options = CreateDefaultOptions()
+	editor.nvim.requestOptions()
 }
 
 func CreateDefaultOptions() Options {
@@ -115,6 +111,14 @@ func CreateDefaultOptions() Options {
 		keyDecreaseFontSize: "<C-kMinus>",
 		mouseHide:           false,
 	}
+}
+
+func (editor *Editor) initGlfw() {
+	defer measure_execution_time()()
+	if err := glfw.Init(); err != nil {
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
+	}
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
 }
 
 func (editor *Editor) MainLoop() {

@@ -28,7 +28,7 @@ no transparency, and 0 is fully transparent. Only background
 colors will be transparent, and statusline, tabline and texts
 are fully opaque.
 ```vim
-let neoray_framebuffer_transparency=1
+let neoray_background_transparency=1
 ```
 
 The target update time in one second. Like FPS but neoray
@@ -65,22 +65,26 @@ let neoray_key_decrease_fontsize='<C-kMinus>'
 ```
 ___
 ### font
-Neoray respects your guifont option, finds the font and loads it.
-But it hasn't got platform specific font enumerating. You can load
-known fonts as its family name like 'Consolas', but for other fonts
-you need to specify font file name. Examples:
+Neoray respects your guifont option, finds the font and loads it. If it can't
+find your font, try with different names and also with file name. Giving full
+shared name except the style and weight names will give best result. You can
+change the font without needing restart neoray. Underscores are treated as
+spaces. If you think you tried every possibilities but neoray still can't find
+the font, please report to me.
 ```vim
 set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
-set guifont=Ubuntu_Mono:h12
+set guifont=DejaVuSansMono:h11
+set guifont=:h13 " Use default font with 13 pt size
 ```
+NOTE: For now neoray doesn't support ttc fonts.
 ___
 ### exaple init.vim
 ```vim
 if exists('g:neoray')
     set guifont=Go_Mono:h11
     let neoray_cursor_animation_time=0.07
-    let neoray_framebuffer_transparency=0.95
+    let neoray_background_transparency=0.95
     let neoray_target_ticks_per_second=120
     let neoray_popup_menu_enabled=1
     let neoray_window_startup_state='centered'
@@ -120,7 +124,7 @@ editor exec path to neoray executable and exec flags to this:
 -si --file {file} --line {line} --column {col}
 ```
 Now, everytime you open a script in godot, this will open in the
-same neoray, and cursor goes to {line} and {column}
+same neoray, and cursor goes to {line} and {col}
 ___
 ### contributing
 All types of contributing as welcomed. If you want to be a part of this

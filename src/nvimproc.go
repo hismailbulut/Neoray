@@ -11,7 +11,7 @@ import (
 const (
 	// Options
 	OPTION_CURSOR_ANIM  = "neoray_cursor_animation_time"
-	OPTION_TRANSPARENCY = "neoray_framebuffer_transparency"
+	OPTION_TRANSPARENCY = "neoray_background_transparency"
 	OPTION_TARGET_TPS   = "neoray_target_ticks_per_second"
 	OPTION_POPUP_MENU   = "neoray_popup_menu_enabled"
 	OPTION_WINDOW_STATE = "neoray_window_startup_state"
@@ -137,7 +137,7 @@ func (proc *NvimProcess) startUI() {
 	}()
 }
 
-func (proc *NvimProcess) requestVariables() {
+func (proc *NvimProcess) requestOptions() {
 	defer measure_execution_time()()
 	proc.handle.Var(OPTION_CURSOR_ANIM, &singleton.options.cursorAnimTime)
 	proc.handle.Var(OPTION_TRANSPARENCY, &singleton.options.transparency)
