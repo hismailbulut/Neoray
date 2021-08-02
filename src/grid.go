@@ -144,8 +144,6 @@ func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
 	return id, row, col
 }
 
-// This function is only used by neovim,
-// and calling this anywhere else may break the program.
 func (gridManager *GridManager) resize(id int, rows, cols int) {
 	defer measure_execution_time()()
 	grid, ok := gridManager.grids[id]
@@ -234,11 +232,7 @@ func (gridManager *GridManager) setCell(id, x int, y *int, char rune, attribId, 
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		if x < grid.rows && *y < grid.cols {
-			grid.setCell(x, *y, char, attribId)
-		} else {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "setCell out of bounds pos:", x, *y, "cap:", grid.rows, grid.cols, "grid:", grid)
-		}
+		grid.setCell(x, *y, char, attribId)
 		*y++
 	}
 }
