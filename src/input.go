@@ -84,7 +84,7 @@ var (
 		glfw.KeyKP9:        {key: "k9", val: "9"},
 	}
 
-	// Global input informations
+	// Global input variables
 	lastMousePos     IntVec2
 	lastMouseButton  string
 	lastMouseAction  glfw.Action
@@ -277,9 +277,8 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 		actionCode = "release"
 	}
 
-	row := lastMousePos.Y / singleton.cellHeight
-	col := lastMousePos.X / singleton.cellWidth
-	singleton.nvim.inputMouse(buttonCode, actionCode, currentModifiers, 0, row, col)
+	grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
+	singleton.nvim.inputMouse(buttonCode, actionCode, currentModifiers, grid, row, col)
 
 	lastMouseButton = buttonCode
 	lastMouseAction = action
@@ -296,9 +295,8 @@ func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
 	}
 	// If mouse moving when holding left button, it's drag event
 	if lastMouseAction == glfw.Press {
-		row := lastMousePos.Y / singleton.cellHeight
-		col := lastMousePos.X / singleton.cellWidth
-		singleton.nvim.inputMouse(lastMouseButton, "drag", currentModifiers, 0, row, col)
+		grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
+		singleton.nvim.inputMouse(lastMouseButton, "drag", currentModifiers, grid, row, col)
 	}
 }
 
@@ -310,9 +308,8 @@ func scrollCallback(w *glfw.Window, xpos, ypos float64) {
 	if ypos < 0 {
 		action = "down"
 	}
-	row := lastMousePos.Y / singleton.cellHeight
-	col := lastMousePos.X / singleton.cellWidth
-	singleton.nvim.inputMouse("wheel", action, currentModifiers, 0, row, col)
+	grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
+	singleton.nvim.inputMouse("wheel", action, currentModifiers, grid, row, col)
 }
 
 func dropCallback(w *glfw.Window, names []string) {

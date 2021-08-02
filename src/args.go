@@ -30,6 +30,8 @@ Options:
 	Specify a filename to verbose debug output.
 --nvim <path>
 	Path to nvim executable. May be relative or absolute.
+--multigrid
+	Enable multigrid support.
 --help, -h
 	Prints this message and quits.
 
@@ -42,6 +44,7 @@ type ParsedArgs struct {
 	column     int
 	singleinst bool
 	execPath   string
+	multiGrid  bool
 	others     []string
 }
 
@@ -78,6 +81,11 @@ func ParseArgs(args []string) ParsedArgs {
 		case "--singleinstance", "-si":
 			options.singleinst = true
 			break
+		case "--verbose":
+			assert(len(args) > i+1, "specify filename after --verbose")
+			initVerboseFile(args[i+1])
+			i++
+			break
 		case "--nvim":
 			assert(len(args) > i+1, "specify path after --nvim")
 			absolute, err := filepath.Abs(args[i+1])
@@ -86,11 +94,8 @@ func ParseArgs(args []string) ParsedArgs {
 			}
 			i++
 			break
-		case "--verbose":
-			assert(len(args) > i+1, "specify filename after --verbose")
-			initVerboseFile(args[i+1])
-			i++
-			break
+		case "--multigrid":
+			options.multiGrid = true
 		case "--help", "-h":
 			PrintHelp()
 			os.Exit(0)

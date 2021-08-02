@@ -43,6 +43,8 @@ func main() {
 	defer shutdownLogger()
 	// Trackers are debug functions and collects data about what function
 	// called how many times and it's execution time. Works in only debug build
+	// You need to defer measure_execution_time()() in the beginning of the function
+	// you want to track.
 	init_function_time_tracker()
 	defer close_function_time_tracker()
 	// Parse args

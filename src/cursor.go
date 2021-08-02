@@ -1,8 +1,8 @@
 package main
 
 type Cursor struct {
-	X          int
-	Y          int
+	X, Y       int
+	grid       int
 	anim       Animation
 	needsDraw  bool
 	hidden     bool
@@ -63,7 +63,7 @@ func (cursor *Cursor) createVertexData() {
 	cursor.vertexData = singleton.renderer.reserveVertexData(1)
 }
 
-func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
+func (cursor *Cursor) setPosition(id, x, y int, immediately bool) {
 	if !immediately {
 		cursor.anim = CreateAnimation(
 			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
@@ -72,13 +72,13 @@ func (cursor *Cursor) SetPosition(x, y int, immediately bool) {
 	}
 	cursor.X = x
 	cursor.Y = y
+	cursor.grid = id
 	cursor.needsDraw = true
 	cursor.resetBlinking()
 }
 
-func (cursor *Cursor) isInArea(x, y, w, h int) bool {
-	return cursor.X >= x && cursor.Y >= y &&
-		cursor.X < x+w && cursor.Y < y+h
+func (cursor *Cursor) isInArea(gridId, x, y, w, h int) bool {
+	return gridId == cursor.grid && cursor.X >= x && cursor.Y >= y && cursor.X < x+w && cursor.Y < y+h
 }
 
 func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, bool) {
@@ -112,10 +112,10 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, b
 
 func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	// initialize swapped
-	fg := singleton.grid.defaultBg
-	bg := singleton.grid.defaultFg
+	fg := singleton.gridManager.defaultBg
+	bg := singleton.gridManager.defaultFg
 	if info.attr_id != 0 {
-		attrib := singleton.grid.attributes[info.attr_id]
+		attrib := singleton.gridManager.attributes[info.attr_id]
 		if attrib.foreground.A > 0 {
 			fg = attrib.foreground
 		}
@@ -127,19 +127,20 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 }
 
 // animPosition returns the current rendering position of the cursor
-// Not grid position.
-func (cursor *Cursor) animPosition() IntVec2 {
+// Not grid position. sRow and sCol are grid positions for adding to
+// cursor position.
+func (cursor *Cursor) animPosition(sRow, sCol int) IntVec2 {
 	aPos, finished := cursor.anim.GetCurrentStep(float32(singleton.deltaTime))
 	if finished {
 		cursor.needsDraw = false
 		return IntVec2{
-			X: singleton.cellWidth * cursor.Y,
-			Y: singleton.cellHeight * cursor.X,
+			X: singleton.cellWidth * (sCol + cursor.Y),
+			Y: singleton.cellHeight * (sRow + cursor.X),
 		}
 	} else {
 		return IntVec2{
-			X: int(float32(singleton.cellWidth) * aPos.Y),
-			Y: int(float32(singleton.cellHeight) * aPos.X),
+			X: int(float32(singleton.cellWidth) * (float32(sCol) + aPos.Y)),
+			Y: int(float32(singleton.cellHeight) * (float32(sRow) + aPos.X)),
 		}
 	}
 }
@@ -180,7 +181,7 @@ func (cursor *Cursor) drawWithCell(cell Cell, fg U8Color) {
 	underline := false
 	strikethrough := false
 	if cell.attribId > 0 {
-		attrib := singleton.grid.attributes[cell.attribId]
+		attrib := singleton.gridManager.attributes[cell.attribId]
 		italic = attrib.italic
 		bold = attrib.bold
 		underline = attrib.underline
@@ -201,15 +202,25 @@ func (cursor *Cursor) Draw() {
 	if !cursor.hidden {
 		mode_info := singleton.mode.Current()
 		fg, bg := cursor.modeColors(mode_info)
-		pos := cursor.animPosition()
+		// Get global position of the cursor.
+		sRow := 0
+		sCol := 0
+		grid, ok := singleton.gridManager.grids[cursor.grid]
+		if ok {
+			sRow = grid.sRow
+			sCol = grid.sCol
+		}
+		pos := cursor.animPosition(sRow, sCol)
 		rect, draw_char := cursor.modeRectangle(pos, mode_info)
-		if draw_char && !cursor.needsDraw {
-			cell := singleton.grid.getCell(cursor.X, cursor.Y)
+		// if the draw_char is true, then the cursor shape is block
+		// if the cursor.needsDraw is false, then the cursor animation is finished and this is the last draw
+		if draw_char && !cursor.needsDraw && ok {
+			cell := grid.getCell(cursor.X, cursor.Y)
 			if cell.char != 0 {
 				// We need to draw cell character to the cursor foreground.
 				cursor.drawWithCell(cell, fg)
 			} else {
-				// Clear foreground of the cursor.
+				// Clear foreground character of the cursor.
 				cursor.vertexData.setCellTex1(0, IntRect{})
 				cursor.vertexData.setCellSp(0, U8Color{})
 			}

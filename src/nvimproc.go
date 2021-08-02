@@ -116,6 +116,10 @@ func (proc *NvimProcess) startUI() {
 	options["rgb"] = true
 	options["ext_linegrid"] = true
 
+	if editorParsedArgs.multiGrid {
+		options["ext_multigrid"] = true
+	}
+
 	if err := proc.handle.AttachUI(60, 20, options); err != nil {
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Attaching ui failed:", err)
 	}
@@ -176,7 +180,7 @@ func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
 
 func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bool {
 	cmd := fmt.Sprintf(format, args...)
-	logDebug("Executing script: [", cmd, "]")
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Executing script: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
@@ -311,8 +315,6 @@ func (proc *NvimProcess) requestResize(cellWidthChanged bool) {
 			return
 		}
 		singleton.waitingResize = true
-	} else {
-		logDebug("Resize request won't send because calculateCellCount returned false.")
 	}
 }
 

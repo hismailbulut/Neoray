@@ -45,7 +45,7 @@ func (options *UIOptions) SetGuiFont(newGuiFont string) {
 		}
 		if name == "" {
 			// Disable user font.
-			singleton.renderer.DisableUserFont()
+			singleton.renderer.disableUserFont()
 			singleton.renderer.setFontSize(size)
 		} else if name == options.parsed.guifontname {
 			// Names are same, just resize the font

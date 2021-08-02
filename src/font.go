@@ -7,8 +7,8 @@ import (
 	"github.com/hismailbulut/neoray/src/fontfinder"
 )
 
+// If you want to disable a font, just set size to 0.
 type Font struct {
-	// If you want to disable a font, just set size to 0.
 	size        float32
 	regular     FontFace
 	bold_italic FontFace
@@ -17,13 +17,14 @@ type Font struct {
 }
 
 func CreateDefaultFont() Font {
+	defer measure_execution_time()()
 	font := Font{
 		size: DEFAULT_FONT_SIZE,
 	}
 	var check = func(err error) {
 		if err != nil {
 			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-			logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to load default font! Shutting down.")
+			logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to load default font!")
 		}
 	}
 	var err error

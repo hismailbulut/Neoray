@@ -59,10 +59,10 @@ func shutdownLogger() {
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
 		// Create crash report.
-		crash_msg := "An unexpected error occured and generated a crash report."
+		crash_msg := fmt.Sprintln(pmsg)
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, crash_msg)
 		dialog.Message(crash_msg).Error()
-		createCrashReport("PANIC", pmsg)
+		createCrashReport("[NEORAY] PANIC: " + crash_msg)
 	}
 	// If logfile is initialized then close it.
 	if verboseFile != nil {
@@ -70,14 +70,14 @@ func shutdownLogger() {
 	}
 }
 
-func createCrashReport(msg ...interface{}) {
+func createCrashReport(msg string) {
 	crash_file, err := os.Create("neoray_crash.log")
 	if err == nil {
 		defer crash_file.Close()
 		crash_file.WriteString("NEORAY " + versionString() + " " + buildTypeString() + " Crash Report\n")
 		crash_file.WriteString("Please open an issue in github with this file.\n")
-		crash_file.WriteString("The program is crashed because of the following reasons.\n")
-		crash_file.WriteString("Message: " + fmt.Sprintln(msg...))
+		crash_file.WriteString("The program is crashed because of the following reasons:\n")
+		crash_file.WriteString(msg)
 		crash_file.WriteString(fmt.Sprintln(string(debug.Stack())))
 	}
 }
@@ -92,7 +92,7 @@ func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
 
 	switch log_type {
 	case LOG_TYPE_NVIM:
-		log_string += "[NEOVIM]"
+		log_string += "[NVIM]"
 	case LOG_TYPE_NEORAY:
 		log_string += "[NEORAY]"
 	case LOG_TYPE_RENDERER:
@@ -145,8 +145,16 @@ func logfDebug(format string, message ...interface{}) {
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
 }
 
+// This assert logs fatal when cond is false.
 func assert(cond bool, message ...interface{}) {
 	if cond == false {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
+	}
+}
+
+// This assert logs error when cond is false.
+func assert_error(cond bool, message ...interface{}) {
+	if cond == false {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}
 }

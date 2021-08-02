@@ -111,8 +111,8 @@ func (pmenu *PopupMenu) updateChars() {
 
 func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
 	pmenu.pos = pos
-	fg := singleton.grid.defaultBg
-	bg := singleton.grid.defaultFg
+	fg := singleton.gridManager.defaultBg
+	bg := singleton.gridManager.defaultFg
 	for x, row := range pmenu.cells {
 		for y := range row {
 			cell_id := x*pmenu.width + y
@@ -155,7 +155,7 @@ func (pmenu *PopupMenu) globalRect() IntRect {
 // and if the position is on the button, returns button index.
 func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
 	menuRect := pmenu.globalRect()
-	if posInArea(pos, menuRect) {
+	if pos.inRect(menuRect) {
 		// Areas are intersecting. Now we need to find button under the cursor.
 		// This is very simple. First we find the cell at the position.
 		relativePos := IntVec2{
@@ -179,8 +179,8 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 		if ok {
 			// Fill all cells with default colors.
 			for i := 0; i < pmenu.width*pmenu.height; i++ {
-				pmenu.vertexData.setCellFg(i, singleton.grid.defaultBg)
-				pmenu.vertexData.setCellBg(i, singleton.grid.defaultFg)
+				pmenu.vertexData.setCellFg(i, singleton.gridManager.defaultBg)
+				pmenu.vertexData.setCellBg(i, singleton.gridManager.defaultFg)
 			}
 			if index != -1 {
 				row := index
@@ -188,8 +188,8 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 					// Highlight this row.
 					for col := 1; col < pmenu.width-1; col++ {
 						cell_id := row*pmenu.width + col
-						pmenu.vertexData.setCellFg(cell_id, singleton.grid.defaultFg)
-						pmenu.vertexData.setCellBg(cell_id, singleton.grid.defaultBg)
+						pmenu.vertexData.setCellFg(cell_id, singleton.gridManager.defaultFg)
+						pmenu.vertexData.setCellBg(cell_id, singleton.gridManager.defaultBg)
 					}
 				}
 				singleton.render()
@@ -208,7 +208,7 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 // returns true than you shouldn't send button event to neovim.
 func (pmenu *PopupMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
 	if !rightbutton && !pmenu.hidden {
-		// If positions intersects than call button click event, hide popup menu otherwise.
+		// If positions are intersecting then call button click event, hide popup menu otherwise.
 		ok, index := pmenu.intersects(pos)
 		if ok {
 			if index != -1 {
@@ -220,7 +220,7 @@ func (pmenu *PopupMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
 			pmenu.Hide()
 		}
 	} else if rightbutton {
-		// Open popup menu on this position
+		// Open popup menu at this position
 		pmenu.ShowAt(pos)
 	}
 	return false

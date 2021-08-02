@@ -75,9 +75,10 @@ func handleRedrawEvents() {
 				grid_line(update[1:])
 				break
 			case "grid_clear":
-				singleton.grid.clearCells()
+				grid_clear(update[1:])
 				break
 			case "grid_destroy":
+				grid_destroy(update[1:])
 				break
 			case "grid_cursor_goto":
 				grid_cursor_goto(update[1:])
@@ -85,13 +86,38 @@ func handleRedrawEvents() {
 			case "grid_scroll":
 				grid_scroll(update[1:])
 				break
-			default:
+			case "win_pos":
+				win_pos(update[1:])
 				break
+			case "win_float_pos":
+				win_float_pos(update[1:])
+				break
+			case "win_external_pos":
+				win_external_pos(update[1:])
+				break
+			case "win_hide":
+				win_hide(update[1:])
+				break
+			case "win_close":
+				win_close(update[1:])
+				break
+			case "msg_set_pos":
+				msg_set_pos(update[1:])
+				break
+			case "win_viewport":
+				win_viewport(update[1:])
+				break
+			default:
+				logDebug("Unhandled:", update)
 			}
 		}
 	}
 	// clear update stack
 	singleton.nvim.update_stack = singleton.nvim.update_stack[0:0]
+}
+
+func refToInt(val reflect.Value) int {
+	return int(val.Elem().Convert(t_int).Int())
 }
 
 func option_set(args []interface{}) {
@@ -183,24 +209,27 @@ func mode_change(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
 		singleton.mode.current_mode_name = v.Index(0).Elem().String()
-		singleton.mode.current_mode = int(v.Index(1).Elem().Convert(t_int).Int())
+		singleton.mode.current_mode = refToInt(v.Index(1))
 	}
 }
 
 func grid_resize(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		_ = int(v.Index(0).Elem().Convert(t_int).Int())
-		cols := int(v.Index(1).Elem().Convert(t_int).Int())
-		rows := int(v.Index(2).Elem().Convert(t_int).Int())
+		grid := refToInt(v.Index(0))
+		cols := refToInt(v.Index(1))
+		rows := refToInt(v.Index(2))
 
-		singleton.rowCount = rows
-		singleton.columnCount = cols
-		singleton.cellCount = rows * cols
+		singleton.gridManager.resize(grid, rows, cols)
 
-		singleton.grid.resize(rows, cols)
-		singleton.renderer.resize(rows, cols)
-		singleton.waitingResize = false
+		// Grid 1 is the default grid for entire screen.
+		if grid == 1 {
+			singleton.rowCount = rows
+			singleton.columnCount = cols
+			singleton.cellCount = rows * cols
+			singleton.renderer.resize(rows, cols)
+			singleton.waitingResize = false
+		}
 	}
 }
 
@@ -210,13 +239,13 @@ func default_colors_set(args []interface{}) {
 		fg := v.Index(0).Elem().Convert(t_uint).Uint()
 		bg := v.Index(1).Elem().Convert(t_uint).Uint()
 		sp := v.Index(2).Elem().Convert(t_uint).Uint()
-		singleton.grid.defaultFg = unpackColor(uint32(fg))
-		singleton.grid.defaultBg = unpackColor(uint32(bg))
-		singleton.grid.defaultSp = unpackColor(uint32(sp))
+		singleton.gridManager.defaultFg = unpackColor(uint32(fg))
+		singleton.gridManager.defaultBg = unpackColor(uint32(bg))
+		singleton.gridManager.defaultSp = unpackColor(uint32(sp))
 		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
-		singleton.grid.makeAllCellsChanged()
+		singleton.fullDraw()
 	}
 }
 
@@ -226,7 +255,7 @@ func hl_attr_define(args []interface{}) {
 		// args is an array with first element is
 		// attribute id and second is a map which
 		// contains attribute keys
-		id := int(v.Index(0).Elem().Convert(t_uint).Uint())
+		id := refToInt(v.Index(0))
 		mapIter := v.Index(1).Elem().MapRange()
 		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes
@@ -270,17 +299,17 @@ func hl_attr_define(args []interface{}) {
 				break
 			}
 		}
-		singleton.grid.attributes[id] = hl_attr
-		singleton.grid.makeAllCellsChanged()
+		singleton.gridManager.attributes[id] = hl_attr
+		singleton.fullDraw()
 	}
 }
 
 func grid_line(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		_ = int(v.Index(0).Elem().Convert(t_int).Int())
-		row := int(v.Index(1).Elem().Convert(t_int).Int())
-		col_start := int(v.Index(2).Elem().Convert(t_int).Int())
+		grid := refToInt(v.Index(0))
+		row := refToInt(v.Index(1))
+		col := refToInt(v.Index(2))
 		// cells is an array of arrays each with 1 to 3 elements
 		cells := v.Index(3).Elem().Interface().([]interface{})
 		attribId := 0 // if hl_id is not present, we will use the last one
@@ -302,40 +331,164 @@ func grid_line(args []interface{}) {
 			}
 			repeat := 0
 			if cellv.Len() >= 2 {
-				attribId = int(cellv.Index(1).Elem().Convert(t_int).Int())
+				attribId = refToInt(cellv.Index(1))
 			}
 			if cellv.Len() == 3 {
-				repeat = int(cellv.Index(2).Elem().Convert(t_int).Int())
+				repeat = refToInt(cellv.Index(2))
 			}
-			singleton.grid.setCells(row, &col_start, char, attribId, repeat)
+			singleton.gridManager.setCell(grid, row, &col, char, attribId, repeat)
 		}
+	}
+	singleton.draw()
+}
+
+func grid_clear(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		singleton.gridManager.clear(grid)
+	}
+}
+
+func grid_destroy(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		singleton.gridManager.destroy(grid)
 	}
 }
 
 func grid_cursor_goto(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		_ = int(v.Index(0).Elem().Convert(t_int).Int())
-		X := int(v.Index(1).Elem().Convert(t_int).Int())
-		Y := int(v.Index(2).Elem().Convert(t_int).Int())
-		singleton.cursor.SetPosition(X, Y, false)
+		grid := refToInt(v.Index(0))
+		x := refToInt(v.Index(1))
+		y := refToInt(v.Index(2))
+		singleton.cursor.setPosition(grid, x, y, false)
 	}
 }
 
 func grid_scroll(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		_ = v.Index(0).Elem().Convert(t_int).Int()
-		top := v.Index(1).Elem().Convert(t_int).Int()
-		bot := v.Index(2).Elem().Convert(t_int).Int()
-		left := v.Index(3).Elem().Convert(t_int).Int()
-		right := v.Index(4).Elem().Convert(t_int).Int()
-		rows := v.Index(5).Elem().Convert(t_int).Int()
+		grid := refToInt(v.Index(0))
+		top := refToInt(v.Index(1))
+		bot := refToInt(v.Index(2))
+		left := refToInt(v.Index(3))
+		right := refToInt(v.Index(4))
+		rows := refToInt(v.Index(5))
+		// cols := refToInt(v.Index(6))
 
-		// This is reserved for further use.
-		cols := v.Index(6).Elem().Convert(t_int).Int()
-		assert_debug(cols == 0)
-
-		singleton.grid.scroll(int(top), int(bot), int(rows), int(left), int(right))
+		singleton.gridManager.grids[grid].scroll(top, bot, rows, left, right)
 	}
+}
+
+func win_pos(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		win := refToInt(v.Index(1))
+		start_row := refToInt(v.Index(2))
+		start_col := refToInt(v.Index(3))
+		width := refToInt(v.Index(4))
+		height := refToInt(v.Index(5))
+
+		singleton.gridManager.grids[grid].setPos(win, start_row, start_col, height, width, GridTypeNormal)
+	}
+}
+
+func win_float_pos(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		win := refToInt(v.Index(1))
+		anchor := v.Index(2).Elem().String()
+		anchor_grid := refToInt(v.Index(3))
+		anchor_row := refToInt(v.Index(4))
+		anchor_col := refToInt(v.Index(5))
+		// focusable := v.Index(6).Elem().Bool()
+
+		currentGrid := singleton.gridManager.grids[grid]
+		anchorGrid := singleton.gridManager.grids[anchor_grid]
+
+		row := anchorGrid.sRow + anchor_row
+		col := anchorGrid.sCol + anchor_col
+
+		// TODO: This needs to be revisited.
+		switch anchor {
+		case "NW":
+			break
+		case "NE":
+			col -= currentGrid.cols
+			break
+		case "SW":
+			row -= currentGrid.rows
+			break
+		case "SE":
+			col -= currentGrid.cols
+			row -= currentGrid.rows
+			break
+		}
+
+		currentGrid.setPos(win, row, col, currentGrid.rows, currentGrid.cols, GridTypeFloat)
+	}
+}
+
+func win_external_pos(args []interface{}) {
+	// NOTE: Creating an external window needs hard work. Because of this we
+	// are not support external windows for now.
+	/*
+		for _, arg := range args {
+			// Not implemented
+			v := reflect.ValueOf(arg)
+			grid := refToInt(v.Index(0))
+			win := refToInt(v.Index(1))
+		}
+	*/
+}
+
+func win_hide(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		singleton.gridManager.hide(grid)
+	}
+}
+
+func win_close(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		singleton.gridManager.destroy(grid)
+	}
+}
+
+func msg_set_pos(args []interface{}) {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		grid := refToInt(v.Index(0))
+		row := refToInt(v.Index(1))
+		// scrolled := v.Index(2).Elem().Bool()
+		// sep_char := v.Index(3).Elem().String()
+
+		currentGrid := singleton.gridManager.grids[grid]
+		defaultGrid := singleton.gridManager.grids[1]
+
+		currentGrid.setPos(currentGrid.window, defaultGrid.sRow+row, defaultGrid.sCol,
+			currentGrid.rows, currentGrid.cols, GridTypeMessage)
+	}
+}
+
+func win_viewport(args []interface{}) {
+	/*
+		for _, arg := range args {
+			v := reflect.ValueOf(arg)
+			grid := refToInt(v.Index(0))
+			win := refToInt(v.Index(1))
+			topline := refToInt(v.Index(2))
+			botline := refToInt(v.Index(3))
+			curline := refToInt(v.Index(4))
+			curcol := refToInt(v.Index(5))
+		}
+	*/
 }

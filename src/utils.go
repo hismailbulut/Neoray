@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"sync/atomic"
 	"time"
@@ -59,7 +60,11 @@ func (c U8Color) toF32() F32Color {
 	}
 }
 
-func posInArea(pos IntVec2, area IntRect) bool {
+func (pos IntVec2) String() string {
+	return fmt.Sprintf("(X: %d, Y: %d)", pos.X, pos.Y)
+}
+
+func (pos IntVec2) inRect(area IntRect) bool {
 	return pos.X >= area.X && pos.Y >= area.Y && pos.X < area.X+area.W && pos.Y < area.Y+area.H
 }
 

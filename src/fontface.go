@@ -15,7 +15,6 @@ import (
 
 const (
 	FONT_HINTING = font.HintingFull
-	ADVANCE_CHAR = 'o'
 )
 
 type FontFace struct {
@@ -79,7 +78,7 @@ func (fontFace *FontFace) Resize(newsize float32) {
 }
 
 func (fontFace *FontFace) calcMetrics() {
-	advance, ok := fontFace.handle.GlyphAdvance(ADVANCE_CHAR)
+	advance, ok := fontFace.handle.GlyphAdvance('m')
 	if !ok {
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get font advance!")
 		return

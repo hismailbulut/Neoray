@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"sort"
+)
+
 type Cell struct {
 	char      rune
 	attribId  int
@@ -19,88 +24,241 @@ type HighlightAttribute struct {
 	blend         int
 }
 
+type GridType int32
+
+const (
+	GridTypeNormal  GridType = iota // Normal grid
+	GridTypeMessage                 // Message grid, will be rendered front of the normal grids
+	GridTypeFloat                   // Float window, will be rendered most front
+)
+
 type Grid struct {
+	id         int // id is the same id used in the grids hashmap
+	number     int // number specifies the create order of the grid, which starts from zero and counts
+	typ        GridType
+	sRow, sCol int // top left corner of the grid
+	rows, cols int // rows and columns of the grid
+	window     int // grid's window id
+	hidden     bool
 	cells      [][]Cell
-	defaultFg  U8Color
-	defaultBg  U8Color
-	defaultSp  U8Color
-	attributes map[int]HighlightAttribute
 }
 
-func CreateGrid() Grid {
-	grid := Grid{
+type GridManager struct {
+	grids       map[int]*Grid
+	attributes  map[int]HighlightAttribute
+	defaultFg   U8Color
+	defaultBg   U8Color
+	defaultSp   U8Color
+	sortedGrids []*Grid
+}
+
+func CreateGridManager() GridManager {
+	grid := GridManager{
+		grids:      make(map[int]*Grid),
 		attributes: make(map[int]HighlightAttribute),
 	}
 	return grid
 }
 
+func (gridType GridType) String() string {
+	switch gridType {
+	case GridTypeNormal:
+		return "Normal"
+	case GridTypeMessage:
+		return "Message"
+	case GridTypeFloat:
+		return "Float"
+	}
+	panic("unknown grid type")
+}
+
+// For debugging purposes.
+func (grid *Grid) String() string {
+	return fmt.Sprint("Id: ", grid.id,
+		" Dimensions: ", grid.sRow, grid.sCol, grid.rows, grid.cols,
+		" Win: ", grid.window, " Hidden: ", grid.hidden, " Type: ", grid.typ)
+}
+
+// Sorts grids according to rendering order and returns it.
+func (gridManager *GridManager) getSortedGrids() []*Grid {
+	defer measure_execution_time()()
+	// Resize sorted slice to length of the grids slice
+	if len(gridManager.sortedGrids) < len(gridManager.grids) {
+		gridManager.sortedGrids = make([]*Grid, len(gridManager.grids))
+	} else {
+		gridManager.sortedGrids = gridManager.sortedGrids[:len(gridManager.grids)]
+	}
+	// Copy grids to slice
+	i := 0
+	for _, grid := range gridManager.grids {
+		gridManager.sortedGrids[i] = grid
+		i++
+	}
+	// Sort
+	if len(gridManager.sortedGrids) > 1 {
+		sort.Slice(gridManager.sortedGrids,
+			func(i, j int) bool {
+				g1 := gridManager.sortedGrids[i]
+				g2 := gridManager.sortedGrids[j]
+				if g1.typ > g2.typ {
+					return false
+				}
+				if g1.typ < g2.typ {
+					return true
+				}
+				return g1.number < g2.number
+			})
+	}
+	// TODO: We should check grid's rendering area. Otherwise renderer will
+	// render every visible grid.
+	return gridManager.sortedGrids
+}
+
+// Returns grid id and cell position at the given global position.
+// The returned values are grid id, cell row, cell column
+func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
+	// The input_mouse api call wants 0 for grid when multigrid is not enabled
+	if editorParsedArgs.multiGrid == false {
+		return 0, pos.Y / singleton.cellHeight, pos.X / singleton.cellWidth
+	}
+	id, row, col := -1, -1, -1
+	// Find top grid at this position
+	for i := len(gridManager.sortedGrids) - 1; i > 0; i-- {
+		grid := gridManager.sortedGrids[i]
+		if !grid.hidden {
+			gridRect := IntRect{
+				X: grid.sCol * singleton.cellWidth,
+				Y: grid.sRow * singleton.cellHeight,
+				W: grid.cols * singleton.cellWidth,
+				H: grid.rows * singleton.cellHeight,
+			}
+			if pos.inRect(gridRect) {
+				id = grid.id
+				// Calculate cell position
+				row = (pos.Y - gridRect.Y) / singleton.cellHeight
+				col = (pos.X - gridRect.X) / singleton.cellWidth
+				break
+			}
+		}
+	}
+	return id, row, col
+}
+
 // This function is only used by neovim,
 // and calling this anywhere else may break the program.
+func (gridManager *GridManager) resize(id int, rows, cols int) {
+	defer measure_execution_time()()
+	grid, ok := gridManager.grids[id]
+	if !ok {
+		grid = new(Grid)
+		grid.id = id
+		grid.number = len(gridManager.grids)
+		gridManager.grids[id] = grid
+	}
+	grid.resize(rows, cols)
+}
+
 func (grid *Grid) resize(rows, cols int) {
-	grid.cells = make([][]Cell, rows)
-	for i := range grid.cells {
-		grid.cells[i] = make([]Cell, cols)
-		for j := range grid.cells[i] {
+	if rows == grid.rows && cols == grid.cols {
+		return
+	}
+	if len(grid.cells) < rows {
+		temp := make([][]Cell, len(grid.cells))
+		copy(temp, grid.cells)
+		grid.cells = make([][]Cell, rows)
+		copy(grid.cells, temp)
+	} else {
+		grid.cells = grid.cells[:rows]
+	}
+	for i := 0; i < rows; i++ {
+		if len(grid.cells[i]) < cols {
+			temp := make([]Cell, len(grid.cells[i]))
+			copy(temp, grid.cells[i])
+			grid.cells[i] = make([]Cell, cols)
+			copy(grid.cells[i], temp)
+		} else {
+			grid.cells[i] = grid.cells[i][:cols]
+		}
+		for j := 0; j < cols; j++ {
 			grid.cells[i][j].needsDraw = true
 		}
 	}
+	grid.rows = rows
+	grid.cols = cols
+	singleton.fullDraw()
 }
 
-func (grid *Grid) clearCells() {
-	for _, row := range grid.cells {
-		for _, cell := range row {
-			cell.char = 0
-			cell.attribId = 0
-			cell.needsDraw = true
+func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
+	grid.sRow = sRow
+	grid.sCol = sCol
+	if rows != grid.rows || cols != grid.cols {
+		grid.resize(rows, cols)
+	}
+	grid.window = win
+	grid.typ = typ
+	grid.hidden = false
+	singleton.fullDraw()
+}
+
+func (gridManager *GridManager) hide(id int) {
+	grid := gridManager.grids[id]
+	grid.hidden = true
+	singleton.fullDraw()
+}
+
+func (gridManager *GridManager) destroy(id int) {
+	delete(gridManager.grids, id)
+	singleton.fullDraw()
+}
+
+func (gridManager *GridManager) clear(id int) {
+	grid := gridManager.grids[id]
+	for i := 0; i < grid.rows; i++ {
+		for j := 0; j < grid.cols; j++ {
+			grid.cells[i][j].char = 0
+			grid.cells[i][j].attribId = 0
+			grid.cells[i][j].needsDraw = true
 		}
 	}
 	singleton.draw()
 }
 
-// This makes all cells will be rendered in the next
-// draw call. We are using this when a highlight attribute
-// changes. Because we don't know how many and which cells
-// will be affected from highlight attribute change.
-func (grid *Grid) makeAllCellsChanged() {
-	for i := range grid.cells {
-		for j := range grid.cells[i] {
-			grid.cells[i][j].needsDraw = true
-		}
-	}
-	singleton.draw()
-}
-
-// Sets cells with the given parameters, and advances y to the next.
-// This function will not check the end of the row. And currently
-// only used by neovim. If you need to set a cell for your needs,
-// you should create an alternative function.
-// If `repeat` is present, the cell should be
-// repeated `repeat` times (including the first time)
-func (grid *Grid) setCells(x int, y *int, char rune, attribId int, repeat int) {
+// Sets cells with the given parameters, and advances y to the next. This
+// function will not check the end of the row. And currently only used by
+// neovim. If `repeat` is present, the cell should be repeated `repeat` times
+// (including the first time)
+func (gridManager *GridManager) setCell(id, x int, y *int, char rune, attribId, repeat int) {
+	grid := gridManager.grids[id]
 	cell_count := 1
 	if repeat > 0 {
 		cell_count = repeat
 	}
 	for i := 0; i < cell_count; i++ {
-		grid.setCell(x, *y, char, attribId)
+		if x < grid.rows && *y < grid.cols {
+			grid.setCell(x, *y, char, attribId)
+		} else {
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "setCell out of bounds pos:", x, *y, "cap:", grid.rows, grid.cols, "grid:", grid)
+		}
 		*y++
 	}
 }
 
+// Sets the cell in grid. Does not check bounds.
 func (grid *Grid) setCell(x, y int, char rune, attribId int) {
 	grid.cells[x][y].char = char
 	grid.cells[x][y].attribId = attribId
 	grid.cells[x][y].needsDraw = true
 }
 
-// This function returns a copy of the cell.
+// This function returns a copy of the cell. Does not check bounds.
 func (grid *Grid) getCell(x, y int) Cell {
 	return grid.cells[x][y]
 }
 
 func (grid *Grid) copyRow(dst, src, left, right int) {
 	copy(grid.cells[dst][left:right], grid.cells[src][left:right])
-	singleton.renderer.copyRowData(dst, src, left, right)
+	// Renderer needs global position
+	singleton.renderer.copyRowData(dst+grid.sRow, src+grid.sRow, left+grid.sCol, right+grid.sCol)
 }
 
 func (grid *Grid) scroll(top, bot, rows, left, right int) {
@@ -114,16 +272,18 @@ func (grid *Grid) scroll(top, bot, rows, left, right int) {
 			grid.copyRow(y-rows, y, left, right)
 		}
 	}
+	// Animate cursor when scrolling
 	cursor := &singleton.cursor
-	if cursor.isInArea(top, left, bot-top, right-left) {
+	if cursor.isInArea(grid.id, top, left, bot-top, right-left) {
 		// This is for cursor animation when scrolling. Simply we are moving cursor
 		// with scroll area immediately, and returning back to its position smoothly.
 		target := cursor.X - rows
-		if target >= 0 && target < singleton.rowCount {
+		if target >= 0 && target < singleton.gridManager.grids[cursor.grid].rows {
 			current := cursor.X
-			cursor.SetPosition(target, cursor.Y, true)
-			cursor.SetPosition(current, cursor.Y, false)
+			cursor.setPosition(cursor.grid, target, cursor.Y, true)
+			cursor.setPosition(cursor.grid, current, cursor.Y, false)
 		}
 	}
-	singleton.draw()
+	// We dont need to draw screen because we already directly moved vertex data. Only rendering will be fine.
+	singleton.render()
 }

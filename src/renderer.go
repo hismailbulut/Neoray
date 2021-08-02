@@ -27,6 +27,8 @@ type Renderer struct {
 	renderCall bool
 	// If this is true, the DrawAllChangedCells function will be called from Update.
 	drawCall bool
+	// If this is true, the entire screen will forced to redraw.
+	fullDrawCall bool
 }
 
 type VertexDataStorage struct {
@@ -83,7 +85,7 @@ func (renderer *Renderer) setFontSize(size float32) {
 	}
 }
 
-func (renderer *Renderer) DisableUserFont() {
+func (renderer *Renderer) disableUserFont() {
 	if renderer.userFont.size > 0 {
 		renderer.userFont.size = 0
 		renderer.updateCellSize(&renderer.defaultFont)
@@ -123,8 +125,7 @@ func (renderer *Renderer) clearAtlas() {
 	renderer.fontAtlas.characters = make(map[string]IntRect)
 	renderer.fontAtlas.pos = IntVec2{}
 	singleton.popupMenu.updateChars()
-	singleton.grid.makeAllCellsChanged()
-	renderer.drawCall = true
+	singleton.fullDraw()
 }
 
 func (renderer *Renderer) createVertexData(rows, cols int) {
@@ -408,7 +409,7 @@ func (renderer *Renderer) DrawCellCustom(
 	// draw Background
 	renderer.setCellBg(x, y, bg)
 	if char == 0 {
-		// This is an empty cell, clear the vertex data
+		// This is an empty cell, clear foreground data
 		if y+1 < singleton.columnCount {
 			renderer.setCellTex2(x, y+1, IntRect{})
 		}
@@ -457,10 +458,9 @@ func (renderer *Renderer) DrawCellCustom(
 }
 
 func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib HighlightAttribute) {
-	// attrib id 0 is default palette
-	fg := singleton.grid.defaultFg
-	bg := singleton.grid.defaultBg
-	sp := singleton.grid.defaultSp
+	fg := singleton.gridManager.defaultFg
+	bg := singleton.gridManager.defaultBg
+	sp := singleton.gridManager.defaultSp
 	// bg transparency, this only affects default attribute backgrounds
 	bg.A = singleton.backgroundAlpha()
 	// set attribute colors
@@ -484,20 +484,21 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 	if cell.attribId > 0 {
-		renderer.DrawCellWithAttrib(x, y, cell, singleton.grid.attributes[cell.attribId])
+		renderer.DrawCellWithAttrib(x, y, cell, singleton.gridManager.attributes[cell.attribId])
 	} else {
-		// transparency
-		bg := singleton.grid.defaultBg
+		// attrib id 0 is default palette
+		bg := singleton.gridManager.defaultBg
 		bg.A = singleton.backgroundAlpha()
 		renderer.DrawCellCustom(x, y, cell.char,
-			singleton.grid.defaultFg, bg, singleton.grid.defaultSp,
+			singleton.gridManager.defaultFg, bg, singleton.gridManager.defaultSp,
 			false, false, false, false, false)
 	}
 }
 
 func (renderer *Renderer) update() {
-	if renderer.drawCall {
-		renderer.drawAllChangedCells()
+	if renderer.drawCall || renderer.fullDrawCall {
+		renderer.drawChangedCells(renderer.fullDrawCall)
+		renderer.fullDrawCall = false
 		renderer.drawCall = false
 	}
 	if renderer.renderCall {
@@ -507,28 +508,36 @@ func (renderer *Renderer) update() {
 }
 
 // This function draws all canged cells, sets renderCall to true and draws cursor one more time.
-// Dont use directly. Use singleton.draw()
-func (renderer *Renderer) drawAllChangedCells() {
+// Dont use directly. Use singleton.draw() or force full draw with singleton.fullDraw()
+func (renderer *Renderer) drawChangedCells(fullDraw bool) {
 	defer measure_execution_time()()
-	// Set changed cells vertex data
-	for x, row := range singleton.grid.cells {
-		for y, cell := range row {
-			if cell.needsDraw {
-				renderer.DrawCell(x, y, cell)
-				singleton.grid.cells[x][y].needsDraw = false
+	// Draw in order
+	for _, grid := range singleton.gridManager.getSortedGrids() {
+		if !grid.hidden {
+			for x := 0; x < grid.rows; x++ {
+				for y := 0; y < grid.cols; y++ {
+					cell := grid.getCell(x, y)
+					// Global position of the cell
+					gX := grid.sRow + x
+					gY := grid.sCol + y
+					if gX < singleton.rowCount && gY < singleton.columnCount && (cell.needsDraw || fullDraw) {
+						renderer.DrawCell(gX, gY, cell)
+						grid.cells[x][y].needsDraw = false
+					}
+				}
 			}
 		}
 	}
 	// Draw cursor one more time.
 	singleton.cursor.Draw()
 	// Render changes
-	renderer.renderCall = true
+	singleton.render()
 }
 
 // Don't call this function directly. Use singleton.render()
 func (renderer *Renderer) render() {
 	rglUpdateVertices(renderer.vertexData)
-	rglClearScreen(singleton.grid.defaultBg)
+	rglClearScreen(singleton.gridManager.defaultBg)
 	rglRender()
 	singleton.window.handle.SwapBuffers()
 }

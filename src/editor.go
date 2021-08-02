@@ -34,8 +34,8 @@ type Editor struct {
 	// Grid is a neovim window if multigrid option is enabled, otherwise full
 	// screen. Grid has cells and it's attributes, and contains all
 	// information how cells and fonts will be rendered.
-	// grid.go
-	grid Grid
+	// gridManager.go
+	gridManager GridManager
 	// Cursor represents a neovim cursor and all it's information
 	// cursor.go
 	cursor Cursor
@@ -90,7 +90,7 @@ func (editor *Editor) Initialize() {
 
 	editor.uiOptions = UIOptions{}
 
-	editor.grid = CreateGrid()
+	editor.gridManager = CreateGridManager()
 	editor.mode = CreateMode()
 	editor.cursor = CreateCursor()
 	editor.popupMenu = CreatePopupMenu()
@@ -199,25 +199,32 @@ func (editor *Editor) backgroundAlpha() uint8 {
 	return uint8(editor.options.transparency * 255)
 }
 
+// If this function called, the screen will be rendered in current loop.
 func (editor *Editor) render() {
 	editor.renderer.renderCall = true
 }
 
+// If this function called, the entire screen will be drawed in current loop.
+func (editor *Editor) fullDraw() {
+	editor.renderer.fullDrawCall = true
+}
+
+// If this function called, changed cells will be drawed in current loop.
 func (editor *Editor) draw() {
 	editor.renderer.drawCall = true
 }
 
 func (editor *Editor) debugEvalCell(x, y int) {
-	cell := editor.grid.getCell(x, y)
-	vertex := editor.renderer.debugGetCellData(x, y)
-	format := `Cell information:
-	pos: %d %d
-	char: %s %d
-	attrib_id: %d
-	needs_redraw: %t
-	Data : %+v`
-	logfDebug(format, x, y, string(cell.char), cell.char,
-		cell.attribId, cell.needsDraw, vertex)
+	// TODO Won't work since multigrid.
+	// cell := editor.gridManager.getCell(1, x, y)
+	// vertex := editor.renderer.debugGetCellData(x, y)
+	// format := `Cell information:
+	// pos: %d %d
+	// char: %s %d
+	// attrib_id: %d
+	// needs_redraw: %t
+	// Data : %+v`
+	// logfDebug(format, x, y, string(cell.char), cell.char, cell.attribId, cell.needsDraw, vertex)
 }
 
 func (editor *Editor) Shutdown() {
