@@ -265,9 +265,7 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 	default:
 		// Other mouse buttons will print the cell info under the cursor in debug build.
 		if isDebugBuild() && action == glfw.Release {
-			row := lastMousePos.Y / singleton.cellHeight
-			col := lastMousePos.X / singleton.cellWidth
-			singleton.debugEvalCell(row, col)
+			singleton.debugPrintCell(lastMousePos)
 		}
 		return
 	}
