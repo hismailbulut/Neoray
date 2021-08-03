@@ -214,17 +214,20 @@ func (editor *Editor) draw() {
 	editor.renderer.drawCall = true
 }
 
-func (editor *Editor) debugEvalCell(x, y int) {
-	// TODO Won't work since multigrid.
-	// cell := editor.gridManager.getCell(1, x, y)
-	// vertex := editor.renderer.debugGetCellData(x, y)
-	// format := `Cell information:
-	// pos: %d %d
-	// char: %s %d
-	// attrib_id: %d
-	// needs_redraw: %t
-	// Data : %+v`
-	// logfDebug(format, x, y, string(cell.char), cell.char, cell.attribId, cell.needsDraw, vertex)
+// This function prints cell at the pos.
+func (editor *Editor) debugPrintCell(pos IntVec2) {
+	id, x, y := editor.gridManager.getCellAt(pos)
+	grid := editor.gridManager.grids[id]
+	cell := grid.getCell(x, y)
+	vertex := editor.renderer.debugGetCellData(grid.sRow+x, grid.sCol+y)
+	format := `Cell information:
+	grid: %s
+	pos: %d %d
+	char: %s %d
+	attrib_id: %d
+	needs_redraw: %t
+	data : %+v`
+	logfDebug(format, grid, x, y, string(cell.char), cell.char, cell.attribId, cell.needsDraw, vertex)
 }
 
 func (editor *Editor) Shutdown() {
