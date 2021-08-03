@@ -10,6 +10,8 @@ var (
 )
 
 func handleRedrawEvents() {
+	defer measure_execution_time()()
+
 	singleton.nvim.update_mutex.Lock()
 	defer singleton.nvim.update_mutex.Unlock()
 
@@ -24,91 +26,57 @@ func handleRedrawEvents() {
 			case "set_title":
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
 				singleton.window.setTitle(title)
-				break
 			case "set_icon":
-				break
 			case "mode_info_set":
 				mode_info_set(update[1:])
-				break
 			case "option_set":
 				option_set(update[1:])
-				break
 			case "mode_change":
 				mode_change(update[1:])
-				break
 			case "mouse_on":
-				break
 			case "mouse_off":
-				break
 			case "busy_start":
 				singleton.cursor.Hide()
-				break
 			case "busy_stop":
 				singleton.cursor.Show()
-				break
 			case "suspend":
-				break
 			case "update_menu":
-				break
 			case "bell":
-				logDebug(update...)
-				break
 			case "visual_bell":
-				logDebug(update...)
-				break
 			case "flush":
 				singleton.draw()
-				break
 			// Grid Events (line-based)
 			case "grid_resize":
 				grid_resize(update[1:])
-				break
 			case "default_colors_set":
 				default_colors_set(update[1:])
-				break
 			case "hl_attr_define":
 				hl_attr_define(update[1:])
-				break
 			case "hl_group_set":
-				break
 			case "grid_line":
 				grid_line(update[1:])
-				break
 			case "grid_clear":
 				grid_clear(update[1:])
-				break
 			case "grid_destroy":
 				grid_destroy(update[1:])
-				break
 			case "grid_cursor_goto":
 				grid_cursor_goto(update[1:])
-				break
 			case "grid_scroll":
 				grid_scroll(update[1:])
-				break
 			case "win_pos":
 				win_pos(update[1:])
-				break
 			case "win_float_pos":
 				win_float_pos(update[1:])
-				break
 			case "win_external_pos":
 				win_external_pos(update[1:])
-				break
 			case "win_hide":
 				win_hide(update[1:])
-				break
 			case "win_close":
 				win_close(update[1:])
-				break
 			case "msg_set_pos":
 				msg_set_pos(update[1:])
-				break
 			case "win_viewport":
 				win_viewport(update[1:])
-				break
-			default:
-				logDebug("Unhandled:", update)
 			}
 		}
 	}
@@ -127,34 +95,24 @@ func option_set(args []interface{}) {
 		switch reflect.ValueOf(arg).Index(0).Elem().String() {
 		case "arabicshape":
 			options.arabicshape = val.Bool()
-			break
 		case "ambiwidth":
 			options.ambiwidth = val.String()
-			break
 		case "emoji":
 			options.emoji = val.Bool()
-			break
 		case "guifont":
 			options.SetGuiFont(val.String())
-			break
 		case "guifontset":
 			options.guifontset = val.String()
-			break
 		case "guifontwide":
 			options.guifontwide = val.String()
-			break
 		case "linespace":
 			options.linespace = int(val.Convert(t_int).Int())
-			break
 		case "pumblend":
 			options.pumblend = int(val.Convert(t_int).Int())
-			break
 		case "showtabline":
 			options.showtabline = int(val.Convert(t_int).Int())
-			break
 		case "termguicolors":
 			options.termguicolors = val.Bool()
-			break
 		}
 	}
 }
@@ -172,31 +130,22 @@ func mode_info_set(args []interface{}) {
 				switch mapIter.Key().String() {
 				case "cursor_shape":
 					info.cursor_shape = val.String()
-					break
 				case "cell_percentage":
 					info.cell_percentage = int(val.Convert(t_int).Int())
-					break
 				case "blinkwait":
 					info.blinkwait = int(val.Convert(t_int).Int())
-					break
 				case "blinkon":
 					info.blinkon = int(val.Convert(t_int).Int())
-					break
 				case "blinkoff":
 					info.blinkoff = int(val.Convert(t_int).Int())
-					break
 				case "attr_id":
 					info.attr_id = int(val.Convert(t_int).Int())
-					break
 				case "attr_id_lm":
 					info.attr_id_lm = int(val.Convert(t_int).Int())
-					break
 				case "short_name":
 					info.short_name = val.String()
-					break
 				case "name":
 					info.name = val.String()
-					break
 				}
 			}
 			singleton.mode.Add(info)
@@ -265,38 +214,28 @@ func hl_attr_define(args []interface{}) {
 			case "foreground":
 				fg := uint32(val.Convert(t_uint).Uint())
 				hl_attr.foreground = unpackColor(fg)
-				break
 			case "background":
 				bg := uint32(val.Convert(t_uint).Uint())
 				hl_attr.background = unpackColor(bg)
-				break
 			case "special":
 				sp := uint32(val.Convert(t_uint).Uint())
 				hl_attr.special = unpackColor(sp)
-				break
 			// All boolean keys default to false,
 			// and will only be sent when they are true.
 			case "reverse":
 				hl_attr.reverse = true
-				break
 			case "italic":
 				hl_attr.italic = true
-				break
 			case "bold":
 				hl_attr.bold = true
-				break
 			case "strikethrough":
 				hl_attr.strikethrough = true
-				break
 			case "underline":
 				hl_attr.underline = true
-				break
 			case "undercurl":
 				hl_attr.undercurl = true
-				break
 			case "blend":
 				hl_attr.blend = int(val.Convert(t_uint).Uint())
-				break
 			}
 		}
 		singleton.gridManager.attributes[id] = hl_attr
@@ -417,17 +356,13 @@ func win_float_pos(args []interface{}) {
 		// TODO: This needs to be revisited.
 		switch anchor {
 		case "NW":
-			break
 		case "NE":
 			col -= currentGrid.cols
-			break
 		case "SW":
 			row -= currentGrid.rows
-			break
 		case "SE":
 			col -= currentGrid.cols
 			row -= currentGrid.rows
-			break
 		}
 
 		currentGrid.setPos(win, row, col, currentGrid.rows, currentGrid.cols, GridTypeFloat)
