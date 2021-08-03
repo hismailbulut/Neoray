@@ -5,35 +5,42 @@ import (
 	"github.com/sqweek/dialog"
 )
 
-var ButtonNames = []string{
-	"Cut", "Copy", "Paste", "Select All", "Open File",
-}
+// This is not the ext_popupmenu implementation, this is just right click context menu.
 
-var MenuButtonEvents = map[string]func(){
-	ButtonNames[0]: func() { //cut
-		text := singleton.nvim.cutSelected()
-		if text != "" {
-			glfw.SetClipboardString(text)
-		}
-	},
-	ButtonNames[1]: func() { //copy
-		text := singleton.nvim.copySelected()
-		if text != "" {
-			glfw.SetClipboardString(text)
-		}
-	},
-	ButtonNames[2]: func() { //paste
-		singleton.nvim.paste(glfw.GetClipboardString())
-	},
-	ButtonNames[3]: func() { //select all
-		singleton.nvim.selectAll()
-	},
-	ButtonNames[4]: func() { //open file
-		filename, err := dialog.File().Load()
-		if err == nil && filename != "" && filename != " " {
-			singleton.nvim.openFile(filename)
-		}
-	},
+// You can add more buttons here.
+var PopupMenuButtons = []struct {
+	name string
+	fn   func()
+}{
+	{name: "Cut",
+		fn: func() {
+			text := singleton.nvim.cutSelected()
+			if text != "" {
+				glfw.SetClipboardString(text)
+			}
+		}},
+	{name: "Copy",
+		fn: func() {
+			text := singleton.nvim.copySelected()
+			if text != "" {
+				glfw.SetClipboardString(text)
+			}
+		}},
+	{name: "Paste",
+		fn: func() {
+			singleton.nvim.paste(glfw.GetClipboardString())
+		}},
+	{name: "Select All",
+		fn: func() {
+			singleton.nvim.selectAll()
+		}},
+	{name: "Open File",
+		fn: func() {
+			filename, err := dialog.File().Load()
+			if err == nil && filename != "" {
+				singleton.nvim.openFile(filename)
+			}
+		}},
 }
 
 type PopupMenu struct {
@@ -51,14 +58,14 @@ func CreatePopupMenu() PopupMenu {
 	}
 	// Find the longest text.
 	longest := 0
-	for _, name := range ButtonNames {
-		if len(name) > longest {
-			longest = len(name)
+	for _, btn := range PopupMenuButtons {
+		if len(btn.name) > longest {
+			longest = len(btn.name)
 		}
 	}
 	// Create cells
 	pmenu.width = longest + 2
-	pmenu.height = len(ButtonNames)
+	pmenu.height = len(PopupMenuButtons)
 	pmenu.cells = make([][]rune, pmenu.height, pmenu.height)
 	for i := range pmenu.cells {
 		pmenu.cells[i] = make([]rune, pmenu.width, pmenu.width)
@@ -74,8 +81,8 @@ func (pmenu *PopupMenu) createCells() {
 		for y := range row {
 			var c rune = 0
 			if y != 0 && y != pmenu.width-1 {
-				if y-1 < len(ButtonNames[x]) {
-					c = rune(ButtonNames[x][y-1])
+				if y-1 < len(PopupMenuButtons[x].name) {
+					c = rune(PopupMenuButtons[x].name[y-1])
 					if c == ' ' {
 						c = 0
 					}
@@ -175,19 +182,20 @@ func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
 // Call this function when mouse moved.
 func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 	if !pmenu.hidden {
+		// Fill all cells with default colors.
+		for i := 0; i < pmenu.width*pmenu.height; i++ {
+			pmenu.vertexData.setCellFg(i, singleton.gridManager.defaultBg)
+			pmenu.vertexData.setCellBg(i, singleton.gridManager.defaultFg)
+		}
 		ok, index := pmenu.intersects(pos)
 		if ok {
-			// Fill all cells with default colors.
-			for i := 0; i < pmenu.width*pmenu.height; i++ {
-				pmenu.vertexData.setCellFg(i, singleton.gridManager.defaultBg)
-				pmenu.vertexData.setCellBg(i, singleton.gridManager.defaultFg)
-			}
+			// The index is not -1 means cursor is on top of a button. And
+			// index is the index of the button and also row of the popup menu.
 			if index != -1 {
-				row := index
-				if row < len(pmenu.cells) {
+				if index < len(pmenu.cells) {
 					// Highlight this row.
 					for col := 1; col < pmenu.width-1; col++ {
-						cell_id := row*pmenu.width + col
+						cell_id := index*pmenu.width + col
 						pmenu.vertexData.setCellFg(cell_id, singleton.gridManager.defaultFg)
 						pmenu.vertexData.setCellBg(cell_id, singleton.gridManager.defaultBg)
 					}
@@ -212,7 +220,7 @@ func (pmenu *PopupMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
 		ok, index := pmenu.intersects(pos)
 		if ok {
 			if index != -1 {
-				MenuButtonEvents[ButtonNames[index]]()
+				PopupMenuButtons[index].fn()
 				pmenu.Hide()
 			}
 			return true
