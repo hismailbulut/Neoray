@@ -57,7 +57,7 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.Resizable, glfw.True)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
 
-	// NOTE: When doublebuffering is on, framebuffer transparency not working on fullscreen
+	// Framebuffer transparency not working on fullscreen when doublebuffer is on.
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 
 	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
