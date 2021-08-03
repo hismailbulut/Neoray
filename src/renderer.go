@@ -194,7 +194,7 @@ func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
 
 // Reserve calculates needed vertex size for given cell count,
 // allocates data for it and returns beginning of the index of the reserved data.
-// You can set this data using SetVertex* functions. Functions takes index arguments
+// You can set this data using setCell* functions. Functions takes index arguments
 // as cell positions, not vertex data positions.
 func (renderer *Renderer) reserveVertexData(cellCount int) VertexDataStorage {
 	begin := len(renderer.vertexData)
