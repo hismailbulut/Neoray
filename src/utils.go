@@ -64,6 +64,10 @@ func (pos IntVec2) String() string {
 	return fmt.Sprintf("(X: %d, Y: %d)", pos.X, pos.Y)
 }
 
+func (rect F32Rect) String() string {
+	return fmt.Sprintf("(X: %f, Y: %f, W: %f, H: %f)", rect.X, rect.Y, rect.W, rect.H)
+}
+
 func (pos IntVec2) inRect(area IntRect) bool {
 	return pos.X >= area.X && pos.Y >= area.Y && pos.X < area.X+area.W && pos.Y < area.Y+area.H
 }
