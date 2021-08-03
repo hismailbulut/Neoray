@@ -78,13 +78,11 @@ func (proc *NvimProcess) requestApiInfo() {
 			"Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")
 	}
 
-	vStr := fmt.Sprintf("v%d.%d.%d", vMajor, vMinor, vPatch)
+	vStr := fmt.Sprintf("%d.%d.%d", vMajor, vMinor, vPatch)
 	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim version", vStr)
 }
 
 func (proc *NvimProcess) introduce() {
-	defer measure_execution_time()()
-
 	// Short name for the connected client
 	name := TITLE
 	// Dictionary describing the version
@@ -110,8 +108,6 @@ func (proc *NvimProcess) introduce() {
 }
 
 func (proc *NvimProcess) startUI() {
-	defer measure_execution_time()()
-
 	options := make(map[string]interface{})
 	options["rgb"] = true
 	options["ext_linegrid"] = true
@@ -163,17 +159,17 @@ func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
 	defer measure_execution_time()()
 	eventName := "optc_" + name
 	var opt interface{}
-	okc := make(chan bool)
-	defer close(okc)
+	ch := make(chan bool)
+	defer close(ch)
 	proc.handle.RegisterHandler(eventName, func(val interface{}) {
 		opt = val
-		okc <- true
+		ch <- true
 	})
 	defer proc.handle.Unsubscribe(eventName)
 	ok := proc.executeVimScript("call rpcnotify(%d, \"%s\", &%s)",
 		proc.handle.ChannelID(), eventName, name)
 	if ok {
-		<-okc
+		<-ch
 	}
 	return opt
 }
