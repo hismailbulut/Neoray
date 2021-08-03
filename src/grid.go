@@ -81,7 +81,6 @@ func (grid *Grid) String() string {
 
 // Sorts grids according to rendering order and returns it.
 func (gridManager *GridManager) getSortedGrids() []*Grid {
-	defer measure_execution_time()()
 	// Resize sorted slice to length of the grids slice
 	if len(gridManager.sortedGrids) < len(gridManager.grids) {
 		gridManager.sortedGrids = make([]*Grid, len(gridManager.grids))
@@ -123,7 +122,7 @@ func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
 	}
 	id, row, col := -1, -1, -1
 	// Find top grid at this position
-	for i := len(gridManager.sortedGrids) - 1; i > 0; i-- {
+	for i := len(gridManager.sortedGrids) - 1; i >= 0; i-- {
 		grid := gridManager.sortedGrids[i]
 		if !grid.hidden {
 			gridRect := IntRect{
@@ -145,7 +144,6 @@ func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
 }
 
 func (gridManager *GridManager) resize(id int, rows, cols int) {
-	defer measure_execution_time()()
 	grid, ok := gridManager.grids[id]
 	if !ok {
 		grid = new(Grid)
@@ -157,9 +155,11 @@ func (gridManager *GridManager) resize(id int, rows, cols int) {
 }
 
 func (grid *Grid) resize(rows, cols int) {
+	// Don't resize if sizes are same
 	if rows == grid.rows && cols == grid.cols {
 		return
 	}
+	// Resize grid and copy cells
 	if len(grid.cells) < rows {
 		temp := make([][]Cell, len(grid.cells))
 		copy(temp, grid.cells)
