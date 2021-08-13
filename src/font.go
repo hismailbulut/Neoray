@@ -7,13 +7,18 @@ import (
 	"github.com/hismailbulut/neoray/src/fontfinder"
 )
 
+const (
+	MINIMUM_FONT_SIZE = 7
+	DEFAULT_FONT_SIZE = 12
+)
+
 // If you want to disable a font, just set size to 0.
 type Font struct {
 	size        float32
-	regular     FontFace
-	bold_italic FontFace
-	italic      FontFace
-	bold        FontFace
+	regular     *FontFace
+	bold_italic *FontFace
+	italic      *FontFace
+	bold        *FontFace
 }
 
 func CreateDefaultFont() Font {
@@ -52,8 +57,6 @@ func CreateDefaultFont() Font {
 
 func CreateFont(fontName string, size float32) (Font, bool) {
 	defer measure_execution_time()()
-
-	assert(fontName != "", "Font name can not be empty!")
 
 	if size < MINIMUM_FONT_SIZE {
 		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
@@ -119,16 +122,16 @@ func (font *Font) Resize(newsize float32) {
 	font.regular.Resize(newsize)
 }
 
+// This function returns nil when there is no requested font style
 func (font *Font) GetSuitableFace(italic bool, bold bool) *FontFace {
-	// TODO: Return nil.
-	if font.bold_italic.loaded && italic && bold {
-		return &font.bold_italic
-	} else if font.italic.loaded && italic {
-		return &font.italic
-	} else if font.bold.loaded && bold {
-		return &font.bold
+	if italic && bold {
+		return font.bold_italic
+	} else if italic {
+		return font.italic
+	} else if bold {
+		return font.bold
 	}
-	return &font.regular
+	return font.regular
 }
 
 func (font *Font) GetCellSize() (int, int) {
