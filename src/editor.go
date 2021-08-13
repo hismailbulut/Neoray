@@ -6,11 +6,6 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
-const (
-	MINIMUM_FONT_SIZE = 7
-	DEFAULT_FONT_SIZE = 12
-)
-
 type Options struct {
 	// custom options
 	cursorAnimTime      float32
@@ -60,17 +55,10 @@ type Editor struct {
 	server *TCPServer
 	// If quitRequested is true the program will quit.
 	quitRequested chan bool
-	// This is for resizing from nvim side, first we will send resize request
-	// to neovim, than we wait for the resize call from neovim side. When
-	// waiting this we dont want to render.
-	waitingResize bool
 	// Initializing in CreateRenderer
+	// TODO: I am going to implement per grid font size, and these variables will be moved to grid.
 	cellWidth  int
 	cellHeight int
-	// Initializing in Editor.calculateCellCount
-	rowCount    int
-	columnCount int
-	cellCount   int
 	// Initializing in Editor.MainLoop
 	updatesPerSecond int
 	// Last elapsed time between updates.
@@ -154,6 +142,7 @@ func (editor *Editor) MainLoop() {
 			}
 			// Update program
 			editor.update()
+			glfw.PollEvents()
 			// Check for window close
 			if editor.window.handle.ShouldClose() {
 				// Send quit command to neovim and not quit until neovim quits.
@@ -173,26 +162,9 @@ func (editor *Editor) update() {
 		editor.server.update()
 	}
 	handleRedrawEvents()
-	if !editor.waitingResize {
-		editor.window.update()
-		editor.cursor.update()
-		editor.renderer.update()
-	}
-	glfw.PollEvents()
-}
-
-// Calculates dimensions of the window as cell size.
-// Returns true if the dimensions has changed.
-func (editor *Editor) calculateCellCount() bool {
-	cols := editor.window.width / editor.cellWidth
-	rows := editor.window.height / editor.cellHeight
-	if cols != editor.columnCount || rows != editor.rowCount {
-		editor.columnCount = cols
-		editor.rowCount = rows
-		editor.cellCount = cols * rows
-		return true
-	}
-	return false
+	editor.window.update()
+	editor.cursor.update()
+	editor.renderer.update()
 }
 
 func (editor *Editor) backgroundAlpha() uint8 {
@@ -217,6 +189,9 @@ func (editor *Editor) draw() {
 // This function prints cell at the pos.
 func (editor *Editor) debugPrintCell(pos IntVec2) {
 	id, x, y := editor.gridManager.getCellAt(pos)
+	if !editorParsedArgs.multiGrid {
+		id = 1
+	}
 	grid := editor.gridManager.grids[id]
 	cell := grid.getCell(x, y)
 	vertex := editor.renderer.debugGetCellData(grid.sRow+x, grid.sCol+y)

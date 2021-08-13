@@ -23,6 +23,8 @@ type Renderer struct {
 	fontAtlas   FontAtlas
 	// Vertex data holds vertices for cells. Every cell has 1 vertex.
 	vertexData []Vertex
+	// Rows is row count and cols is column count of the vertex data.
+	rows, cols int
 	// If this is true, the Render function will be called from Update.
 	renderCall bool
 	// If this is true, the DrawAllChangedCells function will be called from Update.
@@ -107,16 +109,12 @@ func (renderer *Renderer) updateCellSize(font *Font) bool {
 	if w != singleton.cellWidth || h != singleton.cellHeight {
 		singleton.cellWidth = w
 		singleton.cellHeight = h
-		singleton.nvim.requestResize(true)
+		rows := singleton.window.height / h
+		cols := singleton.window.width / w
+		singleton.nvim.requestResize(rows, cols)
 		return true
 	}
 	return false
-}
-
-// This function will only be called from neovim.
-func (renderer *Renderer) resize(rows, cols int) {
-	renderer.createVertexData(rows, cols)
-	rglCreateViewport(singleton.window.width, singleton.window.height)
 }
 
 func (renderer *Renderer) clearAtlas() {
@@ -128,13 +126,19 @@ func (renderer *Renderer) clearAtlas() {
 	singleton.fullDraw()
 }
 
-func (renderer *Renderer) createVertexData(rows, cols int) {
+// This function may only be called from neovim.
+func (renderer *Renderer) resize(rows, cols int) {
+	renderer.rows = rows
+	renderer.cols = cols
+	renderer.createVertexData()
+}
+
+func (renderer *Renderer) createVertexData() {
 	defer measure_execution_time()()
-	cellCount := rows * cols
-	renderer.vertexData = make([]Vertex, cellCount, cellCount)
-	for x := 0; x < rows; x++ {
-		for y := 0; y < cols; y++ {
-			renderer.vertexData[cellVertexPos(x, y)].pos = cellPos(x, y)
+	renderer.vertexData = make([]Vertex, renderer.rows*renderer.cols)
+	for x := 0; x < renderer.rows; x++ {
+		for y := 0; y < renderer.cols; y++ {
+			renderer.vertexData[renderer.cellVertexPos(x, y)].pos = cellPos(x, y)
 		}
 	}
 	// Add cursor to data.
@@ -211,9 +215,9 @@ func (renderer *Renderer) reserveVertexData(cellCount int) VertexDataStorage {
 // This function copies src to dst from left to right,
 // and used for accelerating scroll operations.
 func (renderer *Renderer) copyRowData(dst, src, left, right int) {
-	dst_begin := cellVertexPos(dst, left)
-	src_begin := cellVertexPos(src, left)
-	src_end := cellVertexPos(src, right)
+	dst_begin := renderer.cellVertexPos(dst, left)
+	src_begin := renderer.cellVertexPos(src, left)
+	src_end := renderer.cellVertexPos(src, right)
 	for i := 0; i < src_end-src_begin; i++ {
 		dst_data := &renderer.vertexData[dst_begin+i]
 		src_data := renderer.vertexData[src_begin+i]
@@ -227,28 +231,28 @@ func (renderer *Renderer) copyRowData(dst, src, left, right int) {
 
 func (renderer *Renderer) setCellTex1(x, y int, pos IntRect) {
 	tex1pos := renderer.fontAtlas.texture.glCoords(pos)
-	renderer.vertexData[cellVertexPos(x, y)].tex1 = tex1pos
+	renderer.vertexData[renderer.cellVertexPos(x, y)].tex1 = tex1pos
 }
 
 func (renderer *Renderer) setCellTex2(x, y int, pos IntRect) {
 	tex2pos := renderer.fontAtlas.texture.glCoords(pos)
-	renderer.vertexData[cellVertexPos(x, y)].tex2 = tex2pos
+	renderer.vertexData[renderer.cellVertexPos(x, y)].tex2 = tex2pos
 }
 
 func (renderer *Renderer) setCellFg(x, y int, fg U8Color) {
-	renderer.vertexData[cellVertexPos(x, y)].fg = fg.toF32()
+	renderer.vertexData[renderer.cellVertexPos(x, y)].fg = fg.toF32()
 }
 
 func (renderer *Renderer) setCellBg(x, y int, bg U8Color) {
-	renderer.vertexData[cellVertexPos(x, y)].bg = bg.toF32()
+	renderer.vertexData[renderer.cellVertexPos(x, y)].bg = bg.toF32()
 }
 
 func (renderer *Renderer) setCellSp(x, y int, sp U8Color) {
-	renderer.vertexData[cellVertexPos(x, y)].sp = sp.toF32()
+	renderer.vertexData[renderer.cellVertexPos(x, y)].sp = sp.toF32()
 }
 
 func (renderer *Renderer) debugGetCellData(x, y int) Vertex {
-	return renderer.vertexData[cellVertexPos(x, y)]
+	return renderer.vertexData[renderer.cellVertexPos(x, y)]
 }
 
 // NOTE: Neovim's coordinates and opengl coordinates we are using are
@@ -275,8 +279,8 @@ func cellPos(x, y int) F32Rect {
 	}
 }
 
-func cellVertexPos(x, y int) int {
-	return x*singleton.columnCount + y
+func (renderer *Renderer) cellVertexPos(x, y int) int {
+	return x*renderer.cols + y
 }
 
 func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
@@ -304,8 +308,8 @@ func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
 	}
 	atlas.pos.X = pos.X + width
 	atlas.pos.Y = pos.Y
-	assert(pos.X+width < FONT_ATLAS_DEFAULT_SIZE, "Pos width out of bounds, pos:", pos, "width:", width)
-	assert(pos.Y+singleton.cellHeight < FONT_ATLAS_DEFAULT_SIZE, "Pos height out of bounds, pos:", pos)
+	assert(pos.X+width < FONT_ATLAS_DEFAULT_SIZE, "atlas: width out of bounds, pos:", pos, "width:", width)
+	assert(pos.Y+singleton.cellHeight < FONT_ATLAS_DEFAULT_SIZE, "atlas: height out of bounds, pos:", pos)
 	return pos
 }
 
@@ -313,13 +317,14 @@ func (renderer *Renderer) getSupportedFace(char rune, italic, bold bool) (*FontF
 	// First try the user font for this character.
 	if renderer.userFont.size > 0 {
 		face := renderer.userFont.GetSuitableFace(italic, bold)
-		if face.ContainsGlyph(char) {
+		if face != nil && face.ContainsGlyph(char) {
 			return face, true
 		}
 	}
-	// If this is not regular font, try with default non regular fonts.
+	// Try with default font's non regular face.
 	if italic || bold {
 		face := renderer.defaultFont.GetSuitableFace(italic, bold)
+		assert(face != nil, "Default font's faces cannot be a nil pointer.")
 		if face.ContainsGlyph(char) {
 			return face, true
 		}
@@ -327,6 +332,7 @@ func (renderer *Renderer) getSupportedFace(char rune, italic, bold bool) (*FontF
 	// Use default font if user font not supports this glyph.
 	// Default regular font has (needs to) more glyphs.
 	face := renderer.defaultFont.GetSuitableFace(false, false)
+	assert(face != nil, "Default font's regular face cannot be a nil pointer.")
 	return face, face.ContainsGlyph(char)
 }
 
@@ -410,7 +416,8 @@ func (renderer *Renderer) DrawCellCustom(
 	renderer.setCellBg(x, y, bg)
 	if char == 0 {
 		// This is an empty cell, clear foreground data
-		if y+1 < singleton.columnCount {
+		if y+1 < renderer.cols {
+			// Clear next cells second texture
 			renderer.setCellTex2(x, y+1, IntRect{})
 		}
 		renderer.setCellTex1(x, y, IntRect{})
@@ -435,10 +442,10 @@ func (renderer *Renderer) DrawCellCustom(
 		// The atlas width will be 2 times more if the char is a multiwidth char
 		// and we are dividing atlas to 2. One for current cell and one for next.
 		atlasPos.W /= 2
-		if y+1 < singleton.columnCount {
+		if y+1 < renderer.cols {
 			// Draw the parts more than width to the next cell.
 			// NOTE: The more part has the same color with next cell.
-			// NOTE: Multiwidth cells causes glyphs to merge. But we don't care.
+			// NOTE: Multiwidth cells causes glyphs to overlap. But we don't care.
 			secAtlasPos := IntRect{
 				X: atlasPos.X + singleton.cellWidth,
 				Y: atlasPos.Y,
@@ -477,12 +484,13 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	if attrib.reverse {
 		fg, bg = bg, fg
 	}
-	// Draw cell
+	// draw cell
 	renderer.DrawCellCustom(x, y, cell.char, fg, bg, sp,
 		attrib.italic, attrib.bold, attrib.underline, attrib.undercurl, attrib.strikethrough)
 }
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
+	defer measure_execution_time()()
 	if cell.attribId > 0 {
 		renderer.DrawCellWithAttrib(x, y, cell, singleton.gridManager.attributes[cell.attribId])
 	} else {
@@ -497,7 +505,7 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 
 func (renderer *Renderer) update() {
 	if renderer.drawCall || renderer.fullDrawCall {
-		renderer.drawChangedCells(renderer.fullDrawCall)
+		renderer.drawCells(renderer.fullDrawCall)
 		renderer.fullDrawCall = false
 		renderer.drawCall = false
 	}
@@ -509,18 +517,29 @@ func (renderer *Renderer) update() {
 
 // This function draws all canged cells, sets renderCall to true and draws cursor one more time.
 // Dont use directly. Use singleton.draw() or force full draw with singleton.fullDraw()
-func (renderer *Renderer) drawChangedCells(fullDraw bool) {
+func (renderer *Renderer) drawCells(fullDraw bool) {
 	defer measure_execution_time()()
 	// Draw in order
-	for _, grid := range singleton.gridManager.getSortedGrids() {
+	for _, grid := range singleton.gridManager.sortGrids() {
 		if !grid.hidden {
-			for x := 0; x < grid.rows; x++ {
-				for y := 0; y < grid.cols; y++ {
+			// Sometimes neovim grids can be bigger than the window area.
+			// This calculation is only needed by multigrid.
+			rows := grid.rows
+			if grid.sRow+rows > renderer.rows {
+				rows = renderer.rows - grid.sRow
+			}
+			cols := grid.cols
+			if grid.sCol+cols > renderer.cols {
+				cols = renderer.cols - grid.sCol
+			}
+			// NOTE: We need to also check overlaped cells and only draw frontest cell in the same call.
+			for x := 0; x < rows; x++ {
+				for y := 0; y < cols; y++ {
 					cell := grid.getCell(x, y)
-					// Global position of the cell
-					gX := grid.sRow + x
-					gY := grid.sCol + y
-					if gX < singleton.rowCount && gY < singleton.columnCount && (cell.needsDraw || fullDraw) {
+					if fullDraw || cell.needsDraw {
+						// Global position of the cell
+						gX := grid.sRow + x
+						gY := grid.sCol + y
 						renderer.DrawCell(gX, gY, cell)
 						grid.cells[x][y].needsDraw = false
 					}

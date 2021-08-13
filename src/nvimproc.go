@@ -260,7 +260,6 @@ func (proc *NvimProcess) selectAll() {
 }
 
 func (proc *NvimProcess) openFile(file string) {
-	logDebug("Open file:", file)
 	proc.executeVimScript("edit %s", file)
 }
 
@@ -303,14 +302,13 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 	}
 }
 
-func (proc *NvimProcess) requestResize(cellWidthChanged bool) {
-	if singleton.calculateCellCount() || cellWidthChanged {
-		err := proc.handle.TryResizeUI(singleton.columnCount, singleton.rowCount)
+func (proc *NvimProcess) requestResize(rows, cols int) {
+	if rows > 0 && cols > 0 {
+		err := proc.handle.TryResizeUI(cols, rows)
 		if err != nil {
 			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
 			return
 		}
-		singleton.waitingResize = true
 	}
 }
 

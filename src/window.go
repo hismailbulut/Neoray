@@ -71,14 +71,33 @@ func CreateWindow(width int, height int, title string) Window {
 		func(w *glfw.Window, width, height int) {
 			singleton.window.width = width
 			singleton.window.height = height
+			// This happens when window minimized.
 			if width > 0 && height > 0 {
-				singleton.nvim.requestResize(false)
+				rows := height / singleton.cellHeight
+				cols := width / singleton.cellWidth
+				// Only resize if rows or cols has changed.
+				if rows != singleton.renderer.rows || cols != singleton.renderer.cols {
+					singleton.nvim.requestResize(rows, cols)
+				}
+				rglCreateViewport(width, height)
 			}
 		})
 
 	window.handle.SetIconifyCallback(
 		func(w *glfw.Window, iconified bool) {
 			singleton.window.minimized = iconified
+		})
+
+	window.handle.SetRefreshCallback(
+		func(w *glfw.Window) {
+			defer measure_execution_time()("RefreshCallback")
+			// When user resizing the window, glfw.PollEvents call is blocked.
+			// And no resizing happens until user releases mouse button. But
+			// glfw calls refresh callback and we are additionally updating
+			// renderer for resizing the grid or grids. This process is very
+			// slow because entire screen redraws in every moment when cell
+			// size changed.
+			singleton.update()
 		})
 
 	window.calculateDPI()
