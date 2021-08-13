@@ -17,31 +17,32 @@ const (
 	FONT_HINTING = font.HintingFull
 )
 
-type FontFace struct {
-	loaded bool
+var (
+	EnableExperimentalGlyphRendering bool
+)
 
+type FontFace struct {
 	handle     font.Face
 	fontHandle *sfnt.Font
 	buffer     sfnt.Buffer
 
 	advance int
-	// ascent  int
 	descent int
 	height  int
 }
 
-func CreateFace(fileName string, size float32) (FontFace, error) {
+func CreateFace(fileName string, size float32) (*FontFace, error) {
 	fileData, err := os.ReadFile(fileName)
 	if err != nil {
-		return FontFace{}, fmt.Errorf("Failed to read file: %s\n", err)
+		return nil, fmt.Errorf("Failed to read file: %s\n", err)
 	}
 	return CreateFaceFromMem(fileData, size)
 }
 
-func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
+func CreateFaceFromMem(data []byte, size float32) (*FontFace, error) {
 	sfont, err := opentype.Parse(data)
 	if err != nil {
-		return FontFace{}, fmt.Errorf("Failed to parse font data: %s\n", err)
+		return nil, fmt.Errorf("Failed to parse font data: %s\n", err)
 	}
 	face, err := opentype.NewFace(sfont, &opentype.FaceOptions{
 		Size:    float64(size),
@@ -49,21 +50,17 @@ func CreateFaceFromMem(data []byte, size float32) (FontFace, error) {
 		Hinting: FONT_HINTING,
 	})
 	if err != nil {
-		return FontFace{}, fmt.Errorf("Failed to create font face: %s\n", err)
+		return nil, fmt.Errorf("Failed to create font face: %s\n", err)
 	}
 	ret := FontFace{
-		loaded:     true,
 		handle:     face,
 		fontHandle: sfont,
 	}
 	ret.calcMetrics()
-	return ret, nil
+	return &ret, nil
 }
 
 func (fontFace *FontFace) Resize(newsize float32) {
-	if !fontFace.loaded {
-		return
-	}
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
 		DPI:     singleton.window.dpi,
@@ -129,21 +126,36 @@ func (fontFace *FontFace) renderUndercurl() *image.RGBA {
 // Renders given rune and returns rendered RGBA image.
 // Width of the image is always equal to cellWidth or cellWidth*2
 func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
-	cellHeight := singleton.cellHeight
-	dot := fixed.P(0, cellHeight-fontFace.descent)
+	height := singleton.cellHeight
+	dot := fixed.P(0, height-fontFace.descent)
 	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
 	if ok {
 		width := singleton.cellWidth
 		if mask.Bounds().Dx() > width {
 			width *= 2
 		}
-		if mask.Bounds().Dy() > cellHeight {
+		if mask.Bounds().Dy() > height {
 			// Center image if the image height is taller than our cell height.
-			maskp = image.Pt(0, (cellHeight-mask.Bounds().Dy())/2)
+			maskp = image.Pt(0, (height-mask.Bounds().Dy())/2)
 		}
-		img := image.NewRGBA(image.Rect(0, 0, width, cellHeight))
+		img := image.NewRGBA(image.Rect(0, 0, width, height))
 		draw.DrawMask(img, dr, image.White, image.Point{}, mask, maskp, draw.Over)
-		return img
+
+		if !EnableExperimentalGlyphRendering {
+			return img
+		} else {
+			// Sandbox area for trying to improve glyph rendering quality and currently experimental.
+			// Could be enabled via F7 key only in debug build.
+			expImage := image.NewRGBA(img.Bounds())
+			for x := 0; x < width; x++ {
+				for y := 0; y < height; y++ {
+					mid := img.RGBAAt(x, y)
+					// Do something with pixels
+					expImage.SetRGBA(x, y, mid)
+				}
+			}
+			return expImage
+		}
 	}
 	return nil
 }

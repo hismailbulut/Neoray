@@ -233,6 +233,16 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 			break
 		}
 
+		// For debugging
+		if isDebugBuild() {
+			switch keycode {
+			case "<F7>":
+				EnableExperimentalGlyphRendering = !EnableExperimentalGlyphRendering
+				singleton.renderer.clearAtlas()
+				return
+			}
+		}
+
 		singleton.nvim.input(keycode)
 	}
 }

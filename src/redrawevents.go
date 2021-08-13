@@ -10,8 +10,6 @@ var (
 )
 
 func handleRedrawEvents() {
-	defer measure_execution_time()()
-
 	singleton.nvim.update_mutex.Lock()
 	defer singleton.nvim.update_mutex.Unlock()
 
@@ -27,6 +25,7 @@ func handleRedrawEvents() {
 				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
 				singleton.window.setTitle(title)
 			case "set_icon":
+				break
 			case "mode_info_set":
 				mode_info_set(update[1:])
 			case "option_set":
@@ -34,15 +33,21 @@ func handleRedrawEvents() {
 			case "mode_change":
 				mode_change(update[1:])
 			case "mouse_on":
+				break
 			case "mouse_off":
+				break
 			case "busy_start":
 				singleton.cursor.Hide()
 			case "busy_stop":
 				singleton.cursor.Show()
 			case "suspend":
+				break
 			case "update_menu":
+				break
 			case "bell":
+				break
 			case "visual_bell":
+				break
 			case "flush":
 				singleton.draw()
 			// Grid Events (line-based)
@@ -53,6 +58,7 @@ func handleRedrawEvents() {
 			case "hl_attr_define":
 				hl_attr_define(update[1:])
 			case "hl_group_set":
+				break
 			case "grid_line":
 				grid_line(update[1:])
 			case "grid_clear":
@@ -63,6 +69,7 @@ func handleRedrawEvents() {
 				grid_cursor_goto(update[1:])
 			case "grid_scroll":
 				grid_scroll(update[1:])
+			// Multgrid specific events
 			case "win_pos":
 				win_pos(update[1:])
 			case "win_float_pos":
@@ -100,7 +107,7 @@ func option_set(args []interface{}) {
 		case "emoji":
 			options.emoji = val.Bool()
 		case "guifont":
-			options.SetGuiFont(val.String())
+			options.setGuiFont(val.String())
 		case "guifontset":
 			options.guifontset = val.String()
 		case "guifontwide":
@@ -173,11 +180,7 @@ func grid_resize(args []interface{}) {
 
 		// Grid 1 is the default grid for entire screen.
 		if grid == 1 {
-			singleton.rowCount = rows
-			singleton.columnCount = cols
-			singleton.cellCount = rows * cols
 			singleton.renderer.resize(rows, cols)
-			singleton.waitingResize = false
 		}
 	}
 }
@@ -254,10 +257,8 @@ func grid_line(args []interface{}) {
 		attribId := 0 // if hl_id is not present, we will use the last one
 		for _, cell := range cells {
 			// cell is a slice, may have 1 to 3 elements
-			// first one is character
-			// second one is highlight attribute id -optional
-			// third one is repeat count -optional
 			cellv := reflect.ValueOf(cell)
+			// first one is character
 			var char rune
 			str := cellv.Index(0).Elem().String()
 			if len(str) > 0 {
@@ -268,10 +269,12 @@ func grid_line(args []interface{}) {
 					char = 0
 				}
 			}
-			repeat := 0
+			// second one is highlight attribute id -optional
 			if cellv.Len() >= 2 {
 				attribId = refToInt(cellv.Index(1))
 			}
+			// third one is repeat count -optional
+			repeat := 0
 			if cellv.Len() == 3 {
 				repeat = refToInt(cellv.Index(2))
 			}

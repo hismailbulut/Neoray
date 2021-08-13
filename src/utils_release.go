@@ -3,7 +3,7 @@
 package main
 
 const (
-	MINIMUM_LOG_LEVEL       = LOG_LEVEL_ERROR
+	MINIMUM_LOG_LEVEL       = LOG_LEVEL_WARN
 	BUILD_TYPE              = RELEASE
 	FONT_ATLAS_DEFAULT_SIZE = 2048
 )

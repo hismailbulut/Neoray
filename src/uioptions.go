@@ -24,15 +24,15 @@ type UIOptions struct {
 	}
 }
 
-func (options *UIOptions) SetGuiFont(newGuiFont string) {
+func (options *UIOptions) setGuiFont(guifont string) {
 	// Load Font
-	if newGuiFont != options.guifont {
-		options.guifont = newGuiFont
+	if guifont != options.guifont {
+		options.guifont = guifont
 		var size float32 = DEFAULT_FONT_SIZE
 		// treat underlines like whitespaces
-		newGuiFont = strings.ReplaceAll(newGuiFont, "_", " ")
+		guifont = strings.ReplaceAll(guifont, "_", " ")
 		// parse font options
-		fontOptions := strings.Split(newGuiFont, ":")
+		fontOptions := strings.Split(guifont, ":")
 		name := fontOptions[0]
 		for _, opt := range fontOptions[1:] {
 			if len(opt) > 1 && opt[0] == 'h' {

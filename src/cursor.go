@@ -126,9 +126,9 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 	return fg, bg
 }
 
-// animPosition returns the current rendering position of the cursor
-// Not grid position. sRow and sCol are grid positions for adding to
-// cursor position.
+// This function returns the current rendering position of the cursor Not grid
+// position. sRow and sCol are grid positions for adding to cursor position.
+// Sets cursor.needsDraw to false when an animation finished.
 func (cursor *Cursor) animPosition(sRow, sCol int) IntVec2 {
 	aPos, finished := cursor.anim.GetCurrentStep(float32(singleton.deltaTime))
 	if finished {

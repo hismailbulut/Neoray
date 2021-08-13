@@ -34,6 +34,7 @@ func start_pprof() {
 type function_measure struct {
 	totalCall int
 	totalTime time.Duration
+	maxTime   time.Duration
 }
 
 var (
@@ -63,11 +64,15 @@ func measure_execution_time() func(uname ...string) {
 		if val, ok := trackerAverages[name]; ok == true {
 			val.totalCall++
 			val.totalTime += elapsed
+			if elapsed > val.maxTime {
+				val.maxTime = elapsed
+			}
 			trackerAverages[name] = val
 		} else {
 			trackerAverages[name] = function_measure{
 				totalCall: 1,
 				totalTime: elapsed,
+				maxTime:   elapsed,
 			}
 		}
 	}
@@ -81,34 +86,44 @@ func close_function_time_tracker() {
 		name    string
 		calls   string
 		time    string
-		average time.Duration
+		avg     time.Duration
+		average string
+		highest string
 	}
 	maxNameLen := 0
 	maxCallLen := 0
 	maxTimeLen := 0
+	maxAverageLen := 0
+	maxHighestLen := 0
 	sorted := []funcTimeSummary{}
 	for key, val := range trackerAverages {
 		sum := funcTimeSummary{
 			name:    strings.Replace(key, "main.", "", 1),
 			calls:   fmt.Sprint(val.totalCall),
 			time:    fmt.Sprint(val.totalTime),
-			average: val.totalTime / time.Duration(val.totalCall),
+			avg:     val.totalTime / time.Duration(val.totalCall),
+			average: fmt.Sprint(val.totalTime / time.Duration(val.totalCall)),
+			highest: fmt.Sprint(val.maxTime),
 		}
 		sorted = append(sorted, sum)
 		if len(sum.name) > maxNameLen {
 			maxNameLen = len(sum.name)
 		}
-		callLen := len(sum.calls)
-		if callLen > maxCallLen {
-			maxCallLen = callLen
+		if len(sum.calls) > maxCallLen {
+			maxCallLen = len(sum.calls)
 		}
-		timeLen := len([]rune(sum.time))
-		if timeLen > maxTimeLen {
-			maxTimeLen = timeLen
+		if len([]rune(sum.time)) > maxTimeLen {
+			maxTimeLen = len([]rune(sum.time))
+		}
+		if len([]rune(sum.average)) > maxAverageLen {
+			maxAverageLen = len([]rune(sum.average))
+		}
+		if len([]rune(sum.highest)) > maxHighestLen {
+			maxHighestLen = len([]rune(sum.highest))
 		}
 	}
 	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].average > sorted[j].average
+		return sorted[i].avg > sorted[j].avg
 	})
 	for _, ft := range sorted {
 		spaces := maxNameLen - len(ft.name)
@@ -122,12 +137,19 @@ func close_function_time_tracker() {
 			msg += " "
 		}
 		msg += " Time: " + ft.time
-		spaces = maxTimeLen - len([]rune(ft.time))
-		for i := 0; i < spaces; i++ {
-			msg += " "
+		if ft.calls != "1" {
+			spaces = maxTimeLen - len([]rune(ft.time))
+			for i := 0; i < spaces; i++ {
+				msg += " "
+			}
+			msg += " Avg:" + ft.average
+			spaces = maxAverageLen - len([]rune(ft.average))
+			for i := 0; i < spaces; i++ {
+				msg += " "
+			}
+			msg += " Max:" + ft.highest
 		}
-		msg += " Avg:"
-		logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, msg, ft.average)
+		logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, msg)
 	}
 }
 

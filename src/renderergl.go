@@ -28,10 +28,13 @@ const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
 // renderer gl global variables
 var (
 	rgl_vao uint32
+
+	// NOTE: We can use multiple vbo's for every grid and store vertex data per grid.
 	rgl_vbo uint32
 
 	//go:embed shader.glsl
 	rgl_shader_sources string
+
 	rgl_shader_program uint32
 
 	rgl_vertex_buffer_len int

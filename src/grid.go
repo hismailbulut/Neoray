@@ -74,13 +74,15 @@ func (gridType GridType) String() string {
 
 // For debugging purposes.
 func (grid *Grid) String() string {
-	return fmt.Sprint("Id: ", grid.id,
-		" Dimensions: ", grid.sRow, grid.sCol, grid.rows, grid.cols,
+	return fmt.Sprint("Id: ", grid.id, " Nr: ", grid.number,
+		" Y: ", grid.sRow, " X: ", grid.sCol, " H: ", grid.rows, " W: ", grid.cols,
 		" Win: ", grid.window, " Hidden: ", grid.hidden, " Type: ", grid.typ)
 }
 
 // Sorts grids according to rendering order and returns it.
-func (gridManager *GridManager) getSortedGrids() []*Grid {
+// You can access the sorted array via gridManager.sortedGrids
+// and don't call this function directly.
+func (gridManager *GridManager) sortGrids() []*Grid {
 	// Resize sorted slice to length of the grids slice
 	if len(gridManager.sortedGrids) < len(gridManager.grids) {
 		gridManager.sortedGrids = make([]*Grid, len(gridManager.grids))
@@ -93,8 +95,8 @@ func (gridManager *GridManager) getSortedGrids() []*Grid {
 		gridManager.sortedGrids[i] = grid
 		i++
 	}
-	// Sort
 	if len(gridManager.sortedGrids) > 1 {
+		// Sort
 		sort.Slice(gridManager.sortedGrids,
 			func(i, j int) bool {
 				g1 := gridManager.sortedGrids[i]
@@ -108,8 +110,6 @@ func (gridManager *GridManager) getSortedGrids() []*Grid {
 				return g1.number < g2.number
 			})
 	}
-	// TODO: We should check grid's rendering area. Otherwise renderer will
-	// render every visible grid.
 	return gridManager.sortedGrids
 }
 
@@ -154,8 +154,9 @@ func (gridManager *GridManager) resize(id int, rows, cols int) {
 	grid.resize(rows, cols)
 }
 
+// Don't use this function directly. Use gridManager's resize function.
 func (grid *Grid) resize(rows, cols int) {
-	// Don't resize if sizes are same
+	// Don't resize if size is already same
 	if rows == grid.rows && cols == grid.cols {
 		return
 	}
@@ -177,9 +178,6 @@ func (grid *Grid) resize(rows, cols int) {
 		} else {
 			grid.cells[i] = grid.cells[i][:cols]
 		}
-		for j := 0; j < cols; j++ {
-			grid.cells[i][j].needsDraw = true
-		}
 	}
 	grid.rows = rows
 	grid.cols = cols
@@ -187,20 +185,26 @@ func (grid *Grid) resize(rows, cols int) {
 }
 
 func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
-	grid.sRow = sRow
-	grid.sCol = sCol
-	if rows != grid.rows || cols != grid.cols {
-		grid.resize(rows, cols)
-	}
 	grid.window = win
 	grid.typ = typ
 	grid.hidden = false
+
+	grid.sRow = sRow
+	grid.sCol = sCol
+	grid.resize(rows, cols)
+
 	singleton.fullDraw()
 }
 
 func (gridManager *GridManager) hide(id int) {
 	grid := gridManager.grids[id]
 	grid.hidden = true
+	// NOTE: Hide and destroy functions are only calling when multigrid is on.
+	// When this functions called from neovim, we know which grid is hided or
+	// destroyed but we dont know how many grids affected. Because grids can
+	// overlap and hiding a grid on top of a grid causes back grid needs to be
+	// rendered. This is also applies to setPos. We could also try to detect which
+	// grid must be drawed but fully drawing screen is fast and more stable.
 	singleton.fullDraw()
 }
 
@@ -221,10 +225,10 @@ func (gridManager *GridManager) clear(id int) {
 	singleton.draw()
 }
 
-// Sets cells with the given parameters, and advances y to the next. This
-// function will not check the end of the row. And currently only used by
-// neovim. If `repeat` is present, the cell should be repeated `repeat` times
-// (including the first time)
+// Sets cells with the given parameters, and advances y to the next. If
+// `repeat` is present, the cell should be repeated `repeat` times (including
+// the first time). This function will not check the end of the row. And
+// currently only used by neovim.
 func (gridManager *GridManager) setCell(id, x int, y *int, char rune, attribId, repeat int) {
 	grid := gridManager.grids[id]
 	cell_count := 1
@@ -278,6 +282,7 @@ func (grid *Grid) scroll(top, bot, rows, left, right int) {
 			cursor.setPosition(cursor.grid, current, cursor.Y, false)
 		}
 	}
-	// We dont need to draw screen because we already directly moved vertex data. Only rendering will be fine.
+	// We dont need to draw screen because we already directly moved vertex
+	// data. Only rendering will be fine.
 	singleton.render()
 }
