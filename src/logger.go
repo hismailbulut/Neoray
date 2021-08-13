@@ -132,7 +132,7 @@ func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
 
 	if fatal {
 		dialog.Message(log_string).Error()
-		createCrashReport(log_string)
+		createCrashReport(log_string + "\n")
 		os.Exit(1)
 	}
 }
