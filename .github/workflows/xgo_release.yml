@@ -17,7 +17,7 @@ jobs:
           # xgo version
           #xgo_version: # optional, default is latest
           # Go release to use for cross compilation
-          go_version: 1.16 # optional, default is latest
+          go_version: 1.16.6 # optional, default is latest
           # Destination folder to put binaries in
           dest: bin # optional, default is build
           # Sub-package to build if not root import
