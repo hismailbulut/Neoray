@@ -21,7 +21,7 @@ jobs:
           # Destination folder to put binaries in
           dest: bin # optional, default is build
           # Sub-package to build if not root import
-          #pkg: # optional
+          pkg: src
           # Prefix to use for output naming. Default to package name
           #prefix: # optional
           # Comma separated targets to build for. Example: windows/amd64,linux/386
