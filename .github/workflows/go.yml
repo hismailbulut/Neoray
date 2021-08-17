@@ -15,4 +15,4 @@ jobs:
         go-version: 1.16
 
     - name: Build
-      run: env GOOS=linux GOARCH=386 go build -v -o bin/neoray_linux_386 ./src
+      run: env CGO_ENABLED=1 GOOS=linux GOARCH=386 go build -v -o bin/neoray_linux_386 ./src
