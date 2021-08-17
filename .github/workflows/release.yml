@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
@@ -14,5 +14,14 @@ jobs:
       with:
         go-version: 1.16
 
-    - name: Build
-      run: set CGO_ENABLED=1 & set GOARCH=amd64 & go build -v -ldflags -H=windowsgui -o bin/neoray_win_amd64.exe ./src
+    - name: Build amd64
+      env: 
+        CGO_ENABLED: 1
+        GOARCH: amd64
+      run: go build -v -ldflags -H=windowsgui -o bin/neoray_win_amd64.exe ./src
+      
+    - name: Build 386
+      env:
+        CGO_ENABLED: 1
+        GOARCH: 386
+      run: go build -v -ldflags -H=windowsgui -o bin/neoray_win_386.exe ./src
