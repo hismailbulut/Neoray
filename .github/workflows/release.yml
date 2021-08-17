@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
 
@@ -15,4 +15,6 @@ jobs:
         go-version: 1.16
 
     - name: Build
-      run: env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -o bin/neoray_linux_amd64 ./src
+      run: set CGO_ENABLED=1
+      run: set GOARCH=amd64
+      run: go build -v -ldflags -H=windowsgui -o bin/neoray_win_amd64.exe ./src
