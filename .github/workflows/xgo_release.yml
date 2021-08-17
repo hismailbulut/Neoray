@@ -17,7 +17,7 @@ jobs:
           # xgo version
           #xgo_version: # optional, default is latest
           # Go release to use for cross compilation
-          #go_version: # optional, default is latest
+          go_version: 1.16 # optional, default is latest
           # Destination folder to put binaries in
           dest: bin # optional, default is build
           # Sub-package to build if not root import
@@ -29,7 +29,7 @@ jobs:
           # Prints the names of packages as they are compiled
           #v: # optional, default is false
           # Prints the build commands as compilation progresses
-          x: true # optional, default is false
+          #x: # optional, default is false
           # Enable data race detection (supported only on amd64)
           #race: # optional, default is false
           # Comma separated list of build tags to consider satisfied during the build
@@ -45,5 +45,4 @@ jobs:
       
       - name: print executables
         run: |
-          cd bin
-          ls -A -l -h --color=auto
+          ls -A -R -l -h --color=auto
