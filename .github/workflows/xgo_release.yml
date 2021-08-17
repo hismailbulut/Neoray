@@ -44,4 +44,6 @@ jobs:
           #docker-repo: # optional, default is ghcr.io/crazy-max/xgo
       
       - name: print executables
-        run: cd bin & ls -A -l -h --color=auto
+        run: |
+          cd bin
+          ls -A -l -h --color=auto
