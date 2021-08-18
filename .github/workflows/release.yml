@@ -80,7 +80,7 @@ jobs:
     - name: Set up required libs
       run: |
         sudo apt update && sudo apt upgrade
-        sudo apt install libx11-dev libgtk-3-dev libgl1-mesa-dev xorg-dev
+        sudo apt install libx11-dev libgtk-3-dev libgl1-mesa-dev xorg-dev gcc-multilib
 
     - name: Build amd64
       env: 
