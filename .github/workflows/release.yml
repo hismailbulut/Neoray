@@ -19,14 +19,23 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: go build -ldflags -H=windowsgui -o bin/neoray_windows_amd64.exe ./src
+      run: go build -ldflags -H=windowsgui -o bin/neoray-windows-amd64.exe ./src
       
     - name: Build 386
       env:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
-      run: go build -ldflags -H=windowsgui -o bin/neoray_windows_386.exe ./src
+      run: go build -ldflags -H=windowsgui -o bin/neoray-windows-386.exe ./src
+
+    - name: Upload binaries
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: windows-binaries
+        path: | 
+          bin/neoray-windows-amd64.exe
+          bin/neoray-windows-386.exe
 
   build-macos:
     runs-on: macos-latest
@@ -43,15 +52,16 @@ jobs:
         CGO_ENABLED: 1
         GOOS: darwin
         GOARCH: amd64
-      run: go build -o bin/neoray_darwin_amd64 ./src
+      run: go build -o bin/neoray-macos ./src
       
-    - name: Build 386
-      env:
-        CGO_ENABLED: 1
-        GOOS: darwin
-        GOARCH: 386
-      run: go build -o bin/neoray_darwin_386 ./src
-
+    - name: Upload binaries
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: macos-binaries
+        path: | 
+          bin/neoray-macos
+          
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -67,11 +77,43 @@ jobs:
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: amd64
-      run: go build -o bin/neoray_linux_amd64 ./src
+      run: go build -o bin/neoray-linux-amd64 ./src
       
     - name: Build 386
       env:
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: 386
-      run: go build -o bin/neoray_linux_386 ./src
+      run: go build -o bin/neoray-linux-386 ./src
+
+    - name: Upload binaries
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: linux-binaries
+        path: | 
+          bin/neoray-linux-amd64
+          bin/neoray-linux-386
+          
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-macos, build-linux]
+    if: success()
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v2
+        
+      - name: Deploy latest release
+        uses: "marvinpinto/action-automatic-releases@latest"
+        if: success()
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: false
+          title: "Latest release"
+          files: |
+            bin/neoray-windows-amd64.exe
+            bin/neoray-windows-386.exe
+            bin/neoray-macos
+            bin/neoray-linux-amd64
+            bin/neoray-linux-386
