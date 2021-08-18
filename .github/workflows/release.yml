@@ -117,7 +117,7 @@ jobs:
           prerelease: false
           title: "Latest release"
           files: |
-            bin/neoray-win64.exe
-            bin/neoray-win32.exe
-            bin/neoray-macos
-            bin/neoray-linux64
+            windows-binaries/neoray-win64.exe
+            windows-binaries/neoray-win32.exe
+            macos-binaries/neoray-macos
+            linux-binaries/neoray-linux64
