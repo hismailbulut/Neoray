@@ -19,7 +19,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: go build -ldflags -H=windowsgui -o bin/neoray-windows-amd64.exe ./src
+      run: go build -ldflags -H=windowsgui -o bin/neoray-win64.exe ./src
     
     - name: Set up MinGW x86
       uses: egor-tensin/setup-mingw@v2
@@ -31,7 +31,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
-      run: go build -ldflags -H=windowsgui -o bin/neoray-windows-386.exe ./src
+      run: go build -ldflags -H=windowsgui -o bin/neoray-win32.exe ./src
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -39,8 +39,8 @@ jobs:
       with:
         name: windows-binaries
         path: | 
-          bin/neoray-windows-amd64.exe
-          bin/neoray-windows-386.exe
+          bin/neoray-win64.exe
+          bin/neoray-win32.exe
 
   build-macos:
     runs-on: macos-latest
@@ -79,24 +79,15 @@ jobs:
 
     - name: Set up required libs
       run: |
-        sudo dpkg --add-architecture i386
         sudo apt update && sudo apt upgrade
-        sudo apt install libx11-dev libgtk-3-dev libgl1-mesa-dev xorg-dev gcc-multilib
-        sudo apt install libx11-dev:i386 libgtk-3-dev:i386 libgl1-mesa-dev:i386
+        sudo apt install libx11-dev libgtk-3-dev libgl1-mesa-dev xorg-dev
 
     - name: Build amd64
       env: 
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: amd64
-      run: go build -o bin/neoray-linux-amd64 ./src
-      
-    - name: Build 386
-      env:
-        CGO_ENABLED: 1
-        GOOS: linux
-        GOARCH: 386
-      run: go build -o bin/neoray-linux-386 ./src
+      run: go build -o bin/neoray-linux64 ./src
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -104,8 +95,7 @@ jobs:
       with:
         name: linux-binaries
         path: | 
-          bin/neoray-linux-amd64
-          bin/neoray-linux-386
+          bin/neoray-linux64
           
   release:
     runs-on: ubuntu-latest
@@ -127,8 +117,7 @@ jobs:
           prerelease: false
           title: "Latest release"
           files: |
-            bin/neoray-windows-amd64.exe
-            bin/neoray-windows-386.exe
+            bin/neoray-win64.exe
+            bin/neoray-win32.exe
             bin/neoray-macos
-            bin/neoray-linux-amd64
-            bin/neoray-linux-386
+            bin/neoray-linux64
