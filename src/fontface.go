@@ -17,10 +17,6 @@ const (
 	FONT_HINTING = font.HintingFull
 )
 
-var (
-	EnableExperimentalGlyphRendering bool
-)
-
 type FontFace struct {
 	handle     font.Face
 	fontHandle *sfnt.Font
@@ -140,22 +136,7 @@ func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
 		}
 		img := image.NewRGBA(image.Rect(0, 0, width, height))
 		draw.DrawMask(img, dr, image.White, image.Point{}, mask, maskp, draw.Over)
-
-		if !EnableExperimentalGlyphRendering {
-			return img
-		} else {
-			// Sandbox area for trying to improve glyph rendering quality and currently experimental.
-			// Could be enabled via F7 key only in debug build.
-			expImage := image.NewRGBA(img.Bounds())
-			for x := 0; x < width; x++ {
-				for y := 0; y < height; y++ {
-					mid := img.RGBAAt(x, y)
-					// Do something with pixels
-					expImage.SetRGBA(x, y, mid)
-				}
-			}
-			return expImage
-		}
+		return img
 	}
 	return nil
 }

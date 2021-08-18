@@ -23,6 +23,9 @@ type Font struct {
 
 func CreateDefaultFont() Font {
 	defer measure_execution_time()()
+
+	logDebug("Loading default font.")
+
 	font := Font{
 		size: DEFAULT_FONT_SIZE,
 	}
@@ -58,9 +61,11 @@ func CreateDefaultFont() Font {
 func CreateFont(fontName string, size float32) (Font, bool) {
 	defer measure_execution_time()()
 
+	logDebug("Loading font", fontName, "with size", size)
+
 	if size < MINIMUM_FONT_SIZE {
 		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
-			"Font size", size, "is small and set to default", DEFAULT_FONT_SIZE)
+			"Font size", size, "is small and automatically set to default", DEFAULT_FONT_SIZE)
 		size = DEFAULT_FONT_SIZE
 	}
 

@@ -34,6 +34,8 @@ type Window struct {
 func CreateWindow(width int, height int, title string) Window {
 	defer measure_execution_time()()
 
+	logDebug("Creating glfw window.")
+
 	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
 	rW := videoMode.Width
 	rH := videoMode.Height
@@ -44,6 +46,8 @@ func CreateWindow(width int, height int, title string) Window {
 	if height == WINDOW_SIZE_AUTO {
 		height = (rH / 4) * 3
 	}
+
+	logDebug("Window width:", width, "height:", height)
 
 	window := Window{
 		title:  title,
@@ -65,6 +69,7 @@ func CreateWindow(width int, height int, title string) Window {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
 
+	logDebug("Glfw window created successfully.")
 	window.handle = windowHandle
 
 	window.handle.SetFramebufferSizeCallback(
@@ -204,14 +209,25 @@ func (window *Window) toggleFullscreen() {
 
 func (window *Window) calculateDPI() {
 	monitor := glfw.GetPrimaryMonitor()
+
+	// Calculate physical diagonal size of the monitor in inches
 	pWidth, pHeight := monitor.GetPhysicalSize() // returns size in millimeters
-	pDiagonal := math.Sqrt(float64(pWidth*pWidth + pHeight*pHeight))
-	pDiagonalInch := pDiagonal * 0.0393700787
-	mWidth := monitor.GetVideoMode().Width
-	mHeight := monitor.GetVideoMode().Height
-	mDiagonal := math.Sqrt(float64(mWidth*mWidth + mHeight*mHeight))
-	window.dpi = mDiagonal / pDiagonalInch
-	logDebug("Monitor diagonal:", pDiagonalInch, "dpi:", window.dpi)
+	pDiagonal := math.Sqrt(float64(pWidth*pWidth+pHeight*pHeight)) * 0.0393700787
+
+	// Calculate logical diagonal size of the monitor in pixels
+	scaleX, scaleY := monitor.GetContentScale()
+	mWidth := float64(monitor.GetVideoMode().Width) * float64(scaleX)
+	mHeight := float64(monitor.GetVideoMode().Height) * float64(scaleY)
+	mDiagonal := math.Sqrt(mWidth*mWidth + mHeight*mHeight)
+
+	// Calculate dpi
+	window.dpi = mDiagonal / pDiagonal
+	if window.dpi < 72 {
+		// This could be actual dpi or we may failed to calculate dpi.
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Device dpi", window.dpi, "is very low and automatically set to 72.")
+		window.dpi = 72
+	}
+	logDebug("Monitor diagonal:", pDiagonal, "dpi:", window.dpi)
 }
 
 func (window *Window) Close() {

@@ -226,6 +226,7 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 			singleton.window.toggleFullscreen()
 			return
 		case "<ESC>":
+			// Hide popupmenu if esc pressed.
 			if singleton.options.popupMenuEnabled && !singleton.popupMenu.hidden {
 				singleton.popupMenu.Hide()
 				return
@@ -233,13 +234,12 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 			break
 		}
 
-		// For debugging
 		if isDebugBuild() {
 			switch keycode {
-			case "<F7>":
-				EnableExperimentalGlyphRendering = !EnableExperimentalGlyphRendering
-				singleton.renderer.clearAtlas()
-				return
+			case "<C-F2>":
+				panic("Control+F2 manual panic")
+			case "<C-F3>":
+				logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Control+F3 manual fatal")
 			}
 		}
 

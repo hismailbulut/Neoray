@@ -43,6 +43,7 @@ var (
 func rglInit() {
 	defer measure_execution_time()()
 
+	logDebug("Initializing opengl.")
 	// Initialize opengl
 	if err := gl.Init(); err != nil {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
@@ -55,7 +56,7 @@ func rglInit() {
 	rglCheckError("gl use program")
 
 	// Initialize vao
-	gl.CreateVertexArrays(1, &rgl_vao)
+	gl.GenVertexArrays(1, &rgl_vao)
 	gl.BindVertexArray(rgl_vao)
 
 	// Initialize vbo

@@ -179,8 +179,7 @@ func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bo
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Executing script: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM,
-			"Failed to execute vimscript: [", cmd, "] err:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute vimscript: [", cmd, "] err:", err)
 		return false
 	}
 	return true

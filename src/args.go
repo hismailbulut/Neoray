@@ -153,9 +153,10 @@ func (options ParsedArgs) ProcessAfter() {
 	if options.singleinst {
 		server, err := CreateServer()
 		if err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create TCP listener:", err)
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create tcp server:", err)
 		} else {
 			singleton.server = server
+			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Tcp server created.")
 		}
 	}
 	if options.file != "" {

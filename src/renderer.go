@@ -83,7 +83,7 @@ func (renderer *Renderer) setFontSize(size float32) {
 		renderer.clearAtlas()
 		renderer.fontSize = size
 		// TODO: Make all messages optional and can be disabled from init.vim.
-		singleton.nvim.echoMsg("Font Size: %.1f", size)
+		// singleton.nvim.echoMsg("Font Size: %.1f", size)
 	}
 }
 

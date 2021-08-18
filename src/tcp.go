@@ -135,6 +135,7 @@ func CreateServer() (*TCPServer, error) {
 						logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to read client data:", err)
 						break
 					}
+					logDebug("Signal Received:", data)
 					switch data {
 					case SIGNAL_CHECK_CONNECTION:
 						resp = SIGNAL_OK
@@ -192,9 +193,9 @@ func (server *TCPServer) update() {
 				break
 			}
 		}
-		singleton.window.raise()
 		server.data = nil
 		server.dataReceived.Set(false)
+		singleton.window.raise()
 	}
 }
 

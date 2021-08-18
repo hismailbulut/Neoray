@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/debug"
+	"runtime"
 	"time"
 
 	"github.com/sqweek/dialog"
@@ -74,11 +74,14 @@ func createCrashReport(msg string) {
 	crash_file, err := os.Create("neoray_crash.log")
 	if err == nil {
 		defer crash_file.Close()
-		crash_file.WriteString("NEORAY " + versionString() + " " + buildTypeString() + " Crash Report\n")
+		crash_file.WriteString(fmt.Sprintln("NEORAY", versionString(), buildTypeString(), "Crash Report", time.Now().UTC()))
 		crash_file.WriteString("Please open an issue in github with this file.\n")
 		crash_file.WriteString("The program is crashed because of the following reasons:\n")
 		crash_file.WriteString(msg)
-		crash_file.WriteString(fmt.Sprintln(string(debug.Stack())))
+		crash_file.WriteString("\ngoroutine dump:\n")
+		stackTrace := make([]byte, 1<<15)
+		stackLen := runtime.Stack(stackTrace, true)
+		crash_file.WriteString(string(stackTrace[:stackLen]))
 	}
 }
 

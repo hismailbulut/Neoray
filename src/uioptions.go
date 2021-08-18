@@ -12,9 +12,9 @@ type UIOptions struct {
 	emoji         bool
 	guifont       string
 	guifontset    string
-	guifontwide   string
-	linespace     int
-	pumblend      int
+	guifontwide   string // TODO
+	linespace     int    // TODO
+	pumblend      int    // TODO
 	showtabline   int
 	termguicolors bool
 	// parsed options for forward usage
