@@ -187,6 +187,11 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 			// These are the possible modifiers for characters:
 			// M, D, C, M-D, C-D, M-S, S-D, M-S-D
 
+			// Do not send if key is unknown and scancode is 0 because glfw panics.
+			if key == glfw.KeyUnknown && scancode == 0 {
+				return
+			}
+
 			// GetKeyName function returns the localized character
 			// of the key if key representable by char. Ctrl with alt
 			// means AltGr and it is used for alternative characters.
