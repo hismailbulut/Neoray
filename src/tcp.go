@@ -100,6 +100,7 @@ func (client *TCPClient) Close() {
 	client.sendSignal(SIGNAL_CLOSE_CONNECTION)
 	close(client.data)
 	close(client.resp)
+	logDebug("Tcp client closed.")
 }
 
 type TCPServer struct {
@@ -135,7 +136,6 @@ func CreateServer() (*TCPServer, error) {
 						logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to read client data:", err)
 						break
 					}
-					logDebug("Signal Received:", data)
 					switch data {
 					case SIGNAL_CHECK_CONNECTION:
 						resp = SIGNAL_OK
@@ -172,6 +172,7 @@ func (server *TCPServer) update() {
 		defer server.dataMutex.Unlock()
 		for _, sig := range server.data {
 			args := strings.Split(strings.Split(sig, "\n")[0], "\x00")
+			logDebug("Signal Received:", args)
 			switch args[0] {
 			case SIGNAL_OPEN_FILE:
 				singleton.nvim.openFile(args[1])
@@ -189,7 +190,7 @@ func (server *TCPServer) update() {
 				}
 				break
 			default:
-				logDebug("Received invalid signal:", sig)
+				logDebug("Signal is invalid.")
 				break
 			}
 		}
@@ -201,4 +202,5 @@ func (server *TCPServer) update() {
 
 func (server *TCPServer) Close() {
 	server.listener.Close()
+	logDebug("Tcp server closed.")
 }

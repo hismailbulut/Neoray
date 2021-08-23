@@ -101,6 +101,7 @@ func initInputEvents() {
 	wh.SetCursorPosCallback(cursorPosCallback)
 	wh.SetScrollCallback(scrollCallback)
 	wh.SetDropCallback(dropCallback)
+	logDebug("Input callbacks initialized.")
 }
 
 func charCallback(w *glfw.Window, char rune) {

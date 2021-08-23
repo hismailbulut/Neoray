@@ -537,10 +537,7 @@ func (renderer *Renderer) drawCells(fullDraw bool) {
 				for y := 0; y < cols; y++ {
 					cell := grid.getCell(x, y)
 					if fullDraw || cell.needsDraw {
-						// Global position of the cell
-						gX := grid.sRow + x
-						gY := grid.sCol + y
-						renderer.DrawCell(gX, gY, cell)
+						renderer.DrawCell(grid.sRow+x, grid.sCol+y, cell)
 						grid.cells[x][y].needsDraw = false
 					}
 				}

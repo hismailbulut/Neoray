@@ -62,6 +62,7 @@ func (proc *NvimProcess) requestApiInfo() {
 
 	info, err := proc.handle.APIInfo()
 	if err != nil {
+		// Maybe fatal?
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
 		return
 	}
@@ -87,11 +88,13 @@ func (proc *NvimProcess) introduce() {
 	name := TITLE
 	// Dictionary describing the version
 	version := &nvim.ClientVersion{
-		Major:      VERSION_MAJOR,
-		Minor:      VERSION_MINOR,
-		Patch:      VERSION_PATCH,
-		Prerelease: "dev",
-		Commit:     "main",
+		Major: VERSION_MAJOR,
+		Minor: VERSION_MINOR,
+		Patch: VERSION_PATCH,
+		// Commit: "",
+	}
+	if isDebugBuild() {
+		version.Prerelease = "dev"
 	}
 	// Client type
 	typ := "ui"
@@ -103,6 +106,7 @@ func (proc *NvimProcess) introduce() {
 	attributes["license"] = LICENSE
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
+		// Maybe fatal?
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
 	}
 }
@@ -114,10 +118,11 @@ func (proc *NvimProcess) startUI() {
 
 	if editorParsedArgs.multiGrid {
 		options["ext_multigrid"] = true
+		logDebug("Multigrid enabled.")
 	}
 
 	if err := proc.handle.AttachUI(60, 20, options); err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Attaching ui failed:", err)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Attaching ui failed:", err)
 	}
 
 	proc.handle.RegisterHandler("redraw",
@@ -135,6 +140,8 @@ func (proc *NvimProcess) startUI() {
 		logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process closed.")
 		singleton.quitRequested <- true
 	}()
+
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Attached to neovim as an ui client.")
 }
 
 func (proc *NvimProcess) requestOptions() {
@@ -157,7 +164,7 @@ func (proc *NvimProcess) requestOptions() {
 // Like 'mousehide'. Don't use this as long as the nvim_get_option is working.
 func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
 	defer measure_execution_time()()
-	eventName := "optc_" + name
+	eventName := "opt_" + name
 	var opt interface{}
 	ch := make(chan bool)
 	defer close(ch)
@@ -312,5 +319,8 @@ func (proc *NvimProcess) requestResize(rows, cols int) {
 }
 
 func (proc *NvimProcess) Close() {
-	proc.handle.Close()
+	err := proc.handle.Close()
+	if err != nil {
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to close neovim child process:", err)
+	}
 }
