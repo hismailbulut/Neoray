@@ -81,6 +81,7 @@ void main() {
 
 // Fragment Shader
 #version 330 core
+layout(location = 0) out vec4 outFragColor;
 
 in GS_OUT {
 	vec2 tex1pos;
@@ -101,5 +102,5 @@ void main() {
 	// Mix background and foreground color with textures.
 	float texAlpha = max(texture(atlas, fs_in.tex1pos).a, texture(atlas, fs_in.tex2pos).a);
 	vec4 result    = mix(background, foreground, texAlpha);
-	gl_FragColor   = result;
+	outFragColor   = result;
 }

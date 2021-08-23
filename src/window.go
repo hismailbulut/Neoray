@@ -34,20 +34,17 @@ type Window struct {
 func CreateWindow(width int, height int, title string) Window {
 	defer measure_execution_time()()
 
-	logDebug("Creating glfw window.")
-
 	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
-	rW := videoMode.Width
-	rH := videoMode.Height
+	logfDebug("Video mode %+v", videoMode)
 
 	if width == WINDOW_SIZE_AUTO {
-		width = (rW / 5) * 3
+		width = (videoMode.Width / 5) * 3
 	}
 	if height == WINDOW_SIZE_AUTO {
-		height = (rH / 4) * 3
+		height = (videoMode.Height / 4) * 3
 	}
 
-	logDebug("Window width:", width, "height:", height)
+	logDebug("Creating window, width:", width, "height:", height)
 
 	window := Window{
 		title:  title,
@@ -55,22 +52,37 @@ func CreateWindow(width int, height int, title string) Window {
 		height: height,
 	}
 
+	// Set opengl library version
 	glfw.WindowHint(glfw.ContextVersionMajor, 3)
 	glfw.WindowHint(glfw.ContextVersionMinor, 3)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.Resizable, glfw.True)
-	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
+	// We need to create forward compatible context for macos support.
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
+	if isDebugBuild() {
+		glfw.WindowHint(glfw.OpenGLDebugContext, glfw.True)
+	}
+
+	// We are initializing window as hidden, when the mainloop is started, window will be shown.
+	glfw.WindowHint(glfw.Visible, glfw.False)
 	// Framebuffer transparency not working on fullscreen when doublebuffer is on.
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
+	// NOTE: On some systems, framebuffer transparency causes unexpected shutdown or blank screen.
+	// We need to be able to enable/disable this in release build.
+	// Or maybe there is something I did wrong.
+	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
 
-	windowHandle, err := glfw.CreateWindow(width, height, title, nil, nil)
+	var err error
+	window.handle, err = glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
-
 	logDebug("Glfw window created successfully.")
-	window.handle = windowHandle
+
+	window.handle.MakeContextCurrent()
+
+	// Disable v-sync
+	glfw.SwapInterval(0)
 
 	window.handle.SetFramebufferSizeCallback(
 		func(w *glfw.Window, width, height int) {
@@ -107,8 +119,6 @@ func CreateWindow(width int, height int, title string) Window {
 
 	window.calculateDPI()
 
-	window.handle.MakeContextCurrent()
-
 	return window
 }
 
@@ -142,44 +152,40 @@ func (window *Window) showCursor() {
 func (window *Window) raise() {
 	if window.minimized {
 		window.handle.Restore()
+		logDebug("Window restored from minimized state.")
 	}
 	// TODO
 	window.handle.SetAttrib(glfw.Floating, glfw.True)
 	window.handle.SetAttrib(glfw.Floating, glfw.False)
+	logDebug("Window raised.")
 }
 
 func (window *Window) setState(state string) {
 	switch state {
 	case WINDOW_STATE_MINIMIZED:
 		window.handle.Iconify()
-		break
+		logDebug("Window state minimized.")
 	case WINDOW_STATE_MAXIMIZED:
 		window.handle.Maximize()
-		break
+		logDebug("Window state maximized.")
 	case WINDOW_STATE_FULLSCREEN:
 		if !window.fullscreen {
 			window.toggleFullscreen()
 		}
-		break
 	case WINDOW_STATE_CENTERED:
 		window.center()
-		break
 	default:
 		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
-		break
 	}
 }
 
 func (window *Window) center() {
-	mode := glfw.GetPrimaryMonitor().GetVideoMode()
+	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
 	w, h := window.handle.GetSize()
-	x := (mode.Width / 2) - (w / 2)
-	y := (mode.Height / 2) - (h / 2)
+	x := (videoMode.Width / 2) - (w / 2)
+	y := (videoMode.Height / 2) - (h / 2)
 	window.handle.SetPos(x, y)
-}
-
-func (window *Window) setSize(width, height int) {
-	window.handle.SetSize(width, height)
+	logDebug("Window position centered.")
 }
 
 func (window *Window) setTitle(title string) {
@@ -232,4 +238,5 @@ func (window *Window) calculateDPI() {
 
 func (window *Window) Close() {
 	window.handle.Destroy()
+	logDebug("Window destroyed.")
 }
