@@ -26,8 +26,8 @@ Options:
 	Goto column number.
 --singleinstance, -si
 	Only accept one instance of neoray and send all flags to it.
---verbose <filename>
-	Specify a filename to verbose debug output.
+--verbose
+	Print verbose debug output to file.
 --nvim <path>
 	Path to nvim executable. May be relative or absolute.
 --multigrid
