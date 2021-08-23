@@ -7,6 +7,10 @@ import (
 	"github.com/go-gl/gl/v3.3-core/gl"
 )
 
+var (
+	TextureClearColor = [4]byte{0, 0, 0, 0}
+)
+
 type Texture struct {
 	id     uint32
 	width  int
@@ -37,7 +41,7 @@ func (texture *Texture) bind() {
 }
 
 func (texture *Texture) clear() {
-	gl.ClearTexImage(texture.id, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	gl.ClearTexImage(texture.id, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&TextureClearColor[0]))
 	rglCheckError("texture clear")
 }
 
