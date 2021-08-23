@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 type Vertex struct {
@@ -43,27 +44,26 @@ var (
 func rglInit() {
 	defer measure_execution_time()()
 
-	logDebug("Initializing opengl.")
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Initializing opengl.")
 	// Initialize opengl
-	if err := gl.Init(); err != nil {
+	if err := gl.InitWithProcAddrFunc(glfw.GetProcAddress); err != nil {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
 	}
 
 	// Init shaders
 	rglInitShaders()
 	gl.UseProgram(rgl_shader_program)
-
 	rglCheckError("gl use program")
 
 	// Initialize vao
 	gl.GenVertexArrays(1, &rgl_vao)
 	gl.BindVertexArray(rgl_vao)
+	rglCheckError("gl bind vertex array")
 
 	// Initialize vbo
 	gl.GenBuffers(1, &rgl_vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, rgl_vbo)
-
-	rglCheckError("gl bind buffer")
+	rglCheckError("gl bind vertex buffer")
 
 	// position
 	offset := 0
@@ -89,7 +89,6 @@ func rglInit() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(5)
 	gl.VertexAttribPointerWithOffset(5, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-
 	rglCheckError("gl enable attributes")
 
 	if isDebugBuild() {
@@ -128,9 +127,10 @@ func rglSetUndercurlRect(val F32Rect) {
 }
 
 func rglClearScreen(color U8Color) {
-	gl.Clear(gl.COLOR_BUFFER_BIT)
 	c := color.toF32()
 	gl.ClearColor(c.R, c.G, c.B, singleton.options.transparency)
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	rglCheckError("clear color")
 }
 
 func rglUpdateVertices(data []Vertex) {
@@ -175,6 +175,8 @@ func rglInitShaders() {
 	gl.DeleteShader(vertShader)
 	gl.DeleteShader(geomShader)
 	gl.DeleteShader(fragShader)
+
+	rglCheckError("init shaders")
 }
 
 func rglLoadDefaultShaders() (string, string, string) {
@@ -191,6 +193,9 @@ func rglLoadDefaultShaders() (string, string, string) {
 	vsSource := rgl_shader_sources[vsBegin:gsBegin]
 	gsSource := rgl_shader_sources[gsBegin:fsBegin]
 	fsSource := rgl_shader_sources[fsBegin:]
+
+	assert(vsSource != "" && gsSource != "" && fsSource != "",
+		"Loading default shaders failed.")
 
 	return vsSource + "\x00", gsSource + "\x00", fsSource + "\x00"
 }
@@ -209,10 +214,24 @@ func rglCompileShader(source string, shader_type uint32) uint32 {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, log)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Shader", rglGetShaderName(shader_type), "compilation failed:\n", log)
 	}
 
+	rglCheckError("compile shader")
+
 	return shader
+}
+
+func rglGetShaderName(shader_type uint32) string {
+	switch shader_type {
+	case gl.VERTEX_SHADER:
+		return "VERTEX SHADER"
+	case gl.GEOMETRY_SHADER:
+		return "GEOMETRY SHADER"
+	case gl.FRAGMENT_SHADER:
+		return "FRAGMENT SHADER"
+	}
+	panic("unknown shader name")
 }
 
 func rglCheckError(callerName string) {
