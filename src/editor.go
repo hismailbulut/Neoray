@@ -86,6 +86,10 @@ func (editor *Editor) Initialize() {
 
 	editor.options = CreateDefaultOptions()
 	editor.nvim.requestOptions()
+
+	// show the main window
+	editor.window.handle.Show()
+	logDebug("Window is now visible.")
 }
 
 func CreateDefaultOptions() Options {
@@ -210,7 +214,8 @@ func (editor *Editor) Shutdown() {
 		editor.server.Close()
 	}
 	editor.nvim.Close()
-	editor.window.Close()
 	editor.renderer.Close()
+	editor.window.Close()
 	glfw.Terminate()
+	logDebug("Glfw terminated.")
 }
