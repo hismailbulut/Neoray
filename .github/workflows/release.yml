@@ -2,6 +2,10 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        required: true
+        description: "Version of this release and will be used as tag. Needs to match with the version in source code."
 
 jobs:
   build-windows:
@@ -113,7 +117,7 @@ jobs:
         if: success()
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          automatic_release_tag: "${{ github.event.inputs.version }}"
           prerelease: false
           title: "Latest release"
           files: |
