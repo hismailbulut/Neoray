@@ -53,17 +53,15 @@ func rglInit() {
 	// Init shaders
 	rglInitShaders()
 	gl.UseProgram(rgl_shader_program)
-	rglCheckError("gl use program")
+	rglCheckError("use program")
 
 	// Initialize vao
 	gl.GenVertexArrays(1, &rgl_vao)
 	gl.BindVertexArray(rgl_vao)
-	rglCheckError("gl bind vertex array")
-
 	// Initialize vbo
 	gl.GenBuffers(1, &rgl_vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, rgl_vbo)
-	rglCheckError("gl bind vertex buffer")
+	rglCheckError("binding buffers")
 
 	// position
 	offset := 0
@@ -89,13 +87,13 @@ func rglInit() {
 	offset += 4 * 4
 	gl.EnableVertexAttribArray(5)
 	gl.VertexAttribPointerWithOffset(5, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	rglCheckError("gl enable attributes")
+	rglCheckError("enable attributes")
 
 	if isDebugBuild() {
 		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
 		gl.Enable(gl.BLEND)
 		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-		rglCheckError("gl enable blending")
+		rglCheckError("enable blending")
 	}
 
 	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
@@ -146,7 +144,9 @@ func rglUpdateVertices(data []Vertex) {
 
 func rglRender() {
 	gl.DrawArrays(gl.POINTS, 0, int32(rgl_vertex_buffer_len))
-	rglCheckError("draw arrays")
+	// Since we are not using doublebuffering, we don't need swapping buffers, but we need to flush.
+	gl.Flush()
+	rglCheckError("render")
 }
 
 func rglInitShaders() {

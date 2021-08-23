@@ -196,13 +196,12 @@ func (window *Window) setTitle(title string) {
 func (window *Window) toggleFullscreen() {
 	if window.handle.GetMonitor() == nil {
 		// to fullscreen
-		x, y := window.handle.GetPos()
-		w, h := window.handle.GetSize()
-		window.windowedRect = IntRect{X: x, Y: y, W: w, H: h}
+		X, Y := window.handle.GetPos()
+		W, H := window.handle.GetSize()
+		window.windowedRect = IntRect{X: X, Y: Y, W: W, H: H}
 		monitor := glfw.GetPrimaryMonitor()
 		videoMode := monitor.GetVideoMode()
-		window.handle.SetMonitor(monitor, 0, 0,
-			videoMode.Width, videoMode.Height, videoMode.RefreshRate)
+		window.handle.SetMonitor(monitor, 0, 0, videoMode.Width, videoMode.Height, videoMode.RefreshRate)
 		window.fullscreen = true
 	} else {
 		// restore

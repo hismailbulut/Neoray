@@ -555,7 +555,6 @@ func (renderer *Renderer) render() {
 	rglUpdateVertices(renderer.vertexData)
 	rglClearScreen(singleton.gridManager.defaultBg)
 	rglRender()
-	singleton.window.handle.SwapBuffers()
 }
 
 func (renderer *Renderer) Close() {
