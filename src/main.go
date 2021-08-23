@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"time"
 )
 
@@ -15,14 +15,16 @@ const (
 	TITLE         = "neoray"
 	VERSION_MAJOR = 0
 	VERSION_MINOR = 0
-	VERSION_PATCH = 6
+	VERSION_PATCH = 7
 	WEBPAGE       = "github.com/hismailbulut/neoray"
 	LICENSE       = "MIT"
 )
 
 func init() {
+	// Opengl and glfw needs this.
 	runtime.LockOSThread()
-	log.SetFlags(0)
+	// Enabling this helps us to catch and print segfaults.
+	debug.SetPanicOnFault(true)
 }
 
 // singleton is main instance of the editor and there can be only one
