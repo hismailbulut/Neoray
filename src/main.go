@@ -64,7 +64,7 @@ func main() {
 	// Some arguments must be processed after initializing.
 	editorParsedArgs.ProcessAfter()
 	// Start time information
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Start time:", time.Since(start))
+	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Start time:", time.Since(start))
 	// MainLoop is main loop of the neoray.
 	singleton.MainLoop()
 }
