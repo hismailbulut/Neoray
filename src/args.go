@@ -82,9 +82,7 @@ func ParseArgs(args []string) ParsedArgs {
 			options.singleinst = true
 			break
 		case "--verbose":
-			assert(len(args) > i+1, "specify filename after --verbose")
-			initVerboseFile(args[i+1])
-			i++
+			initVerboseFile("neoray_verbose.log")
 			break
 		case "--nvim":
 			assert(len(args) > i+1, "specify path after --nvim")
