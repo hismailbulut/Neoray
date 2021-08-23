@@ -56,6 +56,14 @@ func CreateFaceFromMem(data []byte, size float32) (*FontFace, error) {
 	return &ret, nil
 }
 
+func (fontFace *FontFace) FamilyName() string {
+	name, err := fontFace.fontHandle.Name(&fontFace.buffer, sfnt.NameIDFamily)
+	if err != nil {
+		logDebug("Failed to get family name of the font.")
+	}
+	return name
+}
+
 func (fontFace *FontFace) Resize(newsize float32) {
 	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
@@ -63,7 +71,9 @@ func (fontFace *FontFace) Resize(newsize float32) {
 		Hinting: FONT_HINTING,
 	})
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create new font face:", err)
+		// This is actually impossible because opentype.NewFace always return nil error.
+		// But we will check anyway.
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create a new font face when resizing:", err)
 		return
 	}
 	fontFace.handle = face

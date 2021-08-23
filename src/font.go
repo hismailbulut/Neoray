@@ -15,6 +15,7 @@ const (
 // If you want to disable a font, just set size to 0.
 type Font struct {
 	size        float32
+	name        string
 	regular     *FontFace
 	bold_italic *FontFace
 	italic      *FontFace
@@ -40,6 +41,7 @@ func CreateDefaultFont() Font {
 	regular, err := CreateFaceFromMem(caskaydia.Regular, font.size)
 	check(err)
 	font.regular = regular
+	font.name = "Default"
 	// bold italic
 	bold_italic, err := CreateFaceFromMem(caskaydia.BoldItalic, font.size)
 	check(err)
@@ -81,6 +83,10 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 			return font, false
 		} else {
 			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Regular:", filepath.Base(info.Regular))
+			font.name = font.regular.FamilyName()
+			if font.name == "" {
+				font.name = "Unknown Family Name"
+			}
 		}
 	} else {
 		return font, false
@@ -93,6 +99,8 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 		} else {
 			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold Italic:", filepath.Base(info.BoldItalic))
 		}
+	} else {
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font has no bold italic face.")
 	}
 
 	if info.Italic != "" {
@@ -102,6 +110,8 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 		} else {
 			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Italic:", filepath.Base(info.Italic))
 		}
+	} else {
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font has no italic face.")
 	}
 
 	if info.Bold != "" {
@@ -111,13 +121,15 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 		} else {
 			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold:", filepath.Base(info.Bold))
 		}
+	} else {
+		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font has no bold face.")
 	}
 
 	return font, true
 }
 
 func (font *Font) Resize(newsize float32) {
-	if newsize == font.size {
+	if newsize < MINIMUM_FONT_SIZE || newsize == font.size {
 		return
 	}
 	font.size = newsize
@@ -125,6 +137,7 @@ func (font *Font) Resize(newsize float32) {
 	font.italic.Resize(newsize)
 	font.bold.Resize(newsize)
 	font.regular.Resize(newsize)
+	logDebug("Font", font.name, "has resized to", newsize)
 }
 
 // This function returns nil when there is no requested font style
