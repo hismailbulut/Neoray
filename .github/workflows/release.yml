@@ -119,7 +119,7 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "${{ github.event.inputs.version }}"
           prerelease: false
-          title: "Latest release"
+          title: "${{ github.event.inputs.version }}"
           files: |
             windows-binaries/neoray-win64.exe
             windows-binaries/neoray-win32.exe
