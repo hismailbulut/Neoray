@@ -2,13 +2,26 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/sqweek/dialog"
+)
+
+const ENABLE_COLORED_OUTPUT = true
+
+const (
+	AnsiBlack   = "\u001b[30m"
+	AnsiRed     = "\u001b[31m"
+	AnsiGreen   = "\u001b[32m"
+	AnsiYellow  = "\u001b[33m"
+	AnsiBlue    = "\u001b[34m"
+	AnsiMagenta = "\u001b[35m"
+	AnsiCyan    = "\u001b[36m"
+	AnsiWhite   = "\u001b[37m"
+	AnsiReset   = "\u001b[0m"
 )
 
 type LogLevel uint32
@@ -38,7 +51,9 @@ var (
 )
 
 func initVerboseFile(filename string) {
-	assert(verboseFile == nil, "multiple initialization of log file")
+	if verboseFile != nil {
+		return
+	}
 	path, err := filepath.Abs(filename)
 	if err != nil {
 		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
@@ -59,14 +74,20 @@ func shutdownLogger() {
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
 		// Create crash report.
-		crash_msg := fmt.Sprintln(pmsg)
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, crash_msg)
-		dialog.Message(crash_msg).Error()
-		createCrashReport("[NEORAY] PANIC: " + crash_msg)
+		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "[PANIC!]", pmsg)
 	}
+	cleanup()
+}
+
+// This function will always be called.
+func cleanup() {
 	// If logfile is initialized then close it.
 	if verboseFile != nil {
 		verboseFile.Close()
+	}
+	// Reset terminal color
+	if ENABLE_COLORED_OUTPUT {
+		fmt.Print(AnsiReset)
 	}
 }
 
@@ -91,59 +112,74 @@ func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
 	}
 
 	fatal := false
-	log_string := " "
-
-	switch log_type {
-	case LOG_TYPE_NVIM:
-		log_string += "[NVIM]"
-	case LOG_TYPE_NEORAY:
-		log_string += "[NEORAY]"
-	case LOG_TYPE_RENDERER:
-		log_string += "[RENDERER]"
-	case LOG_TYPE_PERFORMANCE:
-		log_string += "[PERFORMANCE]"
-	default:
-		return
-	}
-
-	log_string += " "
+	colorCode := ""
+	logLevelString := ""
 	switch log_level {
 	case LOG_LEVEL_DEBUG:
-		log_string += "DEBUG:"
+		logLevelString = "[DEBUG]"
+		colorCode = AnsiWhite
 	case LOG_LEVEL_TRACE:
-		log_string += "TRACE:"
+		logLevelString = "[TRACE]"
+		colorCode = AnsiGreen
 	case LOG_LEVEL_WARN:
-		log_string += "WARNING:"
+		logLevelString = "[WARNING]"
+		colorCode = AnsiYellow
 	case LOG_LEVEL_ERROR:
-		log_string += "ERROR:"
+		logLevelString = "[ERROR]"
+		colorCode = AnsiRed
 	case LOG_LEVEL_FATAL:
-		log_string += "FATAL:"
+		logLevelString = "[FATAL]"
+		colorCode = AnsiRed
 		fatal = true
 	default:
-		return
+		panic("invalid log level")
 	}
 
-	for _, msg := range message {
-		log_string += " " + fmt.Sprint(msg)
+	logTypeString := ""
+	switch log_type {
+	case LOG_TYPE_NVIM:
+		logTypeString = "[NVIM]"
+	case LOG_TYPE_NEORAY:
+		logTypeString = "[NEORAY]"
+	case LOG_TYPE_RENDERER:
+		logTypeString = "[RENDERER]"
+	case LOG_TYPE_PERFORMANCE:
+		logTypeString = "[PERFORMANCE]"
+	default:
+		panic("invalid log type")
 	}
 
+	logString := logLevelString + " " + logTypeString + " " + fmt.Sprintln(message...)
+
+	// Print to stdout
+	if ENABLE_COLORED_OUTPUT {
+		fmt.Print(colorCode + logString)
+	} else {
+		fmt.Print(logString)
+	}
+
+	// Print to verbose file if opened
 	if verboseFile != nil {
-		verboseFile.WriteString(log_string + "\n")
+		verboseFile.WriteString(logString)
 	}
-
-	log.Println(log_string)
 
 	if fatal {
-		dialog.Message(log_string).Error()
-		createCrashReport(log_string + "\n")
+		// Create crash report file
+		createCrashReport(logString)
+		// Open message box with error
+		dialog.Message(logString).Error()
+		// Cleanup and shutdown.
+		cleanup()
 		os.Exit(1)
 	}
 }
 
+// Fast debug message
 func logDebug(message ...interface{}) {
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, message...)
 }
 
+// Fast debug message using format
 func logfDebug(format string, message ...interface{}) {
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
 }
