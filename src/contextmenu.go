@@ -5,10 +5,8 @@ import (
 	"github.com/sqweek/dialog"
 )
 
-// This is not the ext_popupmenu implementation, this is just right click context menu.
-
 // You can add more buttons here.
-var PopupMenuButtons = []struct {
+var ContextMenuButtons = []struct {
 	name string
 	fn   func()
 }{
@@ -40,10 +38,11 @@ var PopupMenuButtons = []struct {
 			if err == nil && filename != "" {
 				singleton.nvim.openFile(filename)
 			}
+			singleton.window.raise()
 		}},
 }
 
-type PopupMenu struct {
+type ContextMenu struct {
 	pos        IntVec2
 	vertexData VertexDataStorage
 	hidden     bool
@@ -52,56 +51,56 @@ type PopupMenu struct {
 	cells      [][]rune
 }
 
-func CreatePopupMenu() PopupMenu {
-	pmenu := PopupMenu{
+func CreateContextMenu() ContextMenu {
+	cMenu := ContextMenu{
 		hidden: true,
 	}
 	// Find the longest text.
 	longest := 0
-	for _, btn := range PopupMenuButtons {
+	for _, btn := range ContextMenuButtons {
 		if len(btn.name) > longest {
 			longest = len(btn.name)
 		}
 	}
 	// Create cells
-	pmenu.width = longest + 2
-	pmenu.height = len(PopupMenuButtons)
-	pmenu.cells = make([][]rune, pmenu.height, pmenu.height)
-	for i := range pmenu.cells {
-		pmenu.cells[i] = make([]rune, pmenu.width, pmenu.width)
+	cMenu.width = longest + 2
+	cMenu.height = len(ContextMenuButtons)
+	cMenu.cells = make([][]rune, cMenu.height, cMenu.height)
+	for i := range cMenu.cells {
+		cMenu.cells[i] = make([]rune, cMenu.width, cMenu.width)
 	}
-	pmenu.createCells()
-	return pmenu
+	cMenu.createCells()
+	return cMenu
 }
 
 // Only call this function at initializing.
-func (pmenu *PopupMenu) createCells() {
+func (cMenu *ContextMenu) createCells() {
 	// Loop through all cells and give them correct characters
-	for x, row := range pmenu.cells {
+	for x, row := range cMenu.cells {
 		for y := range row {
 			var c rune = 0
-			if y != 0 && y != pmenu.width-1 {
-				if y-1 < len(PopupMenuButtons[x].name) {
-					c = rune(PopupMenuButtons[x].name[y-1])
+			if y != 0 && y != cMenu.width-1 {
+				if y-1 < len(ContextMenuButtons[x].name) {
+					c = rune(ContextMenuButtons[x].name[y-1])
 					if c == ' ' {
 						c = 0
 					}
 				}
 			}
-			pmenu.cells[x][y] = c
+			cMenu.cells[x][y] = c
 		}
 	}
 }
 
-func (pmenu *PopupMenu) createVertexData() {
-	pmenu.vertexData = singleton.renderer.reserveVertexData(pmenu.width * pmenu.height)
-	pmenu.updateChars()
+func (cMenu *ContextMenu) createVertexData() {
+	cMenu.vertexData = singleton.renderer.reserveVertexData(cMenu.width * cMenu.height)
+	cMenu.updateChars()
 }
 
-func (pmenu *PopupMenu) updateChars() {
-	for x, row := range pmenu.cells {
+func (cMenu *ContextMenu) updateChars() {
+	for x, row := range cMenu.cells {
 		for y, char := range row {
-			cell_id := x*pmenu.width + y
+			cell_id := x*cMenu.width + y
 			var atlasPos IntRect
 			if char != 0 {
 				atlasPos = singleton.renderer.getCharPos(
@@ -111,67 +110,67 @@ func (pmenu *PopupMenu) updateChars() {
 					atlasPos.W /= 2
 				}
 			}
-			pmenu.vertexData.setCellTex1(cell_id, atlasPos)
+			cMenu.vertexData.setCellTex1(cell_id, atlasPos)
 		}
 	}
 }
 
-func (pmenu *PopupMenu) ShowAt(pos IntVec2) {
-	pmenu.pos = pos
+func (cMenu *ContextMenu) ShowAt(pos IntVec2) {
+	cMenu.pos = pos
 	fg := singleton.gridManager.defaultBg
 	bg := singleton.gridManager.defaultFg
-	for x, row := range pmenu.cells {
+	for x, row := range cMenu.cells {
 		for y := range row {
-			cell_id := x*pmenu.width + y
+			cell_id := x*cMenu.width + y
 			rect := F32Rect{
 				X: float32(pos.X + y*singleton.cellWidth),
 				Y: float32(pos.Y + x*singleton.cellHeight),
 				W: float32(singleton.cellWidth),
 				H: float32(singleton.cellHeight),
 			}
-			pmenu.vertexData.setCellPos(cell_id, rect)
-			pmenu.vertexData.setCellFg(cell_id, fg)
-			pmenu.vertexData.setCellBg(cell_id, bg)
+			cMenu.vertexData.setCellPos(cell_id, rect)
+			cMenu.vertexData.setCellFg(cell_id, fg)
+			cMenu.vertexData.setCellBg(cell_id, bg)
 		}
 	}
-	pmenu.hidden = false
+	cMenu.hidden = false
 	singleton.render()
 }
 
-func (pmenu *PopupMenu) Hide() {
-	for x, row := range pmenu.cells {
+func (cMenu *ContextMenu) Hide() {
+	for x, row := range cMenu.cells {
 		for y := range row {
-			cell_id := x*pmenu.width + y
-			pmenu.vertexData.setCellPos(cell_id, F32Rect{})
+			cell_id := x*cMenu.width + y
+			cMenu.vertexData.setCellPos(cell_id, F32Rect{})
 		}
 	}
-	pmenu.hidden = true
+	cMenu.hidden = true
 	singleton.render()
 }
 
-func (pmenu *PopupMenu) globalRect() IntRect {
+func (cMenu *ContextMenu) globalRect() IntRect {
 	return IntRect{
-		X: pmenu.pos.X,
-		Y: pmenu.pos.Y,
-		W: pmenu.width * singleton.cellWidth,
-		H: pmenu.height * singleton.cellHeight,
+		X: cMenu.pos.X,
+		Y: cMenu.pos.Y,
+		W: cMenu.width * singleton.cellWidth,
+		H: cMenu.height * singleton.cellHeight,
 	}
 }
 
 // Returns true if given position intersects with menu,
 // and if the position is on the button, returns button index.
-func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
-	menuRect := pmenu.globalRect()
+func (cMenu *ContextMenu) intersects(pos IntVec2) (bool, int) {
+	menuRect := cMenu.globalRect()
 	if pos.inRect(menuRect) {
 		// Areas are intersecting. Now we need to find button under the cursor.
 		// This is very simple. First we find the cell at the position.
 		relativePos := IntVec2{
-			X: pos.X - pmenu.pos.X,
-			Y: pos.Y - pmenu.pos.Y,
+			X: pos.X - cMenu.pos.X,
+			Y: pos.Y - cMenu.pos.Y,
 		}
 		row := relativePos.Y / singleton.cellHeight
 		col := relativePos.X / singleton.cellWidth
-		if col > 0 && col < pmenu.width-1 {
+		if col > 0 && col < cMenu.width-1 {
 			return true, row
 		}
 		return true, -1
@@ -180,24 +179,24 @@ func (pmenu *PopupMenu) intersects(pos IntVec2) (bool, int) {
 }
 
 // Call this function when mouse moved.
-func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
-	if !pmenu.hidden {
+func (cMenu *ContextMenu) mouseMove(pos IntVec2) {
+	if !cMenu.hidden {
 		// Fill all cells with default colors.
-		for i := 0; i < pmenu.width*pmenu.height; i++ {
-			pmenu.vertexData.setCellFg(i, singleton.gridManager.defaultBg)
-			pmenu.vertexData.setCellBg(i, singleton.gridManager.defaultFg)
+		for i := 0; i < cMenu.width*cMenu.height; i++ {
+			cMenu.vertexData.setCellFg(i, singleton.gridManager.defaultBg)
+			cMenu.vertexData.setCellBg(i, singleton.gridManager.defaultFg)
 		}
-		ok, index := pmenu.intersects(pos)
+		ok, index := cMenu.intersects(pos)
 		if ok {
 			// The index is not -1 means cursor is on top of a button. And
 			// index is the index of the button and also row of the popup menu.
 			if index != -1 {
-				if index < len(pmenu.cells) {
+				if index < len(cMenu.cells) {
 					// Highlight this row.
-					for col := 1; col < pmenu.width-1; col++ {
-						cell_id := index*pmenu.width + col
-						pmenu.vertexData.setCellFg(cell_id, singleton.gridManager.defaultFg)
-						pmenu.vertexData.setCellBg(cell_id, singleton.gridManager.defaultBg)
+					for col := 1; col < cMenu.width-1; col++ {
+						cell_id := index*cMenu.width + col
+						cMenu.vertexData.setCellFg(cell_id, singleton.gridManager.defaultFg)
+						cMenu.vertexData.setCellBg(cell_id, singleton.gridManager.defaultBg)
 					}
 				}
 				singleton.render()
@@ -214,22 +213,22 @@ func (pmenu *PopupMenu) mouseMove(pos IntVec2) {
 // If rightbutton is false (left button is pressed) and positions are
 // intersecting, this function returns true. This means if this function
 // returns true than you shouldn't send button event to neovim.
-func (pmenu *PopupMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
-	if !rightbutton && !pmenu.hidden {
+func (cMenu *ContextMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
+	if !rightbutton && !cMenu.hidden {
 		// If positions are intersecting then call button click event, hide popup menu otherwise.
-		ok, index := pmenu.intersects(pos)
+		ok, index := cMenu.intersects(pos)
 		if ok {
 			if index != -1 {
-				PopupMenuButtons[index].fn()
-				pmenu.Hide()
+				ContextMenuButtons[index].fn()
+				cMenu.Hide()
 			}
 			return true
 		} else {
-			pmenu.Hide()
+			cMenu.Hide()
 		}
 	} else if rightbutton {
 		// Open popup menu at this position
-		pmenu.ShowAt(pos)
+		cMenu.ShowAt(pos)
 	}
 	return false
 }

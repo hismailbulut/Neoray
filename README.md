@@ -10,6 +10,7 @@ You can install neoray with go install command.
 ```
 go install github.com/hismailbulut/neoray/src@latest
 ```
+Also you can download prebuild binaries from releases page.
 
 Neoray doesn't need any additional configuration, but you
 can customize it in your init.vim.
@@ -43,8 +44,11 @@ open file functionality that opens system file dialog. Menu text
 is same as the font and the colors are from your colorscheme. This
 makes it look and feel like terminal. You can disable it by setting
 this option to 0. Default is 1 which means enabled.
+NOTE: The old name "neoray_popup_menu_enabled" has changed because of the
+possible confuse with ext_popupmenu. If you used old name, you need to change
+it in your init.vim.
 ```vim
-let neoray_popup_menu_enabled=1
+let neoray_context_menu_enabled=1
 ```
 
 You can specify how the neoray window will be shown. The possible
@@ -74,7 +78,6 @@ the font, please report to me.
 ```vim
 set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
-set guifont=DejaVuSansMono:h11
 set guifont=:h13 " Use default font with 13 pt size
 ```
 NOTE: For now neoray doesn't support ttc fonts.
@@ -86,8 +89,9 @@ if exists('g:neoray')
     let neoray_cursor_animation_time=0.07
     let neoray_background_transparency=0.95
     let neoray_target_ticks_per_second=120
-    let neoray_popup_menu_enabled=1
+    let neoray_context_menu_enabled=1
     let neoray_window_startup_state='centered'
+    let neoray_window_startup_size='120x40'
     let neoray_key_toggle_fullscreen='<M-C-CR>' " AltGr+Enter
     let neoray_key_increase_fontsize='<C-PageUp>'
     let neoray_key_decrease_fontsize='<C-PageDown>'
@@ -98,7 +102,7 @@ You can disable all of these features.
 ```vim
 if exists('g:neoray')
     let neoray_cursor_animation_time=0
-    let neoray_popup_menu_enabled=0
+    let neoray_context_menu_enabled=0
     let neoray_window_startup_state=''
     let neoray_key_toggle_fullscreen=''
     let neoray_key_increase_fontsize=''
@@ -127,15 +131,15 @@ Now, everytime you open a script in godot, this will open in the
 same neoray, and cursor goes to {line} and {col}
 ___
 ### contributing
-All types of contributing as welcomed. If you want to be a part of this
+All types of contributing are apreciated. If you want to be a part of this
 project you can open issue when you find something not working, or help
 development by solving issues and implementing some features what you want.
 ___
 ### development
 The source code is well documented enough. I try to make everything
-understandable. Neoray has no external dependencies. You need to clone
-this repository and perform a go get command. Everything will be installed
-and you will ready to fly.
+understandable. Neoray has no external dependencies (except linux). You need to
+clone this repository and perform a go get command. Everything will be
+installed and you will ready to fly.
 ___
 ### copyright
 Neoray is licensed under MIT license. You can use, change, distribute
