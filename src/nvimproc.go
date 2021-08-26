@@ -13,8 +13,9 @@ const (
 	OPTION_CURSOR_ANIM  = "neoray_cursor_animation_time"
 	OPTION_TRANSPARENCY = "neoray_background_transparency"
 	OPTION_TARGET_TPS   = "neoray_target_ticks_per_second"
-	OPTION_POPUP_MENU   = "neoray_popup_menu_enabled"
+	OPTION_CONTEXT_MENU = "neoray_context_menu_enabled"
 	OPTION_WINDOW_STATE = "neoray_window_startup_state"
+	OPTION_WINDOW_SIZE  = "neoray_window_startup_size"
 	// Keybindings
 	OPTION_KEY_FULLSCRN = "neoray_key_toggle_fullscreen"
 	OPTION_KEY_ZOOMIN   = "neoray_key_increase_fontsize"
@@ -45,7 +46,7 @@ func CreateNvimProcess() NvimProcess {
 	}
 	proc.handle = nv
 
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM,
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM,
 		"Neovim started with command:", editorParsedArgs.execPath, mergeStringArray(args))
 
 	proc.requestApiInfo()
@@ -149,13 +150,24 @@ func (proc *NvimProcess) requestOptions() {
 	proc.handle.Var(OPTION_CURSOR_ANIM, &singleton.options.cursorAnimTime)
 	proc.handle.Var(OPTION_TRANSPARENCY, &singleton.options.transparency)
 	proc.handle.Var(OPTION_TARGET_TPS, &singleton.options.targetTPS)
-	proc.handle.Var(OPTION_POPUP_MENU, &singleton.options.popupMenuEnabled)
+	proc.handle.Var(OPTION_CONTEXT_MENU, &singleton.options.contextMenuEnabled)
 	proc.handle.Var(OPTION_KEY_FULLSCRN, &singleton.options.keyToggleFullscreen)
 	proc.handle.Var(OPTION_KEY_ZOOMIN, &singleton.options.keyIncreaseFontSize)
 	proc.handle.Var(OPTION_KEY_ZOOMOUT, &singleton.options.keyDecreaseFontSize)
-	var state string
-	if proc.handle.Var(OPTION_WINDOW_STATE, &state) == nil {
-		singleton.window.setState(state)
+	// Window startup state
+	var value string
+	if proc.handle.Var(OPTION_WINDOW_STATE, &value) == nil {
+		singleton.window.setState(value)
+	}
+	// Window startup size
+	if proc.handle.Var(OPTION_WINDOW_SIZE, &value) == nil {
+		// Parse the string
+		width, height, ok := parseSizeString(value)
+		if ok {
+			singleton.window.setSize(width, height, true)
+		} else {
+			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Could not parse size value:", value)
+		}
 	}
 	singleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
 }

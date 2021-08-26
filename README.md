@@ -58,6 +58,13 @@ Default is none.
 let neoray_window_startup_state=''
 ```
 
+Also you can specify the startup size of the window in cells.
+The default is none. The syntax is same below. Frist value is
+width (columns) and second value is height (rows).
+```vim
+let neoray_window_startup_size='99x33'
+```
+
 Neoray uses some key combinations for switching between fullscreen and
 windowed mode, zoom in and out eg. You can set these keys and also
 disable as you wish. All options here are strings contains vim style
