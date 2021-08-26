@@ -132,10 +132,18 @@ func (font *Font) Resize(newsize float32) {
 	if newsize < MINIMUM_FONT_SIZE {
 		newsize = MINIMUM_FONT_SIZE
 	}
+	// Regular face is always non nil, but others may be
+	assert(font.regular != nil, "Font's regular face can not be nil.")
 	font.regular.Resize(newsize)
-	font.bold_italic.Resize(newsize)
-	font.italic.Resize(newsize)
-	font.bold.Resize(newsize)
+	if font.bold_italic != nil {
+		font.bold_italic.Resize(newsize)
+	}
+	if font.italic != nil {
+		font.italic.Resize(newsize)
+	}
+	if font.bold != nil {
+		font.bold.Resize(newsize)
+	}
 	font.size = newsize
 	logDebug("Font", font.name, "has resized to", newsize)
 }
