@@ -3,18 +3,30 @@ package main
 import (
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
+// These values are used when setting window state
 const (
-	WINDOW_STATE_MINIMIZED  = "minimized"
-	WINDOW_STATE_MAXIMIZED  = "maximized"
-	WINDOW_STATE_FULLSCREEN = "fullscreen"
-	WINDOW_STATE_CENTERED   = "centered"
+	WINDOW_SET_STATE_MINIMIZED  = "minimized"
+	WINDOW_SET_STATE_MAXIMIZED  = "maximized"
+	WINDOW_SET_STATE_FULLSCREEN = "fullscreen"
+	WINDOW_SET_STATE_CENTERED   = "centered"
+)
 
-	WINDOW_SIZE_AUTO = 1 << 30
+type WindowState uint8
+
+// These values are used when specifying current state of the window
+const (
+	WINDOW_STATE_NORMAL WindowState = iota
+	WINDOW_STATE_MINIMIZED
+	WINDOW_STATE_MAXIMIZED
+	WINDOW_STATE_FULLSCREEN
+)
+
+const (
+	WINDOW_SIZE_AUTO = 1 << 31
 )
 
 type Window struct {
@@ -26,8 +38,7 @@ type Window struct {
 
 	// internal usage
 	windowedRect IntRect
-	minimized    bool
-	fullscreen   bool
+	windowState  WindowState
 	cursorHidden bool
 }
 
@@ -67,10 +78,8 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.Visible, glfw.False)
 	// Framebuffer transparency not working on fullscreen when doublebuffer is on.
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
-	// NOTE: On some systems, framebuffer transparency causes unexpected shutdown or blank screen.
-	// We need to be able to enable/disable this in release build.
-	// Or maybe there is something I did wrong.
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
+	glfw.WindowHint(glfw.ScaleToMonitor, glfw.True)
 
 	var err error
 	window.handle, err = glfw.CreateWindow(width, height, title, nil, nil)
@@ -97,12 +106,26 @@ func CreateWindow(width int, height int, title string) Window {
 					singleton.nvim.requestResize(rows, cols)
 				}
 				rglCreateViewport(width, height)
+				singleton.render()
 			}
 		})
 
 	window.handle.SetIconifyCallback(
 		func(w *glfw.Window, iconified bool) {
-			singleton.window.minimized = iconified
+			if iconified {
+				singleton.window.windowState = WINDOW_STATE_MINIMIZED
+			} else {
+				singleton.window.windowState = WINDOW_STATE_NORMAL
+			}
+		})
+
+	window.handle.SetMaximizeCallback(
+		func(w *glfw.Window, maximized bool) {
+			if maximized {
+				singleton.window.windowState = WINDOW_STATE_MAXIMIZED
+			} else {
+				singleton.window.windowState = WINDOW_STATE_NORMAL
+			}
 		})
 
 	window.handle.SetRefreshCallback(
@@ -130,14 +153,8 @@ func CreateWindow(width int, height int, title string) Window {
 
 func (window *Window) update() {
 	if isDebugBuild() {
-		fps_string := fmt.Sprintf(" | TPS: %d | Delta: %f",
-			singleton.updatesPerSecond, singleton.deltaTime)
-		idx := strings.LastIndex(window.title, " | TPS:")
-		if idx == -1 {
-			window.setTitle(window.title + fps_string)
-		} else {
-			window.setTitle(window.title[0:idx] + fps_string)
-		}
+		fps_string := fmt.Sprintf(" | TPS: %d", singleton.time.lastUPS)
+		window.handle.SetTitle(window.title + fps_string)
 	}
 }
 
@@ -156,11 +173,10 @@ func (window *Window) showCursor() {
 }
 
 func (window *Window) raise() {
-	if window.minimized {
+	if window.windowState == WINDOW_STATE_MINIMIZED {
 		window.handle.Restore()
 		logDebug("Window restored from minimized state.")
 	}
-	// TODO
 	window.handle.SetAttrib(glfw.Floating, glfw.True)
 	window.handle.SetAttrib(glfw.Floating, glfw.False)
 	logDebug("Window raised.")
@@ -168,17 +184,17 @@ func (window *Window) raise() {
 
 func (window *Window) setState(state string) {
 	switch state {
-	case WINDOW_STATE_MINIMIZED:
+	case WINDOW_SET_STATE_MINIMIZED:
 		window.handle.Iconify()
 		logDebug("Window state minimized.")
-	case WINDOW_STATE_MAXIMIZED:
+	case WINDOW_SET_STATE_MAXIMIZED:
 		window.handle.Maximize()
 		logDebug("Window state maximized.")
-	case WINDOW_STATE_FULLSCREEN:
-		if !window.fullscreen {
+	case WINDOW_SET_STATE_FULLSCREEN:
+		if window.windowState != WINDOW_STATE_FULLSCREEN {
 			window.toggleFullscreen()
 		}
-	case WINDOW_STATE_CENTERED:
+	case WINDOW_SET_STATE_CENTERED:
 		window.center()
 	default:
 		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
@@ -199,6 +215,19 @@ func (window *Window) setTitle(title string) {
 	window.title = title
 }
 
+func (window *Window) setSize(width, height int, inCellSize bool) {
+	if inCellSize {
+		// Only resize if window state not set
+		if window.windowState != WINDOW_STATE_NORMAL {
+			return
+		}
+		width *= singleton.cellWidth
+		height *= singleton.cellHeight
+	}
+	window.handle.SetSize(width, height)
+	logDebug("Window size changed internally:", width, height)
+}
+
 func (window *Window) toggleFullscreen() {
 	if window.handle.GetMonitor() == nil {
 		// to fullscreen
@@ -208,13 +237,13 @@ func (window *Window) toggleFullscreen() {
 		monitor := glfw.GetPrimaryMonitor()
 		videoMode := monitor.GetVideoMode()
 		window.handle.SetMonitor(monitor, 0, 0, videoMode.Width, videoMode.Height, videoMode.RefreshRate)
-		window.fullscreen = true
+		window.windowState = WINDOW_STATE_FULLSCREEN
 	} else {
 		// restore
 		window.handle.SetMonitor(nil,
 			window.windowedRect.X, window.windowedRect.Y,
 			window.windowedRect.W, window.windowedRect.H, 0)
-		window.fullscreen = false
+		window.windowState = WINDOW_STATE_NORMAL
 	}
 }
 
@@ -233,7 +262,6 @@ func (window *Window) calculateDPI() {
 	scaleY := (msy + wsy) / 2
 
 	// Calculate logical diagonal size of the monitor in pixels
-	scaleX, scaleY := monitor.GetContentScale()
 	mWidth := float64(monitor.GetVideoMode().Width) * float64(scaleX)
 	mHeight := float64(monitor.GetVideoMode().Height) * float64(scaleY)
 	mDiagonal := math.Sqrt(mWidth*mWidth + mHeight*mHeight)

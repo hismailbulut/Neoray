@@ -19,7 +19,6 @@ type FontAtlas struct {
 type Renderer struct {
 	userFont    Font
 	defaultFont Font
-	fontSize    float32
 	fontAtlas   FontAtlas
 	// Vertex data holds vertices for cells. Every cell has 1 vertex.
 	vertexData []Vertex
@@ -44,7 +43,6 @@ func CreateRenderer() Renderer {
 	rglInit()
 
 	renderer := Renderer{
-		fontSize: DEFAULT_FONT_SIZE,
 		fontAtlas: FontAtlas{
 			texture:    CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE),
 			characters: make(map[string]IntRect),
@@ -68,23 +66,21 @@ func (renderer *Renderer) setFont(font Font) {
 	renderer.updateCellSize(&font)
 	// reset atlas
 	renderer.clearAtlas()
-	renderer.fontSize = font.size
 }
 
+// Set size to 0 if you want to reload faces.
 func (renderer *Renderer) setFontSize(size float32) {
-	if size >= MINIMUM_FONT_SIZE && size != renderer.fontSize {
-		renderer.defaultFont.Resize(size)
-		if renderer.userFont.size > 0 {
-			renderer.userFont.Resize(size)
-			renderer.updateCellSize(&renderer.userFont)
-		} else {
-			renderer.updateCellSize(&renderer.defaultFont)
-		}
-		renderer.clearAtlas()
-		renderer.fontSize = size
-		// TODO: Make all messages optional and can be disabled from init.vim.
-		// singleton.nvim.echoMsg("Font Size: %.1f", size)
+	if size == 0 {
+		size = renderer.defaultFont.size
 	}
+	renderer.defaultFont.Resize(size)
+	if renderer.userFont.size > 0 {
+		renderer.userFont.Resize(size)
+		renderer.updateCellSize(&renderer.userFont)
+	} else {
+		renderer.updateCellSize(&renderer.defaultFont)
+	}
+	renderer.clearAtlas()
 }
 
 func (renderer *Renderer) disableUserFont() {
@@ -96,11 +92,13 @@ func (renderer *Renderer) disableUserFont() {
 }
 
 func (renderer *Renderer) increaseFontSize() {
-	renderer.setFontSize(renderer.fontSize + 0.5)
+	size := renderer.defaultFont.size
+	renderer.setFontSize(size + 0.5)
 }
 
 func (renderer *Renderer) decreaseFontSize() {
-	renderer.setFontSize(renderer.fontSize - 0.5)
+	size := renderer.defaultFont.size
+	renderer.setFontSize(size + 0.5)
 }
 
 func (renderer *Renderer) updateCellSize(font *Font) bool {
@@ -122,7 +120,7 @@ func (renderer *Renderer) clearAtlas() {
 	renderer.fontAtlas.texture.clear()
 	renderer.fontAtlas.characters = make(map[string]IntRect)
 	renderer.fontAtlas.pos = IntVec2{}
-	singleton.popupMenu.updateChars()
+	singleton.contextMenu.updateChars()
 	singleton.fullDraw()
 }
 
@@ -144,7 +142,7 @@ func (renderer *Renderer) createVertexData() {
 	// Add cursor to data.
 	singleton.cursor.createVertexData()
 	// Add popup menu to data.
-	singleton.popupMenu.createVertexData()
+	singleton.contextMenu.createVertexData()
 	// DEBUG: draw font atlas to top right
 	if isDebugBuild() {
 		renderer.debugDrawFontAtlas()
@@ -490,7 +488,6 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 }
 
 func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
-	defer measure_execution_time()()
 	if cell.attribId > 0 {
 		renderer.DrawCellWithAttrib(x, y, cell, singleton.gridManager.attributes[cell.attribId])
 	} else {

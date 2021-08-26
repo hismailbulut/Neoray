@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -147,13 +149,28 @@ func boolFromInterface(val interface{}) bool {
 	}
 }
 
+func parseSizeString(size string) (int, int, bool) {
+	// Size must be in form of '10x10'
+	values := strings.Split(size, "x")
+	if len(values) != 2 {
+		return 0, 0, false
+	}
+	width, err := strconv.Atoi(values[0])
+	if err != nil {
+		return 0, 0, false
+	}
+	height, err := strconv.Atoi(values[1])
+	if err != nil {
+		return 0, 0, false
+	}
+	return width, height, true
+}
+
 func mergeStringArray(arr []string) string {
 	str := ""
-	for i, arg := range arr {
-		str += arg
-		if i < len(arr)-1 {
-			str += " "
-		}
+	for i := 0; i < len(arr)-1; i++ {
+		str += arr[i] + " "
 	}
+	str += arr[len(arr)-1]
 	return str
 }

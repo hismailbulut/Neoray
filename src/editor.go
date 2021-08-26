@@ -11,7 +11,7 @@ type Options struct {
 	cursorAnimTime      float32
 	transparency        float32
 	targetTPS           int
-	popupMenuEnabled    bool
+	contextMenuEnabled  bool
 	keyToggleFullscreen string
 	keyIncreaseFontSize string
 	keyDecreaseFontSize string
@@ -45,9 +45,9 @@ type Editor struct {
 	// UIOptions is a struct, holds some user ui uiOptions like guifont.
 	// uioptions.go
 	uiOptions UIOptions
-	// PopupMenu is the only popup menu in this program for right click menu.
-	// popupmenu.go
-	popupMenu PopupMenu
+	// ContextMenu is the only context menu in this program for right click menu.
+	// contextmenu.go
+	contextMenu ContextMenu
 	// Neoray options.
 	options Options
 	// Tcp server for singleinstance
@@ -59,10 +59,13 @@ type Editor struct {
 	// TODO: I am going to implement per grid font size, and these variables will be moved to grid.
 	cellWidth  int
 	cellHeight int
-	// Initializing in Editor.MainLoop
-	updatesPerSecond int
-	// Last elapsed time between updates.
-	deltaTime float64
+	// Mainloop timing values
+	time struct {
+		interval time.Duration
+		lastTick time.Time
+		delta    float64
+		lastUPS  int
+	}
 }
 
 func (editor *Editor) Initialize() {
@@ -81,7 +84,7 @@ func (editor *Editor) Initialize() {
 	editor.gridManager = CreateGridManager()
 	editor.mode = CreateMode()
 	editor.cursor = CreateCursor()
-	editor.popupMenu = CreatePopupMenu()
+	editor.contextMenu = CreateContextMenu()
 	editor.renderer = CreateRenderer()
 
 	editor.options = CreateDefaultOptions()
@@ -97,7 +100,7 @@ func CreateDefaultOptions() Options {
 		cursorAnimTime:      0.06,
 		transparency:        1,
 		targetTPS:           60,
-		popupMenuEnabled:    true,
+		contextMenuEnabled:  true,
 		keyToggleFullscreen: "<F11>",
 		keyIncreaseFontSize: "<C-kPlus>",
 		keyDecreaseFontSize: "<C-kMinus>",
@@ -117,32 +120,32 @@ func (editor *Editor) MainLoop() {
 	// For measuring total time of the program.
 	programBegin := time.Now()
 	// Ticker's interval
-	interval := time.Second / time.Duration(editor.options.targetTPS)
+	editor.time.interval = time.Second / time.Duration(editor.options.targetTPS)
 	// NOTE: Ticker is not working correctly on windows.
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(editor.time.interval)
 	defer ticker.Stop()
-	// For measuring tps
-	var secondTimer float64
+	// For measuring delta time
+	upsTimer := 0.0
 	updates := 0
 	// For measuring elpased time
-	prevTick := time.Now()
+	editor.time.lastTick = time.Now()
 	// Mainloop
 	run := true
 	for run {
 		select {
 		case tick := <-ticker.C:
 			// Calculate delta time
-			elapsed := tick.Sub(prevTick)
-			prevTick = tick
-			editor.deltaTime = elapsed.Seconds()
+			elapsed := tick.Sub(editor.time.lastTick)
+			editor.time.lastTick = tick
+			editor.time.delta = elapsed.Seconds()
 			// Increment counters
-			secondTimer += editor.deltaTime
+			upsTimer += editor.time.delta
 			updates++
 			// Calculate updates per second
-			if secondTimer >= 1 {
-				editor.updatesPerSecond = updates
+			if upsTimer >= 1 {
+				editor.time.lastUPS = updates
 				updates = 0
-				secondTimer -= 1
+				upsTimer -= 1
 			}
 			// Update program
 			editor.update()

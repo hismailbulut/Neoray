@@ -233,8 +233,8 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 			return
 		case "<ESC>":
 			// Hide popupmenu if esc pressed.
-			if singleton.options.popupMenuEnabled && !singleton.popupMenu.hidden {
-				singleton.popupMenu.Hide()
+			if singleton.options.contextMenuEnabled && !singleton.contextMenu.hidden {
+				singleton.contextMenu.Hide()
 				return
 			}
 			break
@@ -260,17 +260,17 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 	var buttonCode string
 	switch button {
 	case glfw.MouseButtonLeft:
-		if action == glfw.Press && singleton.options.popupMenuEnabled {
-			if singleton.popupMenu.mouseClick(false, lastMousePos) {
+		if action == glfw.Press && singleton.options.contextMenuEnabled {
+			if singleton.contextMenu.mouseClick(false, lastMousePos) {
 				return
 			}
 		}
 		buttonCode = "left"
 		break
 	case glfw.MouseButtonRight:
-		if action == glfw.Press && singleton.options.popupMenuEnabled {
+		if action == glfw.Press && singleton.options.contextMenuEnabled {
 			// We don't send right button to neovim if popup menu enabled.
-			singleton.popupMenu.mouseClick(true, lastMousePos)
+			singleton.contextMenu.mouseClick(true, lastMousePos)
 			return
 		}
 		buttonCode = "right"
@@ -304,8 +304,8 @@ func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
 	}
 	lastMousePos.X = int(xpos)
 	lastMousePos.Y = int(ypos)
-	if singleton.options.popupMenuEnabled {
-		singleton.popupMenu.mouseMove(lastMousePos)
+	if singleton.options.contextMenuEnabled {
+		singleton.contextMenu.mouseMove(lastMousePos)
 	}
 	// If mouse moving when holding left button, it's drag event
 	if lastMouseAction == glfw.Press {

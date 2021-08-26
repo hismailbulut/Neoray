@@ -129,14 +129,14 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 }
 
 func (font *Font) Resize(newsize float32) {
-	if newsize < MINIMUM_FONT_SIZE || newsize == font.size {
-		return
+	if newsize < MINIMUM_FONT_SIZE {
+		newsize = MINIMUM_FONT_SIZE
 	}
-	font.size = newsize
+	font.regular.Resize(newsize)
 	font.bold_italic.Resize(newsize)
 	font.italic.Resize(newsize)
 	font.bold.Resize(newsize)
-	font.regular.Resize(newsize)
+	font.size = newsize
 	logDebug("Font", font.name, "has resized to", newsize)
 }
 

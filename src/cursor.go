@@ -18,7 +18,7 @@ func CreateCursor() Cursor {
 }
 
 func (cursor *Cursor) update() {
-	cursor.time += singleton.deltaTime
+	cursor.time += singleton.time.delta
 	// Blinking
 	cursor.updateBlinking()
 	// Draw cursor if it needs.
@@ -130,7 +130,7 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 // position. sRow and sCol are grid positions for adding to cursor position.
 // Sets cursor.needsDraw to false when an animation finished.
 func (cursor *Cursor) animPosition(sRow, sCol int) IntVec2 {
-	aPos, finished := cursor.anim.GetCurrentStep(float32(singleton.deltaTime))
+	aPos, finished := cursor.anim.GetCurrentStep(float32(singleton.time.delta))
 	if finished {
 		cursor.needsDraw = false
 		return IntVec2{

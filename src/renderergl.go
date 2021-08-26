@@ -97,6 +97,14 @@ func rglInit() {
 	}
 
 	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
+
+	vendor := gl.GoStr(gl.GetString(gl.VENDOR))
+	renderer := gl.GoStr(gl.GetString(gl.RENDERER))
+	glsl := gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION))
+
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Vendor:", vendor)
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Renderer:", renderer)
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "GLSL:", glsl)
 }
 
 func rglGetUniformLocation(name string) int32 {
