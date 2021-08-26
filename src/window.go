@@ -117,6 +117,12 @@ func CreateWindow(width int, height int, title string) Window {
 			singleton.update()
 		})
 
+	window.handle.SetContentScaleCallback(
+		func(w *glfw.Window, x, y float32) {
+			singleton.window.calculateDPI()
+			singleton.renderer.setFontSize(0)
+		})
+
 	window.calculateDPI()
 
 	return window
@@ -218,6 +224,13 @@ func (window *Window) calculateDPI() {
 	// Calculate physical diagonal size of the monitor in inches
 	pWidth, pHeight := monitor.GetPhysicalSize() // returns size in millimeters
 	pDiagonal := math.Sqrt(float64(pWidth*pWidth+pHeight*pHeight)) * 0.0393700787
+
+	// Get content scale, there are two of them and I don't know which one is
+	// to use, and I decided to use average of them
+	msx, msy := monitor.GetContentScale()
+	wsx, wsy := window.handle.GetContentScale()
+	scaleX := (msx + wsx) / 2
+	scaleY := (msy + wsy) / 2
 
 	// Calculate logical diagonal size of the monitor in pixels
 	scaleX, scaleY := monitor.GetContentScale()
