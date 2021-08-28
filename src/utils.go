@@ -31,10 +31,10 @@ func unpackColor(color uint32) U8Color {
 
 func (c U8Color) toF32() F32Color {
 	return F32Color{
-		R: float32(c.R) / 256,
-		G: float32(c.G) / 256,
-		B: float32(c.B) / 256,
-		A: float32(c.A) / 256,
+		R: float32(c.R) / 255,
+		G: float32(c.G) / 255,
+		B: float32(c.B) / 255,
+		A: float32(c.A) / 255,
 	}
 }
 
