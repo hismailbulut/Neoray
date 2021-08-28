@@ -98,7 +98,7 @@ func (renderer *Renderer) increaseFontSize() {
 
 func (renderer *Renderer) decreaseFontSize() {
 	size := renderer.defaultFont.size
-	renderer.setFontSize(size + 0.5)
+	renderer.setFontSize(size - 0.5)
 }
 
 func (renderer *Renderer) updateCellSize(font *Font) bool {
