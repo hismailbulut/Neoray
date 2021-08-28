@@ -26,7 +26,7 @@ const (
 )
 
 const (
-	WINDOW_SIZE_AUTO = 1 << 31
+	WINDOW_SIZE_AUTO = 1 << 30
 )
 
 type Window struct {
