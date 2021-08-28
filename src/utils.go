@@ -13,30 +13,6 @@ type U8Color struct {
 	R, G, B, A uint8
 }
 
-type F32Color struct {
-	R, G, B, A float32
-}
-
-type IntVec2 struct {
-	X, Y int
-}
-
-type F32Vec2 struct {
-	X, Y float32
-}
-
-type IntRect struct {
-	X, Y, W, H int
-}
-
-type F32Rect struct {
-	X, Y, W, H float32
-}
-
-type IntSize struct {
-	W, H int
-}
-
 func packColor(color U8Color) uint32 {
 	rgb24 := uint32(color.R)
 	rgb24 = (rgb24 << 8) | uint32(color.G)
@@ -62,16 +38,36 @@ func (c U8Color) toF32() F32Color {
 	}
 }
 
+type F32Color struct {
+	R, G, B, A float32
+}
+
+type IntVec2 struct {
+	X, Y int
+}
+
 func (pos IntVec2) String() string {
 	return fmt.Sprintf("(X: %d, Y: %d)", pos.X, pos.Y)
 }
 
-func (rect F32Rect) String() string {
-	return fmt.Sprintf("(X: %f, Y: %f, W: %f, H: %f)", rect.X, rect.Y, rect.W, rect.H)
-}
-
 func (pos IntVec2) inRect(area IntRect) bool {
 	return pos.X >= area.X && pos.Y >= area.Y && pos.X < area.X+area.W && pos.Y < area.Y+area.H
+}
+
+type F32Vec2 struct {
+	X, Y float32
+}
+
+type IntRect struct {
+	X, Y, W, H int
+}
+
+type F32Rect struct {
+	X, Y, W, H float32
+}
+
+func (rect F32Rect) String() string {
+	return fmt.Sprintf("(X: %f, Y: %f, W: %f, H: %f)", rect.X, rect.Y, rect.W, rect.H)
 }
 
 func ortho(top, left, right, bottom, near, far float32) [16]float32 {
@@ -173,4 +169,54 @@ func mergeStringArray(arr []string) string {
 	}
 	str += arr[len(arr)-1]
 	return str
+}
+
+type BitMask uint32
+
+func (mask BitMask) String() string {
+	str := ""
+	for i := 31; i >= 0; i-- {
+		if mask.has(1 << i) {
+			str += "1"
+		} else {
+			str += "0"
+		}
+	}
+	return str
+}
+
+func (mask *BitMask) enable(flag BitMask) {
+	*mask |= flag
+}
+func (mask BitMask) enabled(flag BitMask) BitMask {
+	return mask | flag
+}
+
+func (mask *BitMask) disable(flag BitMask) {
+	*mask &= ^flag
+}
+func (mask BitMask) disabled(flag BitMask) BitMask {
+	return mask & ^flag
+}
+
+func (mask *BitMask) toggle(flag BitMask) {
+	*mask ^= flag
+}
+
+// Enables flag if cond is true, disables otherwise.
+func (mask *BitMask) enableif(flag BitMask, cond bool) {
+	if cond {
+		mask.enable(flag)
+	} else {
+		mask.disable(flag)
+	}
+}
+
+func (mask BitMask) has(flag BitMask) bool {
+	return mask&flag == flag
+}
+
+// Returns true if the mask only has the flag
+func (mask BitMask) hasonly(flag BitMask) bool {
+	return mask.has(flag) && mask|flag == flag
 }
