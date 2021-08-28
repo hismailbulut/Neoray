@@ -30,13 +30,13 @@ const (
 )
 
 type Window struct {
-	handle *glfw.Window
-	title  string
-	width  int
-	height int
-	dpi    float64
+	handle   *glfw.Window
+	title    string
+	width    int
+	height   int
+	dpi      float64
+	hasfocus bool
 
-	// internal usage
 	windowedRect IntRect
 	windowState  WindowState
 	cursorHidden bool
@@ -46,7 +46,7 @@ func CreateWindow(width int, height int, title string) Window {
 	defer measure_execution_time()()
 
 	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
-	logfDebug("Video mode %+v", videoMode)
+	logfDebug("Video mode %+v", *videoMode)
 
 	if width == WINDOW_SIZE_AUTO {
 		width = (videoMode.Width / 5) * 3
@@ -69,7 +69,6 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	// We need to create forward compatible context for macos support.
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-
 	if isDebugBuild() {
 		glfw.WindowHint(glfw.OpenGLDebugContext, glfw.True)
 	}
@@ -79,6 +78,9 @@ func CreateWindow(width int, height int, title string) Window {
 	// Framebuffer transparency not working on fullscreen when doublebuffer is on.
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
+	// This scales window with monitor content scale.
+	// Eg. when user moves window to another monitor, the window also resize
+	// and tries to keep its scale.
 	glfw.WindowHint(glfw.ScaleToMonitor, glfw.True)
 
 	var err error
@@ -88,9 +90,17 @@ func CreateWindow(width int, height int, title string) Window {
 	}
 	logDebug("Glfw window created successfully.")
 
+	// We need to check whether the window size is requested size.
+	w, h := window.handle.GetSize()
+	if w != width || h != height {
+		window.width = w
+		window.height = h
+		logDebug("Window size is not same with requested size.")
+	}
+
 	window.handle.MakeContextCurrent()
 
-	// Disable v-sync
+	// Disable v-sync, already disabled by default but make sure.
 	glfw.SwapInterval(0)
 
 	window.handle.SetFramebufferSizeCallback(
@@ -108,6 +118,11 @@ func CreateWindow(width int, height int, title string) Window {
 				rglCreateViewport(width, height)
 				singleton.render()
 			}
+		})
+
+	window.handle.SetFocusCallback(
+		func(w *glfw.Window, focused bool) {
+			window.hasfocus = focused
 		})
 
 	window.handle.SetIconifyCallback(
@@ -134,14 +149,22 @@ func CreateWindow(width int, height int, title string) Window {
 			// When user resizing the window, glfw.PollEvents call is blocked.
 			// And no resizing happens until user releases mouse button. But
 			// glfw calls refresh callback and we are additionally updating
-			// renderer for resizing the grid or grids. This process is very
+			// renderer for resizing the grid or grids. This process may be
 			// slow because entire screen redraws in every moment when cell
 			// size changed.
+			// The update may not render the window, we make sure it will be
+			// rendered
+			singleton.render()
 			singleton.update()
 		})
 
 	window.handle.SetContentScaleCallback(
 		func(w *glfw.Window, x, y float32) {
+			// This function will be called when user changes its content scale
+			// in runtime, or moves window to another monitor. Also window size
+			// will change from glfw. We simply recalculating the dpi and resetting
+			// all fonts and redrawing entire screen when this happened.
+			logDebug("Content scale changed.")
 			singleton.window.calculateDPI()
 			singleton.renderer.setFontSize(0)
 		})
@@ -177,8 +200,13 @@ func (window *Window) raise() {
 		window.handle.Restore()
 		logDebug("Window restored from minimized state.")
 	}
-	window.handle.SetAttrib(glfw.Floating, glfw.True)
-	window.handle.SetAttrib(glfw.Floating, glfw.False)
+	// TODO: These are not working.
+	if !window.hasfocus {
+		// Move the window to the front and take input focus.
+		window.handle.SetAttrib(glfw.Floating, glfw.True)
+		window.handle.SetAttrib(glfw.Floating, glfw.False)
+		window.handle.Focus()
+	}
 	logDebug("Window raised.")
 }
 
@@ -193,6 +221,8 @@ func (window *Window) setState(state string) {
 	case WINDOW_SET_STATE_FULLSCREEN:
 		if window.windowState != WINDOW_STATE_FULLSCREEN {
 			window.toggleFullscreen()
+			// The window losts its input focus after this. We must regain it.
+			window.handle.Focus()
 		}
 	case WINDOW_SET_STATE_CENTERED:
 		window.center()
@@ -217,10 +247,6 @@ func (window *Window) setTitle(title string) {
 
 func (window *Window) setSize(width, height int, inCellSize bool) {
 	if inCellSize {
-		// Only resize if window state not set
-		if window.windowState != WINDOW_STATE_NORMAL {
-			return
-		}
 		width *= singleton.cellWidth
 		height *= singleton.cellHeight
 	}
@@ -279,7 +305,7 @@ func (window *Window) calculateDPI() {
 		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Device dpi", window.dpi, "is very low and automatically set to 72.")
 		window.dpi = 72
 	}
-	logDebug("Monitor diagonal:", pDiagonal, "dpi:", window.dpi)
+	logfDebug("Monitor diagonal: %.2f dpi: %.2f", pDiagonal, window.dpi)
 }
 
 func (window *Window) Close() {
