@@ -154,20 +154,20 @@ func (proc *NvimProcess) requestOptions() {
 	proc.handle.Var(OPTION_KEY_FULLSCRN, &singleton.options.keyToggleFullscreen)
 	proc.handle.Var(OPTION_KEY_ZOOMIN, &singleton.options.keyIncreaseFontSize)
 	proc.handle.Var(OPTION_KEY_ZOOMOUT, &singleton.options.keyDecreaseFontSize)
-	// Window startup state
-	var value string
-	if proc.handle.Var(OPTION_WINDOW_STATE, &value) == nil {
-		singleton.window.setState(value)
-	}
+	var strVal string
 	// Window startup size
-	if proc.handle.Var(OPTION_WINDOW_SIZE, &value) == nil {
+	if proc.handle.Var(OPTION_WINDOW_SIZE, &strVal) == nil {
 		// Parse the string
-		width, height, ok := parseSizeString(value)
+		width, height, ok := parseSizeString(strVal)
 		if ok {
 			singleton.window.setSize(width, height, true)
 		} else {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Could not parse size value:", value)
+			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Could not parse size value:", strVal)
 		}
+	}
+	// Window startup state
+	if proc.handle.Var(OPTION_WINDOW_STATE, &strVal) == nil {
+		singleton.window.setState(strVal)
 	}
 	singleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
 }
