@@ -47,13 +47,13 @@ var (
 		'<':  "lt",
 		'\\': "Bslash",
 		'|':  "Bar",
-		' ':  "Space",
 	}
 
 	SharedKeys = map[glfw.Key]struct {
 		s string
 		r rune
 	}{
+		glfw.KeySpace:      {s: "Space", r: ' '},
 		glfw.KeyKPAdd:      {s: "kPlus", r: '+'},
 		glfw.KeyKPSubtract: {s: "kMinus", r: '-'},
 		glfw.KeyKPMultiply: {s: "kMultiply", r: '*'},
@@ -120,17 +120,15 @@ func sendMouseInput(button, action string, mods BitMask, grid, row, column int) 
 	case "release":
 		keycode += "Release"
 	case "up":
-		assert(button == "wheel", "up mouse action without wheel")
 		keycode += "Up"
 	case "down":
-		assert(button == "wheel", "down mouse action without wheel")
 		keycode += "Down"
 	default:
 		panic("invalid mouse action")
 	}
-	keycode = "<" + modsStr(mods, true) + keycode + ">"
+	keycode = "<" + modsStr(mods) + keycode + ">"
 	if !checkNeorayKeybindings(keycode) {
-		singleton.nvim.inputMouse(button, action, modsStr(mods, false), grid, row, column)
+		singleton.nvim.inputMouse(button, action, modsStr(mods), grid, row, column)
 	}
 }
 
@@ -166,18 +164,15 @@ func checkNeorayKeybindings(keycode string) bool {
 	return false
 }
 
-// charCallback and keyCallback functions are separated because of the tests.
-
 func charCallback(w *glfw.Window, char rune) {
+	defer measure_execution_time()()
 	keycode := parseCharInput(char, lastModifiers)
-	if keycode == "" {
-		return
-	}
-
-	sendKeyInput(keycode)
-
-	if singleton.options.mouseHide {
-		singleton.window.hideCursor()
+	if keycode != "" {
+		sendKeyInput(keycode)
+		// Hide mouse if mousehide option set
+		if singleton.options.mouseHide {
+			singleton.window.hideCursor()
+		}
 	}
 }
 
@@ -196,7 +191,7 @@ func parseCharInput(char rune, mods BitMask) string {
 
 	special, ok := SpecialChars[char]
 	if ok {
-		return "<" + modsStr(mods, true) + special + ">"
+		return "<" + modsStr(mods) + special + ">"
 	} else {
 		// Dont send S alone with char
 		if mods.hasonly(ModShift) {
@@ -205,12 +200,13 @@ func parseCharInput(char rune, mods BitMask) string {
 		if mods == 0 || mods.hasonly(ModAltGr) {
 			return string(char)
 		} else {
-			return "<" + modsStr(mods, true) + string(char) + ">"
+			return "<" + modsStr(mods) + string(char) + ">"
 		}
 	}
 }
 
 func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	defer measure_execution_time()()
 	// If this is a modifier key, we will store if it was pressed,
 	// delete if it was released
 	switch key {
@@ -234,25 +230,31 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 	// Keys
 	if action != glfw.Release {
 		keycode := parseKeyInput(key, scancode, lastModifiers)
-		if keycode == "" {
-			return
+		if keycode != "" {
+			sendKeyInput(keycode)
 		}
-
-		sendKeyInput(keycode)
 	}
 }
 
 func parseKeyInput(key glfw.Key, scancode int, mods BitMask) string {
 	if name, ok := SpecialKeys[key]; ok {
 		// Send all combination with these keys because they dont produce a character.
-		return "<" + modsStr(mods, true) + name + ">"
+		// We need to also enable altgr key, which means if altgr is pressed then we act like Ctrl+Alt pressed
+		if mods.has(ModAltGr) {
+			mods.enable(ModControl | ModAlt)
+		}
+		return "<" + modsStr(mods) + name + ">"
 	} else if pair, ok := SharedKeys[key]; ok {
 		// Shared keys are keypad keys and also all of them
 		// are characters. They must be sent with their
 		// special names for allowing more mappings. And
 		// corresponding character mustn't be sent.
 		lastSharedKey = key
-		return "<" + modsStr(mods, true) + pair.s + ">"
+		// Do same thing above
+		if mods.has(ModAltGr) {
+			mods.enable(ModControl | ModAlt)
+		}
+		return "<" + modsStr(mods) + pair.s + ">"
 	} else if mods != 0 && !mods.has(ModAltGr) && !mods.hasonly(ModShift) {
 		// Only send if there is modifiers
 		// Dont send with altgr
@@ -269,32 +271,36 @@ func parseKeyInput(key glfw.Key, scancode int, mods BitMask) string {
 		// And shift is also changes almost every key.
 		keyname := glfw.GetKeyName(key, scancode)
 		if keyname != "" {
-			return "<" + modsStr(mods, true) + keyname + ">"
+			return "<" + modsStr(mods) + keyname + ">"
 		}
 	}
 	return ""
 }
 
 func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+	// Show mouse when mouse button pressed
 	if singleton.options.mouseHide {
 		singleton.window.showCursor()
 	}
 
 	var buttonCode string
-
 	switch button {
 	case glfw.MouseButtonLeft:
 		if action == glfw.Press && singleton.options.contextMenuEnabled {
 			if singleton.contextMenu.mouseClick(false, lastMousePos) {
+				// Mouse clicked to context menu, dont send to neovim.
+				// TODO: We also need to dont send release action to neovim.
 				return
 			}
 		}
 		buttonCode = "left"
 		break
 	case glfw.MouseButtonRight:
-		if action == glfw.Press && singleton.options.contextMenuEnabled {
-			// We don't send right button to neovim if popup menu enabled.
-			singleton.contextMenu.mouseClick(true, lastMousePos)
+		// We don't send right button to neovim if popup menu enabled.
+		if singleton.options.contextMenuEnabled {
+			if action == glfw.Press {
+				singleton.contextMenu.mouseClick(true, lastMousePos)
+			}
 			return
 		}
 		buttonCode = "right"
@@ -323,6 +329,7 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 }
 
 func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
+	// Show mouse when mouse moved
 	if singleton.options.mouseHide {
 		singleton.window.showCursor()
 	}
@@ -334,7 +341,7 @@ func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
 		singleton.contextMenu.mouseMove(lastMousePos)
 	}
 
-	// If mouse moving when holding left button, it's drag event
+	// If mouse moving when holding button, it's a drag event
 	if lastMouseAction == glfw.Press {
 		grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
 		sendMouseInput(lastMouseButton, "drag", lastModifiers, grid, row, col)
@@ -361,31 +368,19 @@ func dropCallback(w *glfw.Window, names []string) {
 	}
 }
 
-func modsStr(mods BitMask, separated bool) string {
+func modsStr(mods BitMask) string {
 	str := ""
 	if mods.has(ModAlt) {
-		str += "M"
-		if separated {
-			str += "-"
-		}
+		str += "M-"
 	}
 	if mods.has(ModControl) {
-		str += "C"
-		if separated {
-			str += "-"
-		}
+		str += "C-"
 	}
 	if mods.has(ModShift) {
-		str += "S"
-		if separated {
-			str += "-"
-		}
+		str += "S-"
 	}
 	if mods.has(ModSuper) {
-		str += "D"
-		if separated {
-			str += "-"
-		}
+		str += "D-"
 	}
 	return str
 }
