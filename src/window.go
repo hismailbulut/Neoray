@@ -224,6 +224,12 @@ func (window *Window) setSize(width, height int, inCellSize bool) {
 		width *= singleton.cellWidth
 		height *= singleton.cellHeight
 	}
+	if width <= 0 {
+		width = window.width
+	}
+	if height <= 0 {
+		height = window.height
+	}
 	window.handle.SetSize(width, height)
 	logDebug("Window size changed internally:", width, height)
 }
