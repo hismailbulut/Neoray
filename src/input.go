@@ -129,7 +129,6 @@ func sendMouseInput(button, action string, mods BitMask, grid, row, column int) 
 		panic("invalid mouse action")
 	}
 	keycode = "<" + modsStr(mods, true) + keycode + ">"
-	logDebug("Mouse:", keycode)
 	if !checkNeorayKeybindings(keycode) {
 		singleton.nvim.inputMouse(button, action, modsStr(mods, false), grid, row, column)
 	}
@@ -175,7 +174,6 @@ func charCallback(w *glfw.Window, char rune) {
 		return
 	}
 
-	logDebug("Char:", keycode)
 	sendKeyInput(keycode)
 
 	if singleton.options.mouseHide {
@@ -240,7 +238,6 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 			return
 		}
 
-		logDebug("Key:", keycode)
 		sendKeyInput(keycode)
 	}
 }
