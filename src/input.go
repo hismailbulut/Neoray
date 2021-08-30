@@ -73,6 +73,8 @@ var (
 
 	// Global input variables
 	lastMousePos    IntVec2
+	lastDragPos     IntVec2
+	lastDragGrid    int
 	lastMouseButton string
 	lastMouseAction glfw.Action
 	lastSharedKey   glfw.Key
@@ -344,7 +346,14 @@ func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
 	// If mouse moving when holding button, it's a drag event
 	if lastMouseAction == glfw.Press {
 		grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
-		sendMouseInput(lastMouseButton, "drag", lastModifiers, grid, row, col)
+		// NOTE: Drag event as some multigrid issues
+		// Sending drag event on same row and column causes whole word is selected
+		if grid != lastDragGrid || row != lastDragPos.X || col != lastDragPos.Y {
+			sendMouseInput(lastMouseButton, "drag", lastModifiers, grid, row, col)
+			lastDragGrid = grid
+			lastDragPos.X = row
+			lastDragPos.Y = col
+		}
 	}
 }
 
