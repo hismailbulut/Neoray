@@ -222,13 +222,14 @@ func (cMenu *ContextMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
 				ContextMenuButtons[index].fn()
 				cMenu.Hide()
 			}
-			return true
 		} else {
 			cMenu.Hide()
 		}
+		return true
 	} else if rightbutton {
 		// Open popup menu at this position
 		cMenu.ShowAt(pos)
+		return true
 	}
 	return false
 }
