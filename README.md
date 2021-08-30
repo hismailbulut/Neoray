@@ -5,14 +5,28 @@ golang using glfw and opengl bindings. Neoray is easy to use and binary size
 is small. Supports most of the neovim features. Uses small amount of ram and
 leaves no footprints on your computer.
 
-You can install neoray with go install command.
+## Installation
+
+You can install neoray with `go install` command:
 ```
 go install github.com/hismailbulut/neoray/src@latest
 ```
+
+NOTE: to successfully build it with go you will need to have
+some dependencies. On Ubuntu, install following packages:
+
+```
+sudo apt install libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev build-essential libgtk-3-dev xorg-dev
+```
+
 Also you can download prebuild binaries from releases page.
 
+
+## Configuration
+
 Neoray doesn't need any additional configuration, but you can customize it in
-your init.vim.
+your `init.vim`. But for `neoray_*` settings to apply it is not enought to
+`:source` it, you'll need to restart neoray.
 
 These are some options you can specify for now:
 
