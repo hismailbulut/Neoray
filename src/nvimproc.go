@@ -27,12 +27,6 @@ type NvimProcess struct {
 	update_mutex *sync.Mutex
 	update_stack [][][]interface{}
 	timer        float64
-	// optionChanged      AtomicBool
-	// optionChangedMutex *sync.Mutex
-	// optionChangedQueue []struct {
-	//     name string
-	//     val  interface{}
-	// }
 }
 
 func CreateNvimProcess() NvimProcess {
@@ -154,8 +148,7 @@ func (proc *NvimProcess) startUI() {
 }
 
 func (proc *NvimProcess) update() {
-	// We are checking variables in every second
-	// Otherwise performance drops
+	// We are checking variables in every second otherwise performance drops
 	// TODO: This is an expensive operation and we need to get rid of this.
 	proc.timer += singleton.time.delta
 	if proc.timer >= 0 {
