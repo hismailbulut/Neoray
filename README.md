@@ -25,10 +25,7 @@ Also you can download prebuild binaries from releases page.
 ## Configuration
 
 Neoray doesn't need any additional configuration, but you can customize it in
-your `init.vim`. But for `neoray_*` settings to apply it is not enought to
-`:source` it, you'll need to restart neoray.
-
-These are some options you can specify for now:
+your `init.vim`. These are some options you can specify for now:
 
 The cursor is moving smoothly in neoray and you can specify how long it's move
 takes. Default is 0.06 (1.0 is one second) You can disable it by setting to 0.
