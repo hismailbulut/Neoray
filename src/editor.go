@@ -61,6 +61,7 @@ type Editor struct {
 	cellHeight int
 	// Mainloop timing values
 	time struct {
+		ticker   *time.Ticker
 		interval time.Duration
 		lastTick time.Time
 		delta    float64
@@ -88,7 +89,7 @@ func (editor *Editor) Initialize() {
 	editor.renderer = CreateRenderer()
 
 	editor.options = CreateDefaultOptions()
-	editor.nvim.requestOptions()
+	editor.nvim.requestStartupVariables()
 
 	// show the main window
 	editor.window.handle.Show()
@@ -122,8 +123,8 @@ func (editor *Editor) MainLoop() {
 	// Ticker's interval
 	editor.time.interval = time.Second / time.Duration(editor.options.targetTPS)
 	// NOTE: Ticker is not working correctly on windows.
-	ticker := time.NewTicker(editor.time.interval)
-	defer ticker.Stop()
+	editor.time.ticker = time.NewTicker(editor.time.interval)
+	defer editor.time.ticker.Stop()
 	// For measuring delta time
 	upsTimer := 0.0
 	updates := 0
@@ -133,7 +134,7 @@ func (editor *Editor) MainLoop() {
 	run := true
 	for run {
 		select {
-		case tick := <-ticker.C:
+		case tick := <-editor.time.ticker.C:
 			// Calculate delta time
 			elapsed := tick.Sub(editor.time.lastTick)
 			editor.time.lastTick = tick
@@ -165,13 +166,19 @@ func (editor *Editor) MainLoop() {
 
 func (editor *Editor) update() {
 	// Order is important!
-	if editor.server != nil {
-		editor.server.update()
-	}
 	handleRedrawEvents()
 	editor.window.update()
 	editor.cursor.update()
 	editor.renderer.update()
+	editor.nvim.update()
+	if editor.server != nil {
+		editor.server.update()
+	}
+}
+
+func (editor *Editor) resetTicker() {
+	editor.time.interval = time.Second / time.Duration(editor.options.targetTPS)
+	editor.time.ticker.Reset(editor.time.interval)
 }
 
 func (editor *Editor) backgroundAlpha() uint8 {

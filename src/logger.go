@@ -184,6 +184,11 @@ func logfDebug(format string, message ...interface{}) {
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
 }
 
+// Debug message with type
+func logDebugMsg(log_type LogType, message ...interface{}) {
+	logMessage(LOG_LEVEL_DEBUG, log_type, message...)
+}
+
 // This assert logs fatal when cond is false.
 func assert(cond bool, message ...interface{}) {
 	if cond == false {

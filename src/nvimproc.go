@@ -26,6 +26,13 @@ type NvimProcess struct {
 	handle       *nvim.Nvim
 	update_mutex *sync.Mutex
 	update_stack [][][]interface{}
+	timer        float64
+	// optionChanged      AtomicBool
+	// optionChangedMutex *sync.Mutex
+	// optionChangedQueue []struct {
+	//     name string
+	//     val  interface{}
+	// }
 }
 
 func CreateNvimProcess() NvimProcess {
@@ -122,6 +129,7 @@ func (proc *NvimProcess) startUI() {
 		logDebug("Multigrid enabled.")
 	}
 
+	// TODO: calculate size
 	if err := proc.handle.AttachUI(60, 20, options); err != nil {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Attaching ui failed:", err)
 	}
@@ -145,31 +153,91 @@ func (proc *NvimProcess) startUI() {
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Attached to neovim as an ui client.")
 }
 
-func (proc *NvimProcess) requestOptions() {
+func (proc *NvimProcess) update() {
+	// We are checking variables in every second
+	// Otherwise performance drops
+	// TODO: This is an expensive operation and we need to get rid of this.
+	proc.timer += singleton.time.delta
+	if proc.timer >= 0 {
+		proc.requestRuntimeVariables()
+		proc.timer -= 1
+	}
+}
+
+func (proc *NvimProcess) requestStartupVariables() {
 	defer measure_execution_time()()
-	proc.handle.Var(OPTION_CURSOR_ANIM, &singleton.options.cursorAnimTime)
-	proc.handle.Var(OPTION_TRANSPARENCY, &singleton.options.transparency)
-	proc.handle.Var(OPTION_TARGET_TPS, &singleton.options.targetTPS)
-	proc.handle.Var(OPTION_CONTEXT_MENU, &singleton.options.contextMenuEnabled)
-	proc.handle.Var(OPTION_KEY_FULLSCRN, &singleton.options.keyToggleFullscreen)
-	proc.handle.Var(OPTION_KEY_ZOOMIN, &singleton.options.keyIncreaseFontSize)
-	proc.handle.Var(OPTION_KEY_ZOOMOUT, &singleton.options.keyDecreaseFontSize)
-	var strVal string
+	var s string
 	// Window startup size
-	if proc.handle.Var(OPTION_WINDOW_SIZE, &strVal) == nil {
+	if proc.handle.Var(OPTION_WINDOW_SIZE, &s) == nil {
+		logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_SIZE, "is", s)
 		// Parse the string
-		width, height, ok := parseSizeString(strVal)
+		width, height, ok := parseSizeString(s)
 		if ok {
 			singleton.window.setSize(width, height, true)
 		} else {
-			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Could not parse size value:", strVal)
+			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Could not parse size value:", s)
 		}
 	}
 	// Window startup state
-	if proc.handle.Var(OPTION_WINDOW_STATE, &strVal) == nil {
-		singleton.window.setState(strVal)
+	if proc.handle.Var(OPTION_WINDOW_STATE, &s) == nil {
+		logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", s)
+		singleton.window.setState(s)
 	}
+	// built-in 'mousehide' option
 	singleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
+}
+
+func (proc *NvimProcess) requestRuntimeVariables() {
+	defer measure_execution_time()()
+	options := &singleton.options
+	var s string
+	var f float32
+	var i int
+	var b bool
+	if proc.handle.Var(OPTION_CURSOR_ANIM, &f) == nil {
+		if f != options.cursorAnimTime {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", f)
+			options.cursorAnimTime = f
+		}
+	}
+	if proc.handle.Var(OPTION_TRANSPARENCY, &f) == nil {
+		if f != options.transparency {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", f)
+			options.transparency = f
+			singleton.fullDraw()
+		}
+	}
+	if proc.handle.Var(OPTION_TARGET_TPS, &i) == nil {
+		if i != options.targetTPS {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TARGET_TPS, "is", i)
+			options.targetTPS = i
+			singleton.resetTicker()
+		}
+	}
+	if proc.handle.Var(OPTION_CONTEXT_MENU, &b) == nil {
+		if b != options.contextMenuEnabled {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", b)
+			options.contextMenuEnabled = b
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_FULLSCRN, &s) == nil {
+		if s != options.keyToggleFullscreen {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", s)
+			options.keyToggleFullscreen = s
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_ZOOMIN, &s) == nil {
+		if s != options.keyIncreaseFontSize {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", s)
+			options.keyIncreaseFontSize = s
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_ZOOMOUT, &s) == nil {
+		if s != options.keyDecreaseFontSize {
+			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", s)
+			options.keyDecreaseFontSize = s
+		}
+	}
 }
 
 // Returns options which implemented in vim but not implemented in neovim.
