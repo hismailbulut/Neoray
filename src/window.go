@@ -69,19 +69,16 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	// We need to create forward compatible context for macos support.
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
 	if isDebugBuild() {
 		glfw.WindowHint(glfw.OpenGLDebugContext, glfw.True)
 	}
 
-	// We are initializing window as hidden, when the mainloop is started, window will be shown.
+	// We are initializing window as hidden, and then we show it when mainloop begins
 	glfw.WindowHint(glfw.Visible, glfw.False)
 	// Framebuffer transparency not working on fullscreen when doublebuffer is on.
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
-	// This scales window with monitor content scale.
-	// Eg. when user moves window to another monitor, the window also resize
-	// and tries to keep its scale.
-	glfw.WindowHint(glfw.ScaleToMonitor, glfw.True)
 
 	var err error
 	window.handle, err = glfw.CreateWindow(width, height, title, nil, nil)
@@ -99,9 +96,10 @@ func CreateWindow(width int, height int, title string) Window {
 	}
 
 	window.handle.MakeContextCurrent()
-
 	// Disable v-sync, already disabled by default but make sure.
 	glfw.SwapInterval(0)
+
+	window.calculateDPI()
 
 	window.handle.SetFramebufferSizeCallback(
 		func(w *glfw.Window, width, height int) {
@@ -161,15 +159,20 @@ func CreateWindow(width int, height int, title string) Window {
 	window.handle.SetContentScaleCallback(
 		func(w *glfw.Window, x, y float32) {
 			// This function will be called when user changes its content scale
-			// in runtime, or moves window to another monitor. Also window size
-			// will change from glfw. We simply recalculating the dpi and resetting
-			// all fonts and redrawing entire screen when this happened.
+			// in runtime, or moves window to another monitor.
+			// First recalculates dpi
+			// Second reloads all fonts with same size but different dpi
+			// Third resizes window and tries to keep same rows and cols
+			// Third one not implemented yet
 			logDebug("Content scale changed.")
 			singleton.window.calculateDPI()
+			// rows := singleton.renderer.rows
+			// cols := singleton.renderer.cols
 			singleton.renderer.setFontSize(0)
+			// width := cols * singleton.cellWidth
+			// height := rows * singleton.cellHeight
+			// singleton.window.setSize(width, height, false)
 		})
-
-	window.calculateDPI()
 
 	return window
 }
