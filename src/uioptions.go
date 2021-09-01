@@ -17,10 +17,18 @@ type UIOptions struct {
 	pumblend      int    // TODO
 	showtabline   int
 	termguicolors bool
+	// will be implemented soon, currently always true
+	mousehide bool
 	// parsed options for forward usage
 	parsed struct {
 		guifontname string
 		guifontsize float32
+	}
+}
+
+func CreateUIOptions() UIOptions {
+	return UIOptions{
+		mousehide: true,
 	}
 }
 

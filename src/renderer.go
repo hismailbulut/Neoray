@@ -117,7 +117,7 @@ func (renderer *Renderer) updateCellSize(font *Font) bool {
 
 func (renderer *Renderer) clearAtlas() {
 	defer measure_execution_time()()
-	logDebug("Font atlas texture is cleaning.")
+	// logDebug("Cleaning atlas.")
 	renderer.fontAtlas.texture.clear()
 	renderer.fontAtlas.characters = make(map[string]IntRect)
 	renderer.fontAtlas.pos = IntVec2{}

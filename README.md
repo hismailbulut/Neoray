@@ -25,53 +25,50 @@ Also you can download prebuild binaries from releases page.
 ## Configuration
 
 Neoray doesn't need any additional configuration, but you can customize it in
-your `init.vim`. These are some options you can specify for now:
+your `init.vim`. All options can be set via NeoraySet command. Takes two arguments,
+first one is the name of the option and second one is the value.
 
 The cursor is moving smoothly in neoray and you can specify how long it's move
 takes. Default is 0.06 (1.0 is one second) You can disable it by setting to 0.
 ```vim
-let neoray_cursor_animation_time=0.06
+NeoraySet CursorAnimTime 0.06
 ```
 
 Transparency of the window background. Default is 1 means no transparency, and
 0 is fully transparent. Only background colors will be transparent, and
 statusline, tabline and texts are fully opaque.
 ```vim
-let neoray_background_transparency=1
+NeoraySet Transparency 0.95
 ```
 
 The target update time in one second. Like FPS but neoray doesn't render screen
 in every frame. Default is 60.
 ```vim
-let neoray_target_ticks_per_second=60
+NeoraySet TargetTPS 60
 ```
 
 Neoray has a simple right click menu that gives you some abilities like
 copying, cutting to system clipboard and pasting. It has a open file
 functionality that opens system file dialog. Menu text is same as the font and
 the colors are from your colorscheme. This makes it look and feel like
-terminal. You can disable it by setting this option to 0. Default is 1 which
-means enabled.
-NOTE: The old name "neoray_popup_menu_enabled" has changed because of the
-possible confuse with ext_popupmenu. If you used old name, you need to change
-it in your init.vim.
+terminal. You can disable it by setting this option to false. Default is true.
 ```vim
-let neoray_context_menu_enabled=1
+NeoraySet ContextMenuOn true
 ```
 
 You can specify how the neoray window will be shown. The possible values are
 'minimized', 'maximized', 'fullscreen', 'centered'. Default is none.
 ```vim
-let neoray_window_startup_state=''
+NeoraySet WindowState maximized
 ```
 
 Also you can specify the startup size of the window in cells. The default is
 none. The syntax is same below. First value is width (columns) and second value
 is height (rows). If you set one dimension to 0, it will not take effect and
 you can set other one dimension. The example starts neoray with 99 columns and
-don't touchs row/height.
+don't touchs row/height. You may also want to call this before the WindowState option.
 ```vim
-let neoray_window_startup_size='99x0'
+NeoraySet WindowSize 99x0
 ```
 
 Neoray uses some key combinations for switching between fullscreen and windowed
@@ -79,9 +76,9 @@ mode, zoom in and out eg. You can set these keys and also disable as you wish.
 All options here are strings contains vim style keybindings and set to
 defaults.
 ```vim
-let neoray_key_toggle_fullscreen='<F11>'
-let neoray_key_increase_fontsize='<C-kPlus>'
-let neoray_key_decrease_fontsize='<C-kMinus>'
+NeoraySet KeyFullscreen <F11>
+NeoraySet KeyZoomIn     <C-kPlus>
+NeoraySet KeyZoomOut    <C-kMinus>
 ```
 ___
 ### font
@@ -102,29 +99,30 @@ ___
 ```vim
 if exists('g:neoray')
     set guifont=Go_Mono:h11
-    let neoray_cursor_animation_time=0.07
-    let neoray_background_transparency=0.95
-    let neoray_target_ticks_per_second=120
-    let neoray_context_menu_enabled=1
-    let neoray_window_startup_state='centered'
-    let neoray_window_startup_size='120x40'
-    let neoray_key_toggle_fullscreen='<M-C-CR>' " AltGr+Enter
-    let neoray_key_increase_fontsize='<C-ScrollWheelUp>'
-    let neoray_key_decrease_fontsize='<C-ScrollWheelDown>'
+    NeoraySet CursorAnimTime 0.08
+    NeoraySet Transparency   0.95
+    NeoraySet TargetTPS      120
+    NeoraySet ContextMenuOn  TRUE
+    NeoraySet WindowSize     120x40
+    NeoraySet WindowState    centered
+    NeoraySet KeyFullscreen  <M-C-CR>
+    NeoraySet KeyZoomIn      <C-ScrollWheelUp>
+    NeoraySet KeyZoomOut     <C-ScrollWheelDown>
 endif
 ```
 
 You can disable all of these features.
 ```vim
 if exists('g:neoray')
-    let neoray_cursor_animation_time=0
-    let neoray_context_menu_enabled=0
-    let neoray_window_startup_state=''
-    let neoray_key_toggle_fullscreen=''
-    let neoray_key_increase_fontsize=''
-    let neoray_key_decrease_fontsize=''
+    NeoraySet CursorAnimTime 0
+    NeoraySet ContextMenuOn  FALSE
+    NeoraySet KeyFullscreen  <>
+    NeoraySet KeyZoomIn      <>
+    NeoraySet KeyZoomOut     <>
 endif
 ```
+
+NOTE: The old neoray_* options are deprecated and will be removed soon.
 ___
 ### flags
 Neoray accepts some flags for startup options and more. Other flags are used

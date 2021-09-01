@@ -25,10 +25,6 @@ const (
 	WINDOW_STATE_FULLSCREEN
 )
 
-const (
-	WINDOW_SIZE_AUTO = 1 << 30
-)
-
 type Window struct {
 	handle   *glfw.Window
 	title    string
@@ -48,10 +44,10 @@ func CreateWindow(width int, height int, title string) Window {
 	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
 	logfDebug("Video mode %+v", *videoMode)
 
-	if width == WINDOW_SIZE_AUTO {
+	if width <= 0 {
 		width = (videoMode.Width / 5) * 3
 	}
-	if height == WINDOW_SIZE_AUTO {
+	if height <= 0 {
 		height = (videoMode.Height / 4) * 3
 	}
 

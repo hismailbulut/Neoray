@@ -1,40 +1,94 @@
 package main
 
 import (
+	// _ "embed"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/neovim/go-client/nvim"
 )
 
 const (
-	// Options
-	OPTION_CURSOR_ANIM  = "neoray_cursor_animation_time"
-	OPTION_TRANSPARENCY = "neoray_background_transparency"
-	OPTION_TARGET_TPS   = "neoray_target_ticks_per_second"
-	OPTION_CONTEXT_MENU = "neoray_context_menu_enabled"
-	OPTION_WINDOW_STATE = "neoray_window_startup_state"
-	OPTION_WINDOW_SIZE  = "neoray_window_startup_size"
-	// Keybindings
-	OPTION_KEY_FULLSCRN = "neoray_key_toggle_fullscreen"
-	OPTION_KEY_ZOOMIN   = "neoray_key_increase_fontsize"
-	OPTION_KEY_ZOOMOUT  = "neoray_key_decrease_fontsize"
+	// DEPRECATED
+	// All options here are deprecated and will be removed soon
+	OPTION_CURSOR_ANIM_DEP  = "neoray_cursor_animation_time"
+	OPTION_TRANSPARENCY_DEP = "neoray_background_transparency"
+	OPTION_TARGET_TPS_DEP   = "neoray_target_ticks_per_second"
+	OPTION_CONTEXT_MENU_DEP = "neoray_context_menu_enabled"
+	OPTION_WINDOW_STATE_DEP = "neoray_window_startup_state"
+	OPTION_WINDOW_SIZE_DEP  = "neoray_window_startup_size"
+	OPTION_KEY_FULLSCRN_DEP = "neoray_key_toggle_fullscreen"
+	OPTION_KEY_ZOOMIN_DEP   = "neoray_key_increase_fontsize"
+	OPTION_KEY_ZOOMOUT_DEP  = "neoray_key_decrease_fontsize"
 )
 
+const (
+	// New options
+	OPTION_CURSOR_ANIM  = "CursorAnimTime"
+	OPTION_TRANSPARENCY = "Transparency"
+	OPTION_TARGET_TPS   = "TargetTPS"
+	OPTION_CONTEXT_MENU = "ContextMenuOn"
+	OPTION_WINDOW_STATE = "WindowState"
+	OPTION_WINDOW_SIZE  = "WindowSize"
+	OPTION_KEY_FULLSCRN = "KeyFullscreen"
+	OPTION_KEY_ZOOMIN   = "KeyZoomIn"
+	OPTION_KEY_ZOOMOUT  = "KeyZoomOut"
+)
+
+// Add all options here
+var OptionsList = []string{
+	OPTION_CURSOR_ANIM,
+	OPTION_TRANSPARENCY,
+	OPTION_TARGET_TPS,
+	OPTION_CONTEXT_MENU,
+	OPTION_WINDOW_STATE,
+	OPTION_WINDOW_SIZE,
+	OPTION_KEY_FULLSCRN,
+	OPTION_KEY_ZOOMIN,
+	OPTION_KEY_ZOOMOUT,
+}
+
+type TemporaryOption struct {
+	name, value string
+}
+
+var OptionSetFuncScript string = `
+function NeorayOptionSet(...)
+	if a:0 != 2
+		echoerr 'NeoraySet needs 2 arguments.'
+		return
+	endif
+	call rpcnotify(CHANID, "NeorayOptionSet", a:1, a:2)
+endfunction
+
+function NeorayCompletion(A, L, P)
+	return OPTIONLIST
+endfunction
+
+command -nargs=+ -complete=customlist,NeorayCompletion NeoraySet call NeorayOptionSet(<f-args>)
+`
+
 type NvimProcess struct {
-	handle       *nvim.Nvim
-	update_mutex *sync.Mutex
-	update_stack [][][]interface{}
-	timer        float64
+	handle        *nvim.Nvim
+	eventReceived AtomicBool
+	eventMutex    *sync.Mutex
+	eventStack    [][][]interface{}
+	optionChanged AtomicBool
+	optionMutex   *sync.Mutex
+	optionStack   []TemporaryOption
 }
 
 func CreateNvimProcess() NvimProcess {
 	defer measure_execution_time()()
 
 	proc := NvimProcess{
-		update_mutex: &sync.Mutex{},
-		update_stack: make([][][]interface{}, 0),
+		eventMutex:  &sync.Mutex{},
+		eventStack:  make([][][]interface{}, 0),
+		optionMutex: &sync.Mutex{},
+		optionStack: make([]TemporaryOption, 0),
 	}
 
 	args := append([]string{"--embed"}, editorParsedArgs.others...)
@@ -50,13 +104,59 @@ func CreateNvimProcess() NvimProcess {
 	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM,
 		"Neovim started with command:", editorParsedArgs.execPath, mergeStringArray(args))
 
+	return proc
+}
+
+// We are initializing some callback functions here because CreateNvimProcess
+// copies actual process struct and we lost pointer of it if these functions
+// are called in CreateNvimProcess
+func (proc *NvimProcess) init() {
 	proc.requestApiInfo()
 	proc.introduce()
-
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
+	proc.registerScripts()
+}
 
-	return proc
+func (proc *NvimProcess) registerScripts() {
+	// Replace channel ids in the template
+	source := strings.ReplaceAll(OptionSetFuncScript, "CHANID", strconv.Itoa(proc.handle.ChannelID()))
+	// Create option list string
+	listStr := "["
+	for i := 0; i < len(OptionsList); i++ {
+		listStr += "'" + OptionsList[i] + "'"
+		if i < len(OptionsList)-1 {
+			listStr += ","
+		}
+	}
+	listStr += "]"
+	// Replace list in source
+	source = strings.Replace(source, "OPTIONLIST", listStr, 1)
+	// Trim whitespaces
+	source = strings.TrimSpace(source)
+	// Execute script
+	_, err := proc.handle.Exec(source, false)
+	if err != nil {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute scripts.vim:", err)
+		return
+	}
+	// Register handler
+	proc.handle.RegisterHandler("NeorayOptionSet",
+		func(iName, iValue interface{}) {
+			name, ok1 := iName.(string)
+			value, ok2 := iValue.(string)
+			if !ok1 || !ok2 {
+				// This is not user fault.
+				logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "NeoraySet arguments are not string.")
+				return
+			}
+			proc.optionMutex.Lock()
+			defer proc.optionMutex.Unlock()
+			proc.optionStack = append(proc.optionStack, TemporaryOption{
+				name: name, value: value,
+			})
+			proc.optionChanged.Set(true)
+		})
 }
 
 func (proc *NvimProcess) requestApiInfo() {
@@ -130,9 +230,10 @@ func (proc *NvimProcess) startUI() {
 
 	proc.handle.RegisterHandler("redraw",
 		func(updates ...[]interface{}) {
-			proc.update_mutex.Lock()
-			defer proc.update_mutex.Unlock()
-			proc.update_stack = append(proc.update_stack, updates)
+			proc.eventMutex.Lock()
+			defer proc.eventMutex.Unlock()
+			proc.eventStack = append(proc.eventStack, updates)
+			proc.eventReceived.Set(true)
 		})
 
 	go func() {
@@ -148,21 +249,149 @@ func (proc *NvimProcess) startUI() {
 }
 
 func (proc *NvimProcess) update() {
-	// We are checking variables in every second otherwise performance drops
-	// TODO: This is an expensive operation and we need to get rid of this.
-	proc.timer += singleton.time.delta
-	if proc.timer >= 0 {
-		proc.requestRuntimeVariables()
-		proc.timer -= 1
+	proc.checkOptions()
+}
+
+func (proc *NvimProcess) checkOptions() {
+	if proc.optionChanged.Get() {
+		proc.optionMutex.Lock()
+		defer proc.optionMutex.Unlock()
+		for _, opt := range proc.optionStack {
+			switch opt.name {
+			case OPTION_CURSOR_ANIM:
+				value, err := strconv.ParseFloat(opt.value, 32)
+				if err != nil {
+					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_CURSOR_ANIM, "value isn't valid.")
+					break
+				}
+				if singleton.options.cursorAnimTime != float32(value) {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", opt.value)
+					singleton.options.cursorAnimTime = float32(value)
+				}
+			case OPTION_TRANSPARENCY:
+				value, err := strconv.ParseFloat(opt.value, 32)
+				if err != nil {
+					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_TRANSPARENCY, "value isn't valid.")
+					break
+				}
+				if singleton.options.transparency != float32(value) {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt.value)
+					singleton.options.transparency = float32(value)
+					if singleton.mainLoopRunning {
+						singleton.fullDraw()
+					}
+				}
+			case OPTION_TARGET_TPS:
+				value, err := strconv.Atoi(opt.value)
+				if err != nil {
+					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_TARGET_TPS, "value isn't valid.")
+					break
+				}
+				if singleton.options.targetTPS != value {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TARGET_TPS, "is", value)
+					singleton.options.targetTPS = value
+					if singleton.mainLoopRunning {
+						singleton.resetTicker()
+					}
+				}
+			case OPTION_CONTEXT_MENU:
+				value, err := strconv.ParseBool(opt.value)
+				if err != nil {
+					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_TARGET_TPS, "value isn't valid.")
+					break
+				}
+				if singleton.options.contextMenuEnabled != value {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", value)
+					singleton.options.contextMenuEnabled = value
+				}
+			case OPTION_WINDOW_STATE:
+				singleton.window.setState(opt.value)
+				logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", opt.value)
+			case OPTION_WINDOW_SIZE:
+				width, height, ok := parseSizeString(opt.value)
+				if !ok {
+					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_WINDOW_SIZE, "value isn't valid.")
+					break
+				}
+				logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_SIZE, "is", width, height)
+				singleton.window.setSize(width, height, true)
+			case OPTION_KEY_FULLSCRN:
+				if singleton.options.keyToggleFullscreen != opt.value {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", opt.value)
+					singleton.options.keyToggleFullscreen = opt.value
+				}
+			case OPTION_KEY_ZOOMIN:
+				if singleton.options.keyIncreaseFontSize != opt.value {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", opt.value)
+					singleton.options.keyIncreaseFontSize = opt.value
+				}
+			case OPTION_KEY_ZOOMOUT:
+				if singleton.options.keyDecreaseFontSize != opt.value {
+					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", opt.value)
+					singleton.options.keyDecreaseFontSize = opt.value
+				}
+			default:
+				logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Invalid option", opt.name)
+			}
+		}
+		proc.optionStack = proc.optionStack[0:0]
+		proc.optionChanged.Set(false)
 	}
 }
 
+// DEPRECATED
 func (proc *NvimProcess) requestStartupVariables() {
 	defer measure_execution_time()()
+	options := &singleton.options
 	var s string
+	var f float32
+	var i int
+	var b bool
+	if proc.handle.Var(OPTION_CURSOR_ANIM_DEP, &f) == nil {
+		if f != options.cursorAnimTime {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_CURSOR_ANIM_DEP, "is", f)
+			options.cursorAnimTime = f
+		}
+	}
+	if proc.handle.Var(OPTION_TRANSPARENCY_DEP, &f) == nil {
+		if f != options.transparency {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_TRANSPARENCY_DEP, "is", f)
+			options.transparency = f
+		}
+	}
+	if proc.handle.Var(OPTION_TARGET_TPS_DEP, &i) == nil {
+		if i != options.targetTPS {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_TARGET_TPS_DEP, "is", i)
+			options.targetTPS = i
+		}
+	}
+	if proc.handle.Var(OPTION_CONTEXT_MENU_DEP, &b) == nil {
+		if b != options.contextMenuEnabled {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_CONTEXT_MENU_DEP, "is", b)
+			options.contextMenuEnabled = b
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_FULLSCRN_DEP, &s) == nil {
+		if s != options.keyToggleFullscreen {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_KEY_FULLSCRN_DEP, "is", s)
+			options.keyToggleFullscreen = s
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_ZOOMIN_DEP, &s) == nil {
+		if s != options.keyIncreaseFontSize {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMIN_DEP, "is", s)
+			options.keyIncreaseFontSize = s
+		}
+	}
+	if proc.handle.Var(OPTION_KEY_ZOOMOUT_DEP, &s) == nil {
+		if s != options.keyDecreaseFontSize {
+			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMOUT_DEP, "is", s)
+			options.keyDecreaseFontSize = s
+		}
+	}
 	// Window startup size
-	if proc.handle.Var(OPTION_WINDOW_SIZE, &s) == nil {
-		logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_SIZE, "is", s)
+	if proc.handle.Var(OPTION_WINDOW_SIZE_DEP, &s) == nil {
+		logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_WINDOW_SIZE_DEP, "is", s)
 		// Parse the string
 		width, height, ok := parseSizeString(s)
 		if ok {
@@ -172,94 +401,18 @@ func (proc *NvimProcess) requestStartupVariables() {
 		}
 	}
 	// Window startup state
-	if proc.handle.Var(OPTION_WINDOW_STATE, &s) == nil {
-		logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", s)
+	if proc.handle.Var(OPTION_WINDOW_STATE_DEP, &s) == nil {
+		logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_WINDOW_STATE_DEP, "is", s)
 		singleton.window.setState(s)
 	}
-	// built-in 'mousehide' option
-	singleton.options.mouseHide = boolFromInterface(proc.getUnimplementedOption("mousehide"))
 }
 
-func (proc *NvimProcess) requestRuntimeVariables() {
-	defer measure_execution_time()()
-	options := &singleton.options
-	var s string
-	var f float32
-	var i int
-	var b bool
-	if proc.handle.Var(OPTION_CURSOR_ANIM, &f) == nil {
-		if f != options.cursorAnimTime {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", f)
-			options.cursorAnimTime = f
-		}
-	}
-	if proc.handle.Var(OPTION_TRANSPARENCY, &f) == nil {
-		if f != options.transparency {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", f)
-			options.transparency = f
-			singleton.fullDraw()
-		}
-	}
-	if proc.handle.Var(OPTION_TARGET_TPS, &i) == nil {
-		if i != options.targetTPS {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TARGET_TPS, "is", i)
-			options.targetTPS = i
-			singleton.resetTicker()
-		}
-	}
-	if proc.handle.Var(OPTION_CONTEXT_MENU, &b) == nil {
-		if b != options.contextMenuEnabled {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", b)
-			options.contextMenuEnabled = b
-		}
-	}
-	if proc.handle.Var(OPTION_KEY_FULLSCRN, &s) == nil {
-		if s != options.keyToggleFullscreen {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", s)
-			options.keyToggleFullscreen = s
-		}
-	}
-	if proc.handle.Var(OPTION_KEY_ZOOMIN, &s) == nil {
-		if s != options.keyIncreaseFontSize {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", s)
-			options.keyIncreaseFontSize = s
-		}
-	}
-	if proc.handle.Var(OPTION_KEY_ZOOMOUT, &s) == nil {
-		if s != options.keyDecreaseFontSize {
-			logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", s)
-			options.keyDecreaseFontSize = s
-		}
-	}
-}
-
-// Returns options which implemented in vim but not implemented in neovim.
-// Like 'mousehide'. Don't use this as long as the nvim_get_option is working.
-func (proc *NvimProcess) getUnimplementedOption(name string) interface{} {
-	defer measure_execution_time()()
-	eventName := "opt_" + name
-	var opt interface{}
-	ch := make(chan bool)
-	defer close(ch)
-	proc.handle.RegisterHandler(eventName, func(val interface{}) {
-		opt = val
-		ch <- true
-	})
-	defer proc.handle.Unsubscribe(eventName)
-	ok := proc.executeVimScript("call rpcnotify(%d, \"%s\", &%s)",
-		proc.handle.ChannelID(), eventName, name)
-	if ok {
-		<-ch
-	}
-	return opt
-}
-
-func (proc *NvimProcess) executeVimScript(format string, args ...interface{}) bool {
+func (proc *NvimProcess) execCommand(format string, args ...interface{}) bool {
 	cmd := fmt.Sprintf(format, args...)
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Executing script: [", cmd, "]")
+	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Executing command: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute vimscript: [", cmd, "] err:", err)
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Command execution failed: [", cmd, "] err:", err)
 		return false
 	}
 	return true
@@ -276,7 +429,7 @@ func (proc *NvimProcess) currentMode() string {
 
 func (proc *NvimProcess) echoMsg(format string, args ...interface{}) {
 	formatted := fmt.Sprintf(format, args...)
-	proc.executeVimScript("echomsg '%s'", formatted)
+	proc.execCommand("echomsg '%s'", formatted)
 }
 
 func (proc *NvimProcess) echoErr(format string, args ...interface{}) {
@@ -317,7 +470,7 @@ func (proc *NvimProcess) copySelected() string {
 	}
 }
 
-// Pastes text to cursor.
+// Pastes text at cursor.
 func (proc *NvimProcess) paste(str string) {
 	err := proc.handle.Call("nvim_paste", nil, str, true, -1)
 	if err != nil {
@@ -339,7 +492,7 @@ func (proc *NvimProcess) selectAll() {
 }
 
 func (proc *NvimProcess) openFile(file string) {
-	proc.executeVimScript("edit %s", file)
+	proc.execCommand("edit %s", file)
 }
 
 func (proc *NvimProcess) gotoLine(line int) {

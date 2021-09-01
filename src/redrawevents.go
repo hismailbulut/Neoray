@@ -10,85 +10,83 @@ var (
 )
 
 func handleRedrawEvents() {
-	singleton.nvim.update_mutex.Lock()
-	defer singleton.nvim.update_mutex.Unlock()
-
-	if len(singleton.nvim.update_stack) <= 0 {
-		return
-	}
-
-	for _, updates := range singleton.nvim.update_stack {
-		for _, update := range updates {
-			switch update[0] {
-			// Global events
-			case "set_title":
-				title := reflect.ValueOf(update[1]).Index(0).Elem().String()
-				singleton.window.setTitle(title)
-			case "set_icon":
-				break
-			case "mode_info_set":
-				mode_info_set(update[1:])
-			case "option_set":
-				option_set(update[1:])
-			case "mode_change":
-				mode_change(update[1:])
-			case "mouse_on":
-				break
-			case "mouse_off":
-				break
-			case "busy_start":
-				singleton.cursor.Hide()
-			case "busy_stop":
-				singleton.cursor.Show()
-			case "suspend":
-				break
-			case "update_menu":
-				break
-			case "bell":
-				break
-			case "visual_bell":
-				break
-			case "flush":
-				singleton.draw()
-			// Grid Events (line-based)
-			case "grid_resize":
-				grid_resize(update[1:])
-			case "default_colors_set":
-				default_colors_set(update[1:])
-			case "hl_attr_define":
-				hl_attr_define(update[1:])
-			case "hl_group_set":
-				break
-			case "grid_line":
-				grid_line(update[1:])
-			case "grid_clear":
-				grid_clear(update[1:])
-			case "grid_destroy":
-				grid_destroy(update[1:])
-			case "grid_cursor_goto":
-				grid_cursor_goto(update[1:])
-			case "grid_scroll":
-				grid_scroll(update[1:])
-			// Multgrid specific events
-			case "win_pos":
-				win_pos(update[1:])
-			case "win_float_pos":
-				win_float_pos(update[1:])
-			case "win_external_pos":
-				win_external_pos(update[1:])
-			case "win_hide":
-				win_hide(update[1:])
-			case "win_close":
-				win_close(update[1:])
-			case "msg_set_pos":
-				msg_set_pos(update[1:])
-			case "win_viewport":
-				win_viewport(update[1:])
+	if singleton.nvim.eventReceived.Get() {
+		singleton.nvim.eventMutex.Lock()
+		defer singleton.nvim.eventMutex.Unlock()
+		for _, updates := range singleton.nvim.eventStack {
+			for _, update := range updates {
+				switch update[0] {
+				// Global events
+				case "set_title":
+					title := reflect.ValueOf(update[1]).Index(0).Elem().String()
+					singleton.window.setTitle(title)
+				case "set_icon":
+					break
+				case "mode_info_set":
+					mode_info_set(update[1:])
+				case "option_set":
+					option_set(update[1:])
+				case "mode_change":
+					mode_change(update[1:])
+				case "mouse_on":
+					break
+				case "mouse_off":
+					break
+				case "busy_start":
+					singleton.cursor.Hide()
+				case "busy_stop":
+					singleton.cursor.Show()
+				case "suspend":
+					break
+				case "update_menu":
+					break
+				case "bell":
+					break
+				case "visual_bell":
+					break
+				case "flush":
+					singleton.draw()
+				// Grid Events (line-based)
+				case "grid_resize":
+					grid_resize(update[1:])
+				case "default_colors_set":
+					default_colors_set(update[1:])
+				case "hl_attr_define":
+					hl_attr_define(update[1:])
+				case "hl_group_set":
+					break
+				case "grid_line":
+					grid_line(update[1:])
+				case "grid_clear":
+					grid_clear(update[1:])
+				case "grid_destroy":
+					grid_destroy(update[1:])
+				case "grid_cursor_goto":
+					grid_cursor_goto(update[1:])
+				case "grid_scroll":
+					grid_scroll(update[1:])
+				// Multgrid specific events
+				case "win_pos":
+					win_pos(update[1:])
+				case "win_float_pos":
+					win_float_pos(update[1:])
+				case "win_external_pos":
+					win_external_pos(update[1:])
+				case "win_hide":
+					win_hide(update[1:])
+				case "win_close":
+					win_close(update[1:])
+				case "msg_set_pos":
+					msg_set_pos(update[1:])
+				case "win_viewport":
+					win_viewport(update[1:])
+				}
 			}
 		}
+		// clear update stack
+		singleton.nvim.eventStack = singleton.nvim.eventStack[0:0]
+		singleton.nvim.eventReceived.Set(false)
 	}
-	// clear update stack
-	singleton.nvim.update_stack = singleton.nvim.update_stack[0:0]
 }
 
 func refToInt(val reflect.Value) int {

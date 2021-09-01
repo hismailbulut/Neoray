@@ -15,8 +15,6 @@ type Options struct {
 	keyToggleFullscreen string
 	keyIncreaseFontSize string
 	keyDecreaseFontSize string
-	// builtin options
-	mouseHide bool
 }
 
 type Editor struct {
@@ -59,6 +57,8 @@ type Editor struct {
 	// TODO: I am going to implement per grid font size, and these variables will be moved to grid.
 	cellWidth  int
 	cellHeight int
+	// A variable that we can use for checking whether main loop has begun
+	mainLoopRunning bool
 	// Mainloop timing values
 	time struct {
 		ticker   *time.Ticker
@@ -73,23 +73,26 @@ func (editor *Editor) Initialize() {
 	editor.quitRequested = make(chan bool)
 
 	editor.nvim = CreateNvimProcess()
+	editor.nvim.init()
 	editor.nvim.startUI()
 
 	editor.initGlfw()
-	editor.window = CreateWindow(WINDOW_SIZE_AUTO, WINDOW_SIZE_AUTO, TITLE)
-
+	editor.window = CreateWindow(0, 0, TITLE)
 	initInputEvents()
 
-	editor.uiOptions = UIOptions{}
-
+	editor.uiOptions = CreateUIOptions()
+	editor.options = CreateDefaultOptions()
 	editor.gridManager = CreateGridManager()
 	editor.mode = CreateMode()
+
 	editor.cursor = CreateCursor()
 	editor.contextMenu = CreateContextMenu()
 	editor.renderer = CreateRenderer()
 
-	editor.options = CreateDefaultOptions()
+	// DEPRECATED
 	editor.nvim.requestStartupVariables()
+	// NEW
+	editor.nvim.checkOptions()
 
 	// show the main window
 	editor.window.handle.Show()
@@ -105,7 +108,6 @@ func CreateDefaultOptions() Options {
 		keyToggleFullscreen: "<F11>",
 		keyIncreaseFontSize: "<C-kPlus>",
 		keyDecreaseFontSize: "<C-kMinus>",
-		mouseHide:           false,
 	}
 }
 
@@ -131,8 +133,8 @@ func (editor *Editor) MainLoop() {
 	// For measuring elpased time
 	editor.time.lastTick = time.Now()
 	// Mainloop
-	run := true
-	for run {
+	editor.mainLoopRunning = true
+	for editor.mainLoopRunning {
 		select {
 		case tick := <-editor.time.ticker.C:
 			// Calculate delta time
@@ -155,10 +157,10 @@ func (editor *Editor) MainLoop() {
 			if editor.window.handle.ShouldClose() {
 				// Send quit command to neovim and not quit until neovim quits.
 				editor.window.handle.SetShouldClose(false)
-				go editor.nvim.executeVimScript("qa")
+				go editor.nvim.execCommand("qa")
 			}
 		case <-editor.quitRequested:
-			run = false
+			editor.mainLoopRunning = false
 		}
 	}
 	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))

@@ -144,9 +144,9 @@ func CreateServer() (*TCPServer, error) {
 						resp = SIGNAL_CLOSE_CONNECTION
 						break
 					default:
-						server.dataReceived.Set(true)
 						server.dataMutex.Lock()
 						server.data = append(server.data, data)
+						server.dataReceived.Set(true)
 						server.dataMutex.Unlock()
 						resp = SIGNAL_OK
 						break

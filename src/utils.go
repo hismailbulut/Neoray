@@ -133,18 +133,6 @@ func (atomicBool *AtomicBool) WaitUntil(val bool) {
 	}
 }
 
-func boolFromInterface(val interface{}) bool {
-	switch val.(type) {
-	case bool:
-		return val == true
-	case int, int32, int64, uint, uint32, uint64:
-		return val != 0
-	default:
-		assert_debug(false, "Value type can not be converted to a bool:", val)
-		return false
-	}
-}
-
 func parseSizeString(size string) (int, int, bool) {
 	// Size must be in form of '10x10'
 	values := strings.Split(size, "x")

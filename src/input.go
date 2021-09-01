@@ -172,7 +172,7 @@ func charCallback(w *glfw.Window, char rune) {
 	if keycode != "" {
 		sendKeyInput(keycode)
 		// Hide mouse if mousehide option set
-		if singleton.options.mouseHide {
+		if singleton.uiOptions.mousehide {
 			singleton.window.hideCursor()
 		}
 	}
@@ -281,7 +281,7 @@ func parseKeyInput(key glfw.Key, scancode int, mods BitMask) string {
 
 func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
 	// Show mouse when mouse button pressed
-	if singleton.options.mouseHide {
+	if singleton.uiOptions.mousehide {
 		singleton.window.showCursor()
 	}
 
@@ -332,7 +332,7 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 
 func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
 	// Show mouse when mouse moved
-	if singleton.options.mouseHide {
+	if singleton.uiOptions.mousehide {
 		singleton.window.showCursor()
 	}
 
@@ -358,7 +358,7 @@ func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
 }
 
 func scrollCallback(w *glfw.Window, xpos, ypos float64) {
-	if singleton.options.mouseHide {
+	if singleton.uiOptions.mousehide {
 		singleton.window.showCursor()
 	}
 
