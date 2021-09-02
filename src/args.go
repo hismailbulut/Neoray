@@ -128,6 +128,10 @@ func PrintHelp() {
 		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
 		buildTypeString(), LICENSE, WEBPAGE)
 	dialog.Message(msg).Title("Help").Info()
+	if runtime.GOOS != "windows" {
+		// Also print help to stdout for linux and darwin
+		fmt.Println(msg)
+	}
 }
 
 // Call this before starting neovim.
