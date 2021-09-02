@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 
 	"github.com/sqweek/dialog"
@@ -21,17 +22,19 @@ Options:
 --file <name>
 	Filename to open.
 --line <number>
-	Goto line number.
+	Cursor goes to line <number>.
 --column <number>
-	Goto column number.
+	Cursor goes to column <number>.
 --singleinstance, -si
-	Only accept one instance of neoray and send all flags to it.
+	Only accepts one instance of neoray and sends all flags to it.
 --verbose
-	Print verbose debug output to file.
+	Prints verbose debug output to a file.
 --nvim <path>
 	Path to nvim executable. May be relative or absolute.
 --multigrid
-	Enable multigrid support.
+	Enables multigrid support.
+--version, -v
+	Prints only the version and quits.
 --help, -h
 	Prints this message and quits.
 
@@ -42,7 +45,7 @@ type ParsedArgs struct {
 	file       string
 	line       int
 	column     int
-	singleinst bool
+	singleInst bool
 	execPath   string
 	multiGrid  bool
 	others     []string
@@ -54,7 +57,7 @@ func ParseArgs(args []string) ParsedArgs {
 		file:       "",
 		line:       -1,
 		column:     -1,
-		singleinst: false,
+		singleInst: false,
 		execPath:   "nvim",
 		others:     []string{},
 	}
@@ -79,7 +82,7 @@ func ParseArgs(args []string) ParsedArgs {
 			i++
 			break
 		case "--singleinstance", "-si":
-			options.singleinst = true
+			options.singleInst = true
 			break
 		case "--verbose":
 			initVerboseFile("neoray_verbose.log")
@@ -94,6 +97,9 @@ func ParseArgs(args []string) ParsedArgs {
 			break
 		case "--multigrid":
 			options.multiGrid = true
+		case "--version", "-v":
+			PrintVersion()
+			os.Exit(0)
 		case "--help", "-h":
 			PrintHelp()
 			os.Exit(0)
@@ -106,17 +112,27 @@ func ParseArgs(args []string) ParsedArgs {
 	return options
 }
 
+func PrintVersion() {
+	msg := "Neoray " + versionString() + "\n" + "Start with -h option for more information."
+	switch runtime.GOOS {
+	case "windows":
+		dialog.Message(msg).Title("Version").Info()
+	default:
+		fmt.Println(msg)
+	}
+}
+
 func PrintHelp() {
 	// About
 	msg := fmt.Sprintf(usageTemplate,
 		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
 		buildTypeString(), LICENSE, WEBPAGE)
-	dialog.Message(msg).Title("Neoray Help").Info()
+	dialog.Message(msg).Title("Help").Info()
 }
 
 // Call this before starting neovim.
 func (options ParsedArgs) ProcessBefore() bool {
-	if options.singleinst {
+	if options.singleInst {
 		// First we will check only once because sending and
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
@@ -148,7 +164,7 @@ func (options ParsedArgs) ProcessBefore() bool {
 
 // Call this after connected neovim as ui.
 func (options ParsedArgs) ProcessAfter() {
-	if options.singleinst {
+	if options.singleInst {
 		server, err := CreateServer()
 		if err != nil {
 			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create tcp server:", err)
