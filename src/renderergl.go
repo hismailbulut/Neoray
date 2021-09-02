@@ -33,6 +33,9 @@ var (
 	// NOTE: We can use multiple vbo's for every grid and store vertex data per grid.
 	rgl_vbo uint32
 
+	// Framebuffer object used for clearing texture
+	rgl_fbo uint32
+
 	//go:embed shader.glsl
 	rgl_shader_sources string
 
@@ -95,6 +98,11 @@ func rglInit() {
 		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 		rglCheckError("enable blending")
 	}
+
+	// Create framebuffer object
+	gl.GenFramebuffers(1, &rgl_fbo)
+	rglCheckError("gen framebuffer")
+	// We dont need to bind framebuffer because we need it only when clearing texture
 
 	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 

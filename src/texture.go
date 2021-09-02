@@ -39,12 +39,16 @@ func (texture *Texture) bind() {
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
 }
 
-// TODO: If we start using multiple textures, these functions have to bind texture first.
-
 func (texture *Texture) clear() {
-	// NOTE: I could not find any documentation for passing nil pointer to this call.
-	gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, int32(texture.width), int32(texture.height),
-		gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	// Bind framebuffer
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, rgl_fbo)
+	gl.FramebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.id, 0)
+	rglCheckError("bind framebuffer")
+	// Clear the texture
+	gl.ClearColor(0, 0, 0, 0)
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	// Unbind framebuffer
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, 0)
 	rglCheckError("texture clear")
 }
 
