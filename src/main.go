@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"runtime/debug"
 	"time"
+
+	_ "github.com/hismailbulut/neoray/src/assets"
 )
 
 const (
