@@ -1,10 +1,23 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
+	"image"
+	"image/png"
 	"math"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
+)
+
+var (
+	//go:embed assets/icons/neovim-16.png
+	NeovimIconData16x16 []byte
+	//go:embed assets/icons/neovim-32.png
+	NeovimIconData32x32 []byte
+	//go:embed assets/icons/neovim-48.png
+	NeovimIconData48x48 []byte
 )
 
 // These values are used when setting window state
@@ -96,6 +109,7 @@ func CreateWindow(width int, height int, title string) Window {
 	glfw.SwapInterval(0)
 
 	window.calculateDPI()
+	window.loadDefaultIcons()
 
 	window.handle.SetFramebufferSizeCallback(
 		func(w *glfw.Window, width, height int) {
@@ -276,6 +290,33 @@ func (window *Window) toggleFullscreen() {
 			window.windowedRect.W, window.windowedRect.H, 0)
 		window.windowState = WINDOW_STATE_NORMAL
 	}
+}
+
+func (window *Window) loadDefaultIcons() {
+	icons := []image.Image{}
+
+	icon48, err := png.Decode(bytes.NewReader(NeovimIconData48x48))
+	if err != nil {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to decode 48x48 icon:", err)
+	} else {
+		icons = append(icons, icon48)
+	}
+
+	icon32, err := png.Decode(bytes.NewReader(NeovimIconData32x32))
+	if err != nil {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to decode 32x32 icon:", err)
+	} else {
+		icons = append(icons, icon32)
+	}
+
+	icon16, err := png.Decode(bytes.NewReader(NeovimIconData16x16))
+	if err != nil {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to decode 16x16 icon:", err)
+	} else {
+		icons = append(icons, icon16)
+	}
+
+	window.handle.SetIcon(icons)
 }
 
 func (window *Window) calculateDPI() {
