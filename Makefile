@@ -1,13 +1,16 @@
 SOURCEFOLDER=./src
+DEBUGEXE=bin/neoray_debug
+RELEASEEXE=bin/neoray
+DELETECOMMAND=rm
+RELEASEFLAGS=
+PRECOMMANDS=
 
 ifeq ($(OS),Windows_NT)
-	DEBUGEXE=bin/neoray_debug.exe
-	RELEASEEXE=bin/neoray.exe
+	DEBUGEXE=bin\neoray_debug.exe
+	RELEASEEXE=bin\neoray.exe
+	DELETECOMMAND=del
 	RELEASEFLAGS=-ldflags -H=windowsgui
-else
-	DEBUGEXE=bin/neoray_debug
-	RELEASEEXE=bin/neoray
-	RELEASEFLAGS=
+	PRECOMMANDS=cd src\assets && go-winres make && cd ..\..
 endif
 
 build:
@@ -16,11 +19,11 @@ build:
 run: build
 	./$(DEBUGEXE) $(ARGS)
 
-release:
-	go build $(RELEASEFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
+precommands:
+	$(PRECOMMANDS)
 
-release-run: release
-	./$(RELEASEEXE) $(ARGS)
+release: precommands
+	go build $(RELEASEFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
 
 test:
 	go test -race $(SOURCEFOLDER)
@@ -32,5 +35,5 @@ debug:
 	dlv debug $(SOURCEFOLDER)
 
 clean:
-	del $(DEBUGEXE)
-	del $(RELEASEEXE)
+	$(DELETECOMMAND) $(DEBUGEXE)
+	$(DELETECOMMAND) $(RELEASEEXE)
