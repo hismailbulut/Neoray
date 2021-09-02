@@ -5,7 +5,7 @@ golang using glfw and opengl bindings. Neoray is easy to use and binary size
 is small. Supports most of the neovim features. Uses small amount of ram and
 leaves no footprints on your computer.
 
-![Screenshot](./assets/neoray-light.png)
+![Screenshot](./assets/neoray-dark.png)
 
 ## Installation
 
