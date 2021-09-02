@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+; Running this file allows you to add neoray to your explorer menu.
+; Uncomment all lines below and change all <PATH> to your neoray.exe
+; Provide absolute path to neoray.exe, separate directories with double backslash.
+
+; [HKEY_CLASSES_ROOT\*\shell\Edit with Neovim]
+; "Icon"="<PATH>"
+;
+; [HKEY_CLASSES_ROOT\*\shell\Edit with Neovim\command]
+; @="\"<PATH>\" -si --file \"%1\""
