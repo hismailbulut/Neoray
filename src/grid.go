@@ -197,7 +197,21 @@ func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
 }
 
 func (gridManager *GridManager) hide(id int) {
-	grid := gridManager.grids[id]
+	// These two checks added here because of the issue #16
+	// Must be removed after this issue fixed
+	stop := false
+	if !editorParsedArgs.multiGrid {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim sent hide event even multigrid is not enabled.")
+		stop = true
+	}
+	grid, ok := gridManager.grids[id]
+	if !ok {
+		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim sent hide event with wrong grid id.")
+		stop = true
+	}
+	if stop {
+		return
+	}
 	grid.hidden = true
 	// NOTE: Hide and destroy functions are only calling when multigrid is on.
 	// When this functions called from neovim, we know which grid is hided or
