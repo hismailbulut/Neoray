@@ -56,6 +56,7 @@ func CreateDefaultFont() Font {
 	font.bold = bold
 
 	// TODO: Do we need italic and bold for default font?
+	logDebug("Default font loaded.")
 
 	return font
 }

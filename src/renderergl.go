@@ -128,11 +128,13 @@ func rglCreateViewport(w, h int) {
 	gl.Viewport(0, 0, int32(w), int32(h))
 	projection := ortho(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rglGetUniformLocation("projection"), 1, true, &projection[0])
+	rglCheckError("create viewport")
 }
 
 func rglSetAtlasTexture(atlas *Texture) {
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, atlas.id)
+	rglCheckError("set atlas texture")
 }
 
 func rglSetUndercurlRect(val F32Rect) {

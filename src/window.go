@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/png"
 	"math"
+	"runtime"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -54,17 +55,11 @@ type Window struct {
 func CreateWindow(width int, height int, title string) Window {
 	defer measure_execution_time()()
 
-	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
-	logfDebug("Video mode %+v", *videoMode)
+	assert(width > 0 && height > 0, "Window width or height is smaller than zero.")
 
-	if width <= 0 {
-		width = (videoMode.Width / 5) * 3
-	}
-	if height <= 0 {
-		height = (videoMode.Height / 4) * 3
-	}
-
-	logDebug("Creating window, width:", width, "height:", height)
+	monitor := glfw.GetPrimaryMonitor()
+	logDebug("Monitor count:", len(glfw.GetMonitors()), "Selected monitor:", monitor.GetName())
+	logfDebug("Video mode %+v", monitor.GetVideoMode())
 
 	window := Window{
 		title:  title,
@@ -88,21 +83,23 @@ func CreateWindow(width int, height int, title string) Window {
 	// Framebuffer transparency not working on fullscreen when doublebuffer is on.
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.True)
+	// Scales window width and height to monitor
+	glfw.WindowHint(glfw.ScaleToMonitor, glfw.True)
 
 	var err error
 	window.handle, err = glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
 		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
-	logDebug("Glfw window created successfully.")
 
 	// We need to check whether the window size is requested size.
 	w, h := window.handle.GetSize()
 	if w != width || h != height {
 		window.width = w
 		window.height = h
-		logDebug("Window size is not same with requested size.")
 	}
+
+	logDebug("Glfw window created with size", window.width, window.height)
 
 	window.handle.MakeContextCurrent()
 	// Disable v-sync, already disabled by default but make sure.
@@ -172,16 +169,10 @@ func CreateWindow(width int, height int, title string) Window {
 			// in runtime, or moves window to another monitor.
 			// First recalculates dpi
 			// Second reloads all fonts with same size but different dpi
-			// Third resizes window and tries to keep same rows and cols
-			// Third one not implemented yet
+			// Glfw itself also resizes the window
 			logDebug("Content scale changed.")
 			singleton.window.calculateDPI()
-			// rows := singleton.renderer.rows
-			// cols := singleton.renderer.cols
 			singleton.renderer.setFontSize(0)
-			// width := cols * singleton.cellWidth
-			// height := rows * singleton.cellHeight
-			// singleton.window.setSize(width, height, false)
 		})
 
 	return window
@@ -320,32 +311,46 @@ func (window *Window) loadDefaultIcons() {
 }
 
 func (window *Window) calculateDPI() {
+	// Most of the code in this function are experimental or here for testing purposes.
 	monitor := glfw.GetPrimaryMonitor()
 
 	// Calculate physical diagonal size of the monitor in inches
 	pWidth, pHeight := monitor.GetPhysicalSize() // returns size in millimeters
 	pDiagonal := math.Sqrt(float64(pWidth*pWidth+pHeight*pHeight)) * 0.0393700787
 
-	// Get content scale, there are two of them and I don't know which one is
-	// to use, and I decided to use average of them
+	// Get content scale, these two are same on both windows, x11, wayland, but
+	// different on macos. We use average of them.
 	msx, msy := monitor.GetContentScale()
 	wsx, wsy := window.handle.GetContentScale()
-	scaleX := (msx + wsx) / 2
-	scaleY := (msy + wsy) / 2
+	scaleX := float64((msx + wsx) / 2)
+	scaleY := float64((msy + wsy) / 2)
 
 	// Calculate logical diagonal size of the monitor in pixels
-	mWidth := float64(monitor.GetVideoMode().Width) * float64(scaleX)
-	mHeight := float64(monitor.GetVideoMode().Height) * float64(scaleY)
+	mWidth := float64(monitor.GetVideoMode().Width) * scaleX
+	mHeight := float64(monitor.GetVideoMode().Height) * scaleY
 	mDiagonal := math.Sqrt(mWidth*mWidth + mHeight*mHeight)
 
-	// Calculate dpi
-	window.dpi = mDiagonal / pDiagonal
-	if window.dpi < 72 {
-		// This could be actual dpi or we may failed to calculate dpi.
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Device dpi", window.dpi, "is very low and automatically set to 72.")
-		window.dpi = 72
+	// Calculate physical dpi
+	pdpi := mDiagonal / pDiagonal
+
+	// Calculate logical dpi
+	ldpi := 0.0
+	switch runtime.GOOS {
+	case "darwin":
+		ldpi = 72 * ((scaleX + scaleY) / 2)
+	default:
+		ldpi = 96 * ((scaleX + scaleY) / 2)
 	}
-	logfDebug("Monitor diagonal: %.2f dpi: %.2f", pDiagonal, window.dpi)
+
+	logfDebug("Monitor diagonal: %.2f pdpi: %.2f ldpi: %.2f", pDiagonal, pdpi, ldpi)
+
+	// If pdpi is wrong or pdpi is not %10 close with logical dpi, use logical dpi
+	if pdpi <= 0 || math.Abs((pdpi/ldpi)-1) > 0.1 {
+		logDebug("Using logical dpi.")
+		window.dpi = ldpi
+	} else {
+		window.dpi = pdpi
+	}
 }
 
 func (window *Window) Close() {

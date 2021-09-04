@@ -77,7 +77,7 @@ func (editor *Editor) Initialize() {
 	editor.nvim.startUI()
 
 	editor.initGlfw()
-	editor.window = CreateWindow(0, 0, TITLE)
+	editor.window = CreateWindow(800, 600, TITLE)
 	initInputEvents()
 
 	editor.uiOptions = CreateUIOptions()
@@ -90,8 +90,10 @@ func (editor *Editor) Initialize() {
 	editor.renderer = CreateRenderer()
 
 	// DEPRECATED
+	logDebug("Requesting deprecated options.")
 	editor.nvim.requestStartupVariables()
 	// NEW
+	logDebug("Checking user options.")
 	editor.nvim.checkOptions()
 
 	// show the main window
