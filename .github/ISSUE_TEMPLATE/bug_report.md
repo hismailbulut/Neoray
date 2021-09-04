@@ -8,14 +8,14 @@ assignees: ''
 ---
 
 **Please complete the following information:**
- - Operating System or distro:
+ - OS or distro:
  - neoray version:
 
 **Describe the bug**
 
 **Steps to reproduce**
 
-**Your neoray config in init.vim**
+**Your neoray config in init.vim** (Only the part that concerns neoray!)
 ```vim
 
 ```
