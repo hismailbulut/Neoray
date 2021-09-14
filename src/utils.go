@@ -54,8 +54,20 @@ func (v IntVec2) toF32() F32Vec2 {
 	return F32Vec2{X: float32(v.X), Y: float32(v.Y)}
 }
 
+func (v IntVec2) equals(v1 IntVec2) bool {
+	return v.X == v1.X && v.Y == v1.Y
+}
+
 func (v IntVec2) inRect(rect IntRect) bool {
 	return v.X >= rect.X && v.Y >= rect.Y && v.X < rect.X+rect.W && v.Y < rect.Y+rect.H
+}
+
+type F32Vec3 struct {
+	X, Y, Z float32
+}
+
+func (v F32Vec3) toVec2() F32Vec2 {
+	return F32Vec2{v.X, v.Y}
 }
 
 type F32Vec2 struct {
@@ -70,6 +82,10 @@ func (v F32Vec2) toInt() IntVec2 {
 	x := int(math.Round(float64(v.X)))
 	y := int(math.Round(float64(v.Y)))
 	return IntVec2{x, y}
+}
+
+func (v F32Vec2) toVec3(Z float32) F32Vec3 {
+	return F32Vec3{v.X, v.Y, Z}
 }
 
 func (v F32Vec2) plus(v2 F32Vec2) F32Vec2 {
@@ -98,12 +114,6 @@ func (v F32Vec2) normalized() F32Vec2 {
 
 func (v F32Vec2) perpendicular() F32Vec2 {
 	return F32Vec2{X: v.Y, Y: -v.X}
-}
-
-func (v F32Vec2) round_direction() F32Vec2 {
-	v.X = float32(math.Round(2*float64(v.X))) / 2
-	v.Y = float32(math.Round(2*float64(v.Y))) / 2
-	return v
 }
 
 type IntRect struct {

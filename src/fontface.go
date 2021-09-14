@@ -24,6 +24,7 @@ type FontFace struct {
 	descent int
 	height  int
 
+	size      float64
 	thickness float32
 }
 
@@ -68,6 +69,7 @@ func (face *FontFace) Resize(newsize float32) {
 		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create a new font face:", err)
 		return
 	}
+	face.size = float64(newsize)
 	face.calcMetrics()
 }
 
@@ -81,7 +83,9 @@ func (face *FontFace) calcMetrics() {
 	face.descent = face.handle.Metrics().Descent.Floor()
 	face.height = face.handle.Metrics().Height.Floor()
 
-	face.thickness = float32(face.fontHandle.PostTable().UnderlineThickness)
+	// TODO: Dpi is also another factor here
+	face.thickness = float32(math.Ceil(4*(face.size/7.5)) / 4)
+	assert_error(face.thickness >= 1, "face thickness is not bigger than one, size:", face.size, "t:", face.thickness)
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
@@ -98,24 +102,24 @@ func (face *FontFace) renderUndercurl() *image.RGBA {
 	y := h - float32(face.descent)
 	const xd = 7
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
-	rastCurve(r, 1, F32Vec2{0, y}, F32Vec2{w / 2, y}, F32Vec2{w / xd, h})
-	rastCurve(r, 1, F32Vec2{w / 2, y}, F32Vec2{w, y}, F32Vec2{w - (w / xd), h / 2})
+	rastCurve(r, face.thickness, F32Vec2{0, y}, F32Vec2{w / 2, y}, F32Vec2{w / xd, h})
+	rastCurve(r, face.thickness, F32Vec2{w / 2, y}, F32Vec2{w, y}, F32Vec2{w - (w / xd), h / 2})
 	return rastDraw(r)
 }
 
 // Faster line, not antialiased and only 1 pixel
 func drawLine(img *image.RGBA, begin, end F32Vec2) {
 	// Round to pixels
-	begin = begin.toInt().toF32()
-	end = end.toInt().toF32()
-	v := end.minus(begin)
-	vn := v.normalized()
-	vl := int(v.length())
+	step := end.minus(begin).normalized()
+	end_pix := end.toInt()
 	point := begin
-	for i := 0; i < vl; i++ {
+	for {
 		pixel := point.toInt()
 		img.Set(pixel.X, pixel.Y, color.White)
-		point = point.plus(vn)
+		if pixel.equals(end_pix) {
+			break
+		}
+		point = point.plus(step)
 	}
 }
 
@@ -138,9 +142,29 @@ func rastLine(r *vector.Rasterizer, thickness float32, begin, end F32Vec2) {
 	r.ClosePath()
 }
 
+// Z value of the vectors are thickness
+func rastCorner(r *vector.Rasterizer, mid F32Vec2, points ...F32Vec3) {
+	var boldest int
+	for i, v := range points {
+		if v.Z >= points[boldest].Z {
+			boldest = i
+		}
+	}
+	for i, v := range points {
+		new_mid := mid
+		move := v.toVec2().minus(mid).normalized().multiplyS(points[boldest].Z / 2)
+		if i == boldest {
+			new_mid = mid.minus(move)
+		} else {
+			new_mid = mid.plus(move)
+		}
+		rastLine(r, v.Z, new_mid, v.toVec2())
+	}
+}
+
 // Adds quadratic bezier curve operation to r
 func rastCurve(r *vector.Rasterizer, thickness float32, begin, end, control F32Vec2) {
-	bePerp := end.minus(begin).perpendicular().normalized().round_direction().multiplyS(thickness)
+	bePerp := end.minus(begin).perpendicular().normalized().multiplyS(thickness)
 	bcPerp := control.minus(begin).perpendicular().normalized().multiplyS(thickness)
 	cePerp := end.minus(control).perpendicular().normalized().multiplyS(thickness)
 
@@ -167,11 +191,10 @@ func rastDraw(r *vector.Rasterizer) *image.RGBA {
 	return img
 }
 
-func drawUnicodeBoxGlyph(char rune) *image.RGBA {
+func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 	defer measure_execution_time()()
 
-	// TODO: Dpi is also another factor here
-	light := float32(math.Ceil(4*(float64(singleton.renderer.defaultFont.size)/7.5)) / 4)
+	light := face.thickness
 	heavy := light * 2
 
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
@@ -180,19 +203,6 @@ func drawUnicodeBoxGlyph(char rune) *image.RGBA {
 	w := float32(singleton.cellWidth)
 	h := float32(singleton.cellHeight)
 	center := F32Vec2{w / 2, h / 2}
-
-	make_corner := func(thickness1, thickness2 float32, v1, v2, v3 F32Vec2) {
-		rastLine(r, thickness1, v1, v3)
-		rastLine(r, thickness2, v2, v3)
-
-		// This just fills the area between lines begin and end
-		// You can disable this 4 line and look to box characters and you will understand
-		v_thick1 := v3.minus(v1).normalized().multiplyS(thickness1 / 2)
-		v_thick2 := v3.minus(v2).normalized().multiplyS(thickness2 / 2)
-
-		v4 := v3.plus(v_thick1).plus(v_thick2.divideS(2))
-		rastLine(r, thickness1/2, v4, v4.minus(v_thick1))
-	}
 
 	switch char {
 	case 0x2500: // light horizontal line
@@ -225,7 +235,7 @@ func drawUnicodeBoxGlyph(char rune) *image.RGBA {
 		if n%2 != 0 {
 			leftThickness = heavy
 		}
-		make_corner(upThickness, leftThickness, up, left, center)
+		rastCorner(r, center, up.toVec3(upThickness), left.toVec3(leftThickness))
 
 	case 0x251C, 0x251D, 0x251E, 0x251F,
 		0x2520, 0x2521, 0x2522, 0x2523,
@@ -249,9 +259,10 @@ func drawUnicodeBoxGlyph(char rune) *image.RGBA {
 		if n == 3 || n == 4 || n == 6 || n == 7 {
 			downThickness = heavy
 		}
-		rastLine(r, upThickness, F32Vec2{w / 2, 0}, center)
-		rastLine(r, rightThickness, right, center)
-		rastLine(r, downThickness, F32Vec2{w / 2, h}, center)
+		rastCorner(r, center,
+			F32Vec3{w / 2, 0, upThickness},
+			right.toVec3(rightThickness),
+			F32Vec3{w / 2, h, downThickness})
 
 	case 0x252C, 0x252D, 0x252E, 0x252F,
 		0x2530, 0x2531, 0x2532, 0x2533,
@@ -274,9 +285,10 @@ func drawUnicodeBoxGlyph(char rune) *image.RGBA {
 		if (n/4)%2 != 0 {
 			downThickness = heavy
 		}
-		rastLine(r, leftThickness, F32Vec2{0, h / 2}, center)
-		rastLine(r, rightThickness, F32Vec2{w, h / 2}, center)
-		rastLine(r, downThickness, down, center)
+		rastCorner(r, center,
+			F32Vec3{0, h / 2, leftThickness},
+			F32Vec3{w, h / 2, rightThickness},
+			down.toVec3(downThickness))
 
 	case 0x253C, 0x253D, 0x253E, 0x253F,
 		0x2540, 0x2541, 0x2542, 0x2543,
@@ -299,10 +311,9 @@ func drawUnicodeBoxGlyph(char rune) *image.RGBA {
 		if n == 1 || n == 3 || n == 7 || n == 9 || n == 11 || n == 12 || n == 13 || n == 15 {
 			leftThickness = heavy
 		}
-		rastLine(r, upThickness, F32Vec2{w / 2, 0}, center)
-		rastLine(r, rightThickness, F32Vec2{w, h / 2}, center)
-		rastLine(r, downThickness, F32Vec2{w / 2, h}, center)
-		rastLine(r, leftThickness, F32Vec2{0, h / 2}, center)
+		rastCorner(r, center,
+			F32Vec3{w / 2, 0, upThickness}, F32Vec3{w, h / 2, rightThickness},
+			F32Vec3{w / 2, h, downThickness}, F32Vec3{0, h / 2, leftThickness})
 
 	case 0x256D: // light down to right arc
 		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{w, h / 2}, center)
@@ -387,7 +398,7 @@ func (face *FontFace) RenderChar(char rune, underline, strikethrough bool) *imag
 	if singleton.options.boxDrawingEnabled && char >= 0x2500 && char <= 0x257F {
 		// You can look box drawing characters from here
 		// https://www.compart.com/en/unicode/block/U+2500
-		img := drawUnicodeBoxGlyph(char)
+		img := face.drawUnicodeBoxGlyph(char)
 		// hex := fmt.Sprintf("%.4x", char)
 		if img != nil {
 			// logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Drawed box glyph:", string(char), char, hex)
