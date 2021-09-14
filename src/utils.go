@@ -46,20 +46,72 @@ type IntVec2 struct {
 	X, Y int
 }
 
-func (pos IntVec2) String() string {
-	return fmt.Sprintf("(X: %d, Y: %d)", pos.X, pos.Y)
+func (v IntVec2) String() string {
+	return fmt.Sprintf("(X: %d, Y: %d)", v.X, v.Y)
 }
 
-func (pos IntVec2) inRect(area IntRect) bool {
-	return pos.X >= area.X && pos.Y >= area.Y && pos.X < area.X+area.W && pos.Y < area.Y+area.H
+func (v IntVec2) toF32() F32Vec2 {
+	return F32Vec2{X: float32(v.X), Y: float32(v.Y)}
+}
+
+func (v IntVec2) inRect(rect IntRect) bool {
+	return v.X >= rect.X && v.Y >= rect.Y && v.X < rect.X+rect.W && v.Y < rect.Y+rect.H
 }
 
 type F32Vec2 struct {
 	X, Y float32
 }
 
+func (v F32Vec2) String() string {
+	return fmt.Sprintf("(X: %f, Y: %f)", v.X, v.Y)
+}
+
+func (v F32Vec2) toInt() IntVec2 {
+	x := int(math.Round(float64(v.X)))
+	y := int(math.Round(float64(v.Y)))
+	return IntVec2{x, y}
+}
+
+func (v F32Vec2) plus(v2 F32Vec2) F32Vec2 {
+	return F32Vec2{X: v.X + v2.X, Y: v.Y + v2.Y}
+}
+
+func (v F32Vec2) minus(v2 F32Vec2) F32Vec2 {
+	return F32Vec2{X: v.X - v2.X, Y: v.Y - v2.Y}
+}
+
+func (v F32Vec2) divideS(S float32) F32Vec2 {
+	return F32Vec2{X: v.X / S, Y: v.Y / S}
+}
+
+func (v F32Vec2) multiplyS(S float32) F32Vec2 {
+	return F32Vec2{X: v.X * S, Y: v.Y * S}
+}
+
+func (v F32Vec2) length() float32 {
+	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+}
+
+func (v F32Vec2) normalized() F32Vec2 {
+	return v.divideS(v.length())
+}
+
+func (v F32Vec2) perpendicular() F32Vec2 {
+	return F32Vec2{X: v.Y, Y: -v.X}
+}
+
+func (v F32Vec2) round_direction() F32Vec2 {
+	v.X = float32(math.Round(2*float64(v.X))) / 2
+	v.Y = float32(math.Round(2*float64(v.Y))) / 2
+	return v
+}
+
 type IntRect struct {
 	X, Y, W, H int
+}
+
+func (rect IntRect) String() string {
+	return fmt.Sprintf("(X: %d, Y: %d, W: %d, H: %d)", rect.X, rect.Y, rect.W, rect.H)
 }
 
 type F32Rect struct {
@@ -176,15 +228,9 @@ func (mask BitMask) String() string {
 func (mask *BitMask) enable(flag BitMask) {
 	*mask |= flag
 }
-func (mask BitMask) enabled(flag BitMask) BitMask {
-	return mask | flag
-}
 
 func (mask *BitMask) disable(flag BitMask) {
 	*mask &= ^flag
-}
-func (mask BitMask) disabled(flag BitMask) BitMask {
-	return mask & ^flag
 }
 
 func (mask *BitMask) toggle(flag BitMask) {

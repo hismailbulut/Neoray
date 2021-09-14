@@ -5,16 +5,14 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"math"
 	"os"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
-)
-
-const (
-	FONT_HINTING = font.HintingFull
+	"golang.org/x/image/vector"
 )
 
 type FontFace struct {
@@ -25,6 +23,8 @@ type FontFace struct {
 	advance int
 	descent int
 	height  int
+
+	thickness float32
 }
 
 func CreateFace(fileName string, size float32) (*FontFace, error) {
@@ -40,101 +40,331 @@ func CreateFaceFromMem(data []byte, size float32) (*FontFace, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse font data: %s\n", err)
 	}
-	face, err := opentype.NewFace(sfont, &opentype.FaceOptions{
-		Size:    float64(size),
-		DPI:     singleton.window.dpi,
-		Hinting: FONT_HINTING,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create font face: %s\n", err)
-	}
-	ret := FontFace{
-		handle:     face,
+	face := FontFace{
 		fontHandle: sfont,
 	}
-	ret.calcMetrics()
-	return &ret, nil
+	face.Resize(size)
+	return &face, nil
 }
 
-func (fontFace *FontFace) FamilyName() string {
-	name, err := fontFace.fontHandle.Name(&fontFace.buffer, sfnt.NameIDFamily)
+func (face *FontFace) FamilyName() string {
+	name, err := face.fontHandle.Name(&face.buffer, sfnt.NameIDFamily)
 	if err != nil {
-		logDebug("Failed to get family name of the font.")
+		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Failed to get family name of the font.")
 	}
 	return name
 }
 
-func (fontFace *FontFace) Resize(newsize float32) {
-	face, err := opentype.NewFace(fontFace.fontHandle, &opentype.FaceOptions{
+func (face *FontFace) Resize(newsize float32) {
+	var err error
+	face.handle, err = opentype.NewFace(face.fontHandle, &opentype.FaceOptions{
 		Size:    float64(newsize),
 		DPI:     singleton.window.dpi,
-		Hinting: FONT_HINTING,
+		Hinting: font.HintingFull,
 	})
 	if err != nil {
-		// This is actually impossible because opentype.NewFace always return nil error.
+		// This is actually impossible because opentype.NewFace always returns nil error.
 		// But we will check anyway.
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create a new font face when resizing:", err)
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create a new font face:", err)
 		return
 	}
-	fontFace.handle = face
-	fontFace.calcMetrics()
+	face.calcMetrics()
 }
 
-func (fontFace *FontFace) calcMetrics() {
-	advance, ok := fontFace.handle.GlyphAdvance('m')
+func (face *FontFace) calcMetrics() {
+	advance, ok := face.handle.GlyphAdvance('m')
 	if !ok {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get font advance!")
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to get font advance!")
 		return
 	}
-	fontFace.advance = advance.Ceil()
-	fontFace.descent = fontFace.handle.Metrics().Descent.Floor()
-	fontFace.height = fontFace.handle.Metrics().Height.Floor()
+	face.advance = advance.Ceil()
+	face.descent = face.handle.Metrics().Descent.Floor()
+	face.height = face.handle.Metrics().Height.Floor()
+
+	face.thickness = float32(face.fontHandle.PostTable().UnderlineThickness)
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
-func (fontFace *FontFace) ContainsGlyph(char rune) bool {
-	i, err := fontFace.fontHandle.GlyphIndex(&fontFace.buffer, char)
+func (face *FontFace) ContainsGlyph(char rune) bool {
+	i, err := face.fontHandle.GlyphIndex(&face.buffer, char)
 	return i != 0 && err == nil
-}
-
-// This function draws horizontal line at given y coord.
-func (fontFace *FontFace) drawLine(img *image.RGBA, y int) {
-	for x := 0; x < img.Rect.Dx(); x++ {
-		img.Set(x, y, color.White)
-	}
 }
 
 // This function renders an undercurl to an empty image and returns it.
 // The undercurl drawing job is done in the shaders.
-// Feel free to change this function howewer you want to draw undercurl.
-func (fontFace *FontFace) renderUndercurl() *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, singleton.cellWidth, singleton.cellHeight))
-	y := singleton.cellHeight - fontFace.descent
-	for x := 0; x < img.Rect.Dx(); x++ {
-		img.Set(x, y, color.White)
-		// This evaluation will be true when x is not center of a part (there
-		// are 4 parts) and x is not divisible by 3. The 3 is for reducing
-		// count, we will do it for 2 of 3 times. This makes curls more
-		// softer.
-		if (x%4)%3 != 0 {
-			// Divide image to 4 parts to get the number of the part. If the
-			// part number is 0 or 2, then increase y, otherwise decrease it.
-			if ((x/4)%4)%2 == 0 {
-				y++
-			} else {
-				y--
-			}
-		}
+func (face *FontFace) renderUndercurl() *image.RGBA {
+	w := float32(singleton.cellWidth)
+	h := float32(singleton.cellHeight)
+	y := h - float32(face.descent)
+	const xd = 7
+	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
+	rastCurve(r, 1, F32Vec2{0, y}, F32Vec2{w / 2, y}, F32Vec2{w / xd, h})
+	rastCurve(r, 1, F32Vec2{w / 2, y}, F32Vec2{w, y}, F32Vec2{w - (w / xd), h / 2})
+	return rastDraw(r)
+}
+
+// Faster line, not antialiased and only 1 pixel
+func drawLine(img *image.RGBA, begin, end F32Vec2) {
+	// Round to pixels
+	begin = begin.toInt().toF32()
+	end = end.toInt().toF32()
+	v := end.minus(begin)
+	vn := v.normalized()
+	vl := int(v.length())
+	point := begin
+	for i := 0; i < vl; i++ {
+		pixel := point.toInt()
+		img.Set(pixel.X, pixel.Y, color.White)
+		point = point.plus(vn)
 	}
+}
+
+// Adds line operation to r
+func rastLine(r *vector.Rasterizer, thickness float32, begin, end F32Vec2) {
+	perp := end.minus(begin).perpendicular().normalized().multiplyS(thickness)
+	perp_half := perp.divideS(2)
+
+	begin = begin.minus(perp_half)
+	end = end.minus(perp_half)
+
+	r.MoveTo(begin.X, begin.Y)
+	r.LineTo(end.X, end.Y)
+
+	begin = begin.plus(perp)
+	end = end.plus(perp)
+
+	r.LineTo(end.X, end.Y)
+	r.LineTo(begin.X, begin.Y)
+	r.ClosePath()
+}
+
+// Adds quadratic bezier curve operation to r
+func rastCurve(r *vector.Rasterizer, thickness float32, begin, end, control F32Vec2) {
+	bePerp := end.minus(begin).perpendicular().normalized().round_direction().multiplyS(thickness)
+	bcPerp := control.minus(begin).perpendicular().normalized().multiplyS(thickness)
+	cePerp := end.minus(control).perpendicular().normalized().multiplyS(thickness)
+
+	begin = begin.minus(bcPerp.divideS(2))
+	end = end.minus(cePerp.divideS(2))
+	control = control.minus(bePerp.divideS(2))
+
+	r.MoveTo(begin.X, begin.Y)
+	r.QuadTo(control.X, control.Y, end.X, end.Y)
+
+	begin = begin.plus(bcPerp)
+	end = end.plus(cePerp)
+	control = control.plus(bePerp)
+
+	r.LineTo(end.X, end.Y)
+	r.QuadTo(control.X, control.Y, begin.X, begin.Y)
+	r.ClosePath()
+}
+
+// draws rasterizer operations to an image and returns it
+func rastDraw(r *vector.Rasterizer) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, r.Size().X, r.Size().Y))
+	r.Draw(img, img.Rect, image.White, image.Point{})
 	return img
+}
+
+func drawUnicodeBoxGlyph(char rune) *image.RGBA {
+	defer measure_execution_time()()
+
+	// TODO: Dpi is also another factor here
+	light := float32(math.Ceil(4*(float64(singleton.renderer.defaultFont.size)/7.5)) / 4)
+	heavy := light * 2
+
+	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
+
+	b := float32(0)
+	w := float32(singleton.cellWidth)
+	h := float32(singleton.cellHeight)
+	center := F32Vec2{w / 2, h / 2}
+
+	make_corner := func(thickness1, thickness2 float32, v1, v2, v3 F32Vec2) {
+		rastLine(r, thickness1, v1, v3)
+		rastLine(r, thickness2, v2, v3)
+
+		// This just fills the area between lines begin and end
+		// You can disable this 4 line and look to box characters and you will understand
+		v_thick1 := v3.minus(v1).normalized().multiplyS(thickness1 / 2)
+		v_thick2 := v3.minus(v2).normalized().multiplyS(thickness2 / 2)
+
+		v4 := v3.plus(v_thick1).plus(v_thick2.divideS(2))
+		rastLine(r, thickness1/2, v4, v4.minus(v_thick1))
+	}
+
+	switch char {
+	case 0x2500: // light horizontal line
+		rastLine(r, light, F32Vec2{b, h / 2}, F32Vec2{w, h / 2})
+	case 0x2501: // heavy horizontal line
+		rastLine(r, heavy, F32Vec2{b, h / 2}, F32Vec2{w, h / 2})
+	case 0x2502: // light vertical line
+		rastLine(r, light, F32Vec2{w / 2, b}, F32Vec2{w / 2, h})
+	case 0x2503: // heavy vertical line
+		rastLine(r, heavy, F32Vec2{w / 2, b}, F32Vec2{w / 2, h})
+
+	case 0x250C, 0x250D, 0x250E, 0x250F,
+		0x2510, 0x2511, 0x2512, 0x2513,
+		0x2514, 0x2515, 0x2516, 0x2517,
+		0x2518, 0x2519, 0x251A, 0x251B:
+		n := char - 0x250C
+		up := F32Vec2{w / 2, h}
+		if n/8 > 0 {
+			up = F32Vec2{w / 2, 0}
+		}
+		left := F32Vec2{w, h / 2}
+		if (n/4)%2 != 0 {
+			left = F32Vec2{0, h / 2}
+		}
+		upThickness := light
+		if (n/2)%2 != 0 {
+			upThickness = heavy
+		}
+		leftThickness := light
+		if n%2 != 0 {
+			leftThickness = heavy
+		}
+		make_corner(upThickness, leftThickness, up, left, center)
+
+	case 0x251C, 0x251D, 0x251E, 0x251F,
+		0x2520, 0x2521, 0x2522, 0x2523,
+		0x2524, 0x2525, 0x2526, 0x2527,
+		0x2528, 0x2529, 0x252A, 0x252B:
+		n := char - 0x251C
+		right := F32Vec2{w, h / 2}
+		if n >= 8 {
+			right = F32Vec2{0, h / 2}
+			n -= 8
+		}
+		upThickness := light
+		if n == 2 || n == 4 || n == 5 || n == 7 {
+			upThickness = heavy
+		}
+		rightThickness := light
+		if n == 1 || n == 5 || n == 6 || n == 7 {
+			rightThickness = heavy
+		}
+		downThickness := light
+		if n == 3 || n == 4 || n == 6 || n == 7 {
+			downThickness = heavy
+		}
+		rastLine(r, upThickness, F32Vec2{w / 2, 0}, center)
+		rastLine(r, rightThickness, right, center)
+		rastLine(r, downThickness, F32Vec2{w / 2, h}, center)
+
+	case 0x252C, 0x252D, 0x252E, 0x252F,
+		0x2530, 0x2531, 0x2532, 0x2533,
+		0x2534, 0x2535, 0x2536, 0x2537,
+		0x2538, 0x2539, 0x253A, 0x253B:
+		n := char - 0x252C
+		down := F32Vec2{w / 2, h}
+		if n >= 8 {
+			down = F32Vec2{w / 2, 0}
+		}
+		leftThickness := light
+		if n%2 != 0 {
+			leftThickness = heavy
+		}
+		rightThickness := light
+		if (n/2)%2 != 0 {
+			rightThickness = heavy
+		}
+		downThickness := light
+		if (n/4)%2 != 0 {
+			downThickness = heavy
+		}
+		rastLine(r, leftThickness, F32Vec2{0, h / 2}, center)
+		rastLine(r, rightThickness, F32Vec2{w, h / 2}, center)
+		rastLine(r, downThickness, down, center)
+
+	case 0x253C, 0x253D, 0x253E, 0x253F,
+		0x2540, 0x2541, 0x2542, 0x2543,
+		0x2544, 0x2545, 0x2546, 0x2547,
+		0x2548, 0x2549, 0x254A, 0x254B:
+		n := char - 0x253C
+		upThickness := light
+		if n == 4 || n == 6 || n == 7 || n == 8 || n == 11 || n == 13 || n == 14 || n == 15 {
+			upThickness = heavy
+		}
+		rightThickness := light
+		if n == 2 || n == 3 || n == 8 || n == 10 || n == 11 || n == 12 || n == 14 || n == 15 {
+			rightThickness = heavy
+		}
+		downThickness := light
+		if n == 5 || n == 6 || n == 9 || n == 10 || n == 12 || n == 13 || n == 14 || n == 15 {
+			downThickness = heavy
+		}
+		leftThickness := light
+		if n == 1 || n == 3 || n == 7 || n == 9 || n == 11 || n == 12 || n == 13 || n == 15 {
+			leftThickness = heavy
+		}
+		rastLine(r, upThickness, F32Vec2{w / 2, 0}, center)
+		rastLine(r, rightThickness, F32Vec2{w, h / 2}, center)
+		rastLine(r, downThickness, F32Vec2{w / 2, h}, center)
+		rastLine(r, leftThickness, F32Vec2{0, h / 2}, center)
+
+	case 0x256D: // light down to right arc
+		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{w, h / 2}, center)
+	case 0x256E: // light down to left arc
+		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{b, h / 2}, center)
+	case 0x256F: // light up to left arc
+		rastCurve(r, light, F32Vec2{w / 2, b}, F32Vec2{b, h / 2}, center)
+	case 0x2570: // light up to right arc
+		rastCurve(r, light, F32Vec2{w / 2, b}, F32Vec2{w, h / 2}, center)
+
+	case 0x2571: // diagonal bot-left to top-right
+		rastLine(r, light, F32Vec2{0, h}, F32Vec2{w, 0})
+	case 0x2572: // diagonal top-left to bot-right
+		rastLine(r, light, F32Vec2{0, 0}, F32Vec2{w, h})
+	case 0x2573: // both
+		rastLine(r, light, F32Vec2{0, h}, F32Vec2{w, 0})
+		rastLine(r, light, F32Vec2{0, 0}, F32Vec2{w, h})
+
+	case 0x2574, 0x2575, 0x2576, 0x2577,
+		0x2578, 0x2579, 0x257A, 0x257B:
+		n := char - 0x2574
+		pos := F32Vec2{0, h / 2}
+		switch n % 4 {
+		case 1: // up
+			pos = F32Vec2{w / 2, 0}
+		case 2: // right
+			pos = F32Vec2{w, h / 2}
+		case 3: // down
+			pos = F32Vec2{w / 2, h}
+		}
+		thickness := light
+		if n/4 >= 1 {
+			thickness = heavy
+		}
+		rastLine(r, thickness, pos, center)
+
+	case 0x257C:
+		rastLine(r, light, F32Vec2{0, h / 2}, center)
+		rastLine(r, heavy, F32Vec2{w, h / 2}, center)
+	case 0x257D:
+		rastLine(r, light, F32Vec2{w / 2, 0}, center)
+		rastLine(r, heavy, F32Vec2{w / 2, h}, center)
+	case 0x257E:
+		rastLine(r, heavy, F32Vec2{0, h / 2}, center)
+		rastLine(r, light, F32Vec2{w, h / 2}, center)
+	case 0x257F:
+		rastLine(r, heavy, F32Vec2{w / 2, 0}, center)
+		rastLine(r, light, F32Vec2{w / 2, h}, center)
+
+	default:
+		return nil
+	}
+
+	return rastDraw(r)
 }
 
 // Renders given rune and returns rendered RGBA image.
 // Width of the image is always equal to cellWidth or cellWidth*2
-func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
+func (face *FontFace) renderGlyph(char rune) *image.RGBA {
 	height := singleton.cellHeight
-	dot := fixed.P(0, height-fontFace.descent)
-	dr, mask, maskp, _, ok := fontFace.handle.Glyph(dot, char)
+	dot := fixed.P(0, height-face.descent)
+	dr, mask, maskp, _, ok := face.handle.Glyph(dot, char)
 	if ok {
 		width := singleton.cellWidth
 		if mask.Bounds().Dx() > width {
@@ -153,20 +383,33 @@ func (fontFace *FontFace) renderGlyph(char rune) *image.RGBA {
 
 // Renders given char to an RGBA image and returns.
 // Also renders underline and strikethrough if specified.
-func (fontFace *FontFace) RenderChar(char rune, underline, strikethrough bool) *image.RGBA {
+func (face *FontFace) RenderChar(char rune, underline, strikethrough bool) *image.RGBA {
+	if singleton.options.boxDrawingEnabled && char >= 0x2500 && char <= 0x257F {
+		// You can look box drawing characters from here
+		// https://www.compart.com/en/unicode/block/U+2500
+		img := drawUnicodeBoxGlyph(char)
+		// hex := fmt.Sprintf("%.4x", char)
+		if img != nil {
+			// logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Drawed box glyph:", string(char), char, hex)
+			return img
+		} else {
+			// logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Unsupported box drawing character:", string(char), char, hex)
+		}
+	}
 	// Render glyph
-	img := fontFace.renderGlyph(char)
+	img := face.renderGlyph(char)
 	if img == nil {
 		return nil
 	}
-	// We are rendering underline and strikethrough as a single line
-	// and thickness is only 1 pixel. We could change this tickness
-	// as a font size or weight.
+	// Draw underline or strikethrough to glyph
+	w := float32(img.Rect.Dx())
 	if underline {
-		fontFace.drawLine(img, singleton.cellHeight-fontFace.descent)
+		y := float32(singleton.cellHeight - face.descent)
+		drawLine(img, F32Vec2{0, y}, F32Vec2{w, y})
 	}
 	if strikethrough {
-		fontFace.drawLine(img, singleton.cellHeight/2)
+		y := float32(singleton.cellHeight) / 2
+		drawLine(img, F32Vec2{0, y}, F32Vec2{w, y})
 	}
 	return img
 }
