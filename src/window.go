@@ -58,8 +58,8 @@ func CreateWindow(width int, height int, title string) Window {
 	assert(width > 0 && height > 0, "Window width or height is smaller than zero.")
 
 	monitor := glfw.GetPrimaryMonitor()
-	logDebug("Monitor count:", len(glfw.GetMonitors()), "Selected monitor:", monitor.GetName())
-	logfDebug("Video mode %+v", monitor.GetVideoMode())
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Monitor count:", len(glfw.GetMonitors()), "Selected monitor:", monitor.GetName())
+	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Video mode %+v", monitor.GetVideoMode())
 
 	window := Window{
 		title:  title,
@@ -89,7 +89,7 @@ func CreateWindow(width int, height int, title string) Window {
 	var err error
 	window.handle, err = glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to create glfw window:", err)
+		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
 
 	// We need to check whether the window size is requested size.
@@ -99,7 +99,7 @@ func CreateWindow(width int, height int, title string) Window {
 		window.height = h
 	}
 
-	logDebug("Glfw window created with size", window.width, window.height)
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Glfw window created with size", window.width, window.height)
 
 	window.handle.MakeContextCurrent()
 	// Disable v-sync, already disabled by default but make sure.
@@ -170,7 +170,7 @@ func CreateWindow(width int, height int, title string) Window {
 			// First recalculates dpi
 			// Second reloads all fonts with same size but different dpi
 			// Glfw itself also resizes the window
-			logDebug("Content scale changed.")
+			logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Content scale changed:", x, y)
 			singleton.window.calculateDPI()
 			singleton.renderer.setFontSize(0)
 		})
@@ -202,7 +202,7 @@ func (window *Window) showCursor() {
 func (window *Window) raise() {
 	if window.windowState == WINDOW_STATE_MINIMIZED {
 		window.handle.Restore()
-		logDebug("Window restored from minimized state.")
+		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window restored from minimized state.")
 	}
 	// TODO: These are not working.
 	if !window.hasfocus {
@@ -211,17 +211,17 @@ func (window *Window) raise() {
 		window.handle.SetAttrib(glfw.Floating, glfw.False)
 		window.handle.Focus()
 	}
-	logDebug("Window raised.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window raised.")
 }
 
 func (window *Window) setState(state string) {
 	switch state {
 	case WINDOW_SET_STATE_MINIMIZED:
 		window.handle.Iconify()
-		logDebug("Window state minimized.")
+		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window state minimized.")
 	case WINDOW_SET_STATE_MAXIMIZED:
 		window.handle.Maximize()
-		logDebug("Window state maximized.")
+		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window state maximized.")
 	case WINDOW_SET_STATE_FULLSCREEN:
 		if window.windowState != WINDOW_STATE_FULLSCREEN {
 			window.toggleFullscreen()
@@ -231,7 +231,7 @@ func (window *Window) setState(state string) {
 	case WINDOW_SET_STATE_CENTERED:
 		window.center()
 	default:
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Unknown window state:", state)
+		logMessage(LEVEL_WARN, TYPE_NEORAY, "Unknown window state:", state)
 	}
 }
 
@@ -241,7 +241,7 @@ func (window *Window) center() {
 	x := (videoMode.Width / 2) - (w / 2)
 	y := (videoMode.Height / 2) - (h / 2)
 	window.handle.SetPos(x, y)
-	logDebug("Window position centered.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window position centered.")
 }
 
 func (window *Window) setTitle(title string) {
@@ -261,7 +261,7 @@ func (window *Window) setSize(width, height int, inCellSize bool) {
 		height = window.height
 	}
 	window.handle.SetSize(width, height)
-	logDebug("Window size changed internally:", width, height)
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window size changed internally:", width, height)
 }
 
 func (window *Window) toggleFullscreen() {
@@ -288,21 +288,21 @@ func (window *Window) loadDefaultIcons() {
 
 	icon48, err := png.Decode(bytes.NewReader(NeovimIconData48x48))
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to decode 48x48 icon:", err)
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 48x48 icon:", err)
 	} else {
 		icons = append(icons, icon48)
 	}
 
 	icon32, err := png.Decode(bytes.NewReader(NeovimIconData32x32))
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to decode 32x32 icon:", err)
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 32x32 icon:", err)
 	} else {
 		icons = append(icons, icon32)
 	}
 
 	icon16, err := png.Decode(bytes.NewReader(NeovimIconData16x16))
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to decode 16x16 icon:", err)
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 16x16 icon:", err)
 	} else {
 		icons = append(icons, icon16)
 	}
@@ -342,11 +342,11 @@ func (window *Window) calculateDPI() {
 		ldpi = 96 * ((scaleX + scaleY) / 2)
 	}
 
-	logfDebug("Monitor diagonal: %.2f pdpi: %.2f ldpi: %.2f", pDiagonal, pdpi, ldpi)
+	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Monitor diagonal: %.2f pdpi: %.2f ldpi: %.2f", pDiagonal, pdpi, ldpi)
 
 	// If pdpi is wrong or pdpi is not %10 close with logical dpi, use logical dpi
 	if pdpi <= 0 || math.Abs((pdpi/ldpi)-1) > 0.1 {
-		logDebug("Using logical dpi.")
+		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Using logical dpi.")
 		window.dpi = ldpi
 	} else {
 		window.dpi = pdpi
@@ -355,5 +355,5 @@ func (window *Window) calculateDPI() {
 
 func (window *Window) Close() {
 	window.handle.Destroy()
-	logDebug("Window destroyed.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window destroyed.")
 }

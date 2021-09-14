@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MINIMUM_FONT_SIZE = 7
+	MINIMUM_FONT_SIZE = 5
 	DEFAULT_FONT_SIZE = 12
 )
 
@@ -25,15 +25,15 @@ type Font struct {
 func CreateDefaultFont() Font {
 	defer measure_execution_time()()
 
-	logDebug("Loading default font.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Loading default font.")
 
 	font := Font{
 		size: DEFAULT_FONT_SIZE,
 	}
 	var check = func(err error) {
 		if err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, err)
-			logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to load default font!")
+			logMessage(LEVEL_ERROR, TYPE_NEORAY, err)
+			logMessage(LEVEL_FATAL, TYPE_NEORAY, "Failed to load default font!")
 		}
 	}
 	var err error
@@ -56,7 +56,7 @@ func CreateDefaultFont() Font {
 	font.bold = bold
 
 	// TODO: Do we need italic and bold for default font?
-	logDebug("Default font loaded.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Default font loaded.")
 
 	return font
 }
@@ -64,10 +64,10 @@ func CreateDefaultFont() Font {
 func CreateFont(fontName string, size float32) (Font, bool) {
 	defer measure_execution_time()()
 
-	logDebug("Loading font", fontName, "with size", size)
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Loading font", fontName, "with size", size)
 
 	if size < MINIMUM_FONT_SIZE {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY,
+		logMessage(LEVEL_WARN, TYPE_NEORAY,
 			"Font size", size, "is small and automatically set to default", DEFAULT_FONT_SIZE)
 		size = DEFAULT_FONT_SIZE
 	}
@@ -80,10 +80,10 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	if info.Regular != "" {
 		font.regular, err = CreateFace(info.Regular, size)
 		if err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to load regular font.", err)
+			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to load regular font.", err)
 			return font, false
 		} else {
-			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Regular:", filepath.Base(info.Regular))
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Regular:", filepath.Base(info.Regular))
 			font.name = font.regular.FamilyName()
 			if font.name == "" {
 				font.name = "Unknown Family Name"
@@ -96,34 +96,34 @@ func CreateFont(fontName string, size float32) (Font, bool) {
 	if info.BoldItalic != "" {
 		font.bold_italic, err = CreateFace(info.BoldItalic, size)
 		if err != nil {
-			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load bold italic font.", err)
+			logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to load bold italic font.", err)
 		} else {
-			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold Italic:", filepath.Base(info.BoldItalic))
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Bold Italic:", filepath.Base(info.BoldItalic))
 		}
 	} else {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font has no bold italic face.")
+		logMessage(LEVEL_WARN, TYPE_NEORAY, "Font has no bold italic face.")
 	}
 
 	if info.Italic != "" {
 		font.italic, err = CreateFace(info.Italic, size)
 		if err != nil {
-			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load italic font.", err)
+			logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to load italic font.", err)
 		} else {
-			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Italic:", filepath.Base(info.Italic))
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Italic:", filepath.Base(info.Italic))
 		}
 	} else {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font has no italic face.")
+		logMessage(LEVEL_WARN, TYPE_NEORAY, "Font has no italic face.")
 	}
 
 	if info.Bold != "" {
 		font.bold, err = CreateFace(info.Bold, size)
 		if err != nil {
-			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to load bold font.", err)
+			logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to load bold font.", err)
 		} else {
-			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Bold:", filepath.Base(info.Bold))
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Bold:", filepath.Base(info.Bold))
 		}
 	} else {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Font has no bold face.")
+		logMessage(LEVEL_WARN, TYPE_NEORAY, "Font has no bold face.")
 	}
 
 	return font, true

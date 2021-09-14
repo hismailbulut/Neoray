@@ -31,6 +31,7 @@ const (
 	OPTION_TRANSPARENCY = "Transparency"
 	OPTION_TARGET_TPS   = "TargetTPS"
 	OPTION_CONTEXT_MENU = "ContextMenuOn"
+	OPTION_BOX_DRAWING  = "BoxDrawingOn"
 	OPTION_WINDOW_STATE = "WindowState"
 	OPTION_WINDOW_SIZE  = "WindowSize"
 	OPTION_KEY_FULLSCRN = "KeyFullscreen"
@@ -44,6 +45,7 @@ var OptionsList = []string{
 	OPTION_TRANSPARENCY,
 	OPTION_TARGET_TPS,
 	OPTION_CONTEXT_MENU,
+	OPTION_BOX_DRAWING,
 	OPTION_WINDOW_STATE,
 	OPTION_WINDOW_SIZE,
 	OPTION_KEY_FULLSCRN,
@@ -97,11 +99,11 @@ func CreateNvimProcess() NvimProcess {
 		nvim.ChildProcessArgs(args...),
 		nvim.ChildProcessCommand(editorParsedArgs.execPath))
 	if err != nil {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Failed to start neovim instance:", err)
+		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to start neovim instance:", err)
 	}
 	proc.handle = nv
 
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM,
+	logMessage(LEVEL_DEBUG, TYPE_NVIM,
 		"Neovim started with command:", editorParsedArgs.execPath, mergeStringArray(args))
 
 	return proc
@@ -137,7 +139,7 @@ func (proc *NvimProcess) registerScripts() {
 	// Execute script
 	_, err := proc.handle.Exec(source, false)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to execute scripts.vim:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to execute scripts.vim:", err)
 		return
 	}
 	// Register handler
@@ -147,7 +149,7 @@ func (proc *NvimProcess) registerScripts() {
 			value, ok2 := iValue.(string)
 			if !ok1 || !ok2 {
 				// This is not user fault.
-				logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "NeoraySet arguments are not string.")
+				logMessage(LEVEL_ERROR, TYPE_NVIM, "NeoraySet arguments are not string.")
 				return
 			}
 			proc.optionMutex.Lock()
@@ -165,7 +167,7 @@ func (proc *NvimProcess) requestApiInfo() {
 	info, err := proc.handle.APIInfo()
 	if err != nil {
 		// Maybe fatal?
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get api information:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to get api information:", err)
 		return
 	}
 	// Check the version.
@@ -177,12 +179,12 @@ func (proc *NvimProcess) requestApiInfo() {
 	vPatch := vInfo.MapIndex(reflect.ValueOf("patch")).Elem().Convert(t_int).Int()
 
 	if vMinor < 4 {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM,
+		logMessage(LEVEL_FATAL, TYPE_NVIM,
 			"Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")
 	}
 
 	vStr := fmt.Sprintf("%d.%d.%d", vMajor, vMinor, vPatch)
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim version", vStr)
+	logMessage(LEVEL_TRACE, TYPE_NVIM, "Neovim version", vStr)
 }
 
 func (proc *NvimProcess) introduce() {
@@ -209,7 +211,7 @@ func (proc *NvimProcess) introduce() {
 	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
 	if err != nil {
 		// Maybe fatal?
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to set client information:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to set client information:", err)
 	}
 }
 
@@ -220,12 +222,12 @@ func (proc *NvimProcess) startUI() {
 
 	if editorParsedArgs.multiGrid {
 		options["ext_multigrid"] = true
-		logDebug("Multigrid enabled.")
+		logMessage(LEVEL_DEBUG, TYPE_NVIM, "Multigrid enabled.")
 	}
 
 	// TODO: calculate size
 	if err := proc.handle.AttachUI(60, 20, options); err != nil {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NVIM, "Attaching ui failed:", err)
+		logMessage(LEVEL_FATAL, TYPE_NVIM, "Attaching ui failed:", err)
 	}
 
 	proc.handle.RegisterHandler("redraw",
@@ -238,14 +240,14 @@ func (proc *NvimProcess) startUI() {
 
 	go func() {
 		if err := proc.handle.Serve(); err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim child process closed with errors:", err)
+			logMessage(LEVEL_ERROR, TYPE_NVIM, "Neovim child process closed with errors:", err)
 			return
 		}
-		logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NVIM, "Neovim child process closed.")
+		logMessage(LEVEL_TRACE, TYPE_NVIM, "Neovim child process closed.")
 		singleton.quitRequested <- true
 	}()
 
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Attached to neovim as an ui client.")
+	logMessage(LEVEL_DEBUG, TYPE_NVIM, "Attached to neovim as an ui client.")
 }
 
 func (proc *NvimProcess) update() {
@@ -261,77 +263,84 @@ func (proc *NvimProcess) checkOptions() {
 			case OPTION_CURSOR_ANIM:
 				value, err := strconv.ParseFloat(opt.value, 32)
 				if err != nil {
-					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_CURSOR_ANIM, "value isn't valid.")
+					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_CURSOR_ANIM, "value isn't valid.")
 					break
 				}
-				if singleton.options.cursorAnimTime != float32(value) {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", opt.value)
-					singleton.options.cursorAnimTime = float32(value)
-				}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", opt.value)
+				singleton.options.cursorAnimTime = float32(value)
+				break
 			case OPTION_TRANSPARENCY:
 				value, err := strconv.ParseFloat(opt.value, 32)
 				if err != nil {
-					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_TRANSPARENCY, "value isn't valid.")
+					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_TRANSPARENCY, "value isn't valid.")
 					break
 				}
-				if singleton.options.transparency != float32(value) {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt.value)
-					singleton.options.transparency = float32(value)
-					if singleton.mainLoopRunning {
-						singleton.fullDraw()
-					}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt.value)
+				singleton.options.transparency = float32(value)
+				if singleton.mainLoopRunning {
+					singleton.fullDraw()
 				}
+				break
 			case OPTION_TARGET_TPS:
 				value, err := strconv.Atoi(opt.value)
 				if err != nil {
-					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_TARGET_TPS, "value isn't valid.")
+					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_TARGET_TPS, "value isn't valid.")
 					break
 				}
-				if singleton.options.targetTPS != value {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_TARGET_TPS, "is", value)
-					singleton.options.targetTPS = value
-					if singleton.mainLoopRunning {
-						singleton.resetTicker()
-					}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_TARGET_TPS, "is", value)
+				singleton.options.targetTPS = value
+				if singleton.mainLoopRunning {
+					singleton.resetTicker()
 				}
+				break
 			case OPTION_CONTEXT_MENU:
 				value, err := strconv.ParseBool(opt.value)
 				if err != nil {
-					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_TARGET_TPS, "value isn't valid.")
+					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_CONTEXT_MENU, "value isn't valid.")
 					break
 				}
-				if singleton.options.contextMenuEnabled != value {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", value)
-					singleton.options.contextMenuEnabled = value
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", value)
+				singleton.options.contextMenuEnabled = value
+				break
+			case OPTION_BOX_DRAWING:
+				value, err := strconv.ParseBool(opt.value)
+				if err != nil {
+					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_BOX_DRAWING, "value isn't valid.")
+					break
 				}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_BOX_DRAWING, "is", value)
+				singleton.options.boxDrawingEnabled = value
+				if singleton.mainLoopRunning {
+					singleton.renderer.clearAtlas()
+				}
+				break
 			case OPTION_WINDOW_STATE:
 				singleton.window.setState(opt.value)
-				logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", opt.value)
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", opt.value)
+				break
 			case OPTION_WINDOW_SIZE:
 				width, height, ok := parseSizeString(opt.value)
 				if !ok {
-					logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, OPTION_WINDOW_SIZE, "value isn't valid.")
+					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_WINDOW_SIZE, "value isn't valid.")
 					break
 				}
-				logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_WINDOW_SIZE, "is", width, height)
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_WINDOW_SIZE, "is", width, height)
 				singleton.window.setSize(width, height, true)
+				break
 			case OPTION_KEY_FULLSCRN:
-				if singleton.options.keyToggleFullscreen != opt.value {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", opt.value)
-					singleton.options.keyToggleFullscreen = opt.value
-				}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", opt.value)
+				singleton.options.keyToggleFullscreen = opt.value
+				break
 			case OPTION_KEY_ZOOMIN:
-				if singleton.options.keyIncreaseFontSize != opt.value {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", opt.value)
-					singleton.options.keyIncreaseFontSize = opt.value
-				}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", opt.value)
+				singleton.options.keyIncreaseFontSize = opt.value
+				break
 			case OPTION_KEY_ZOOMOUT:
-				if singleton.options.keyDecreaseFontSize != opt.value {
-					logDebugMsg(LOG_TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", opt.value)
-					singleton.options.keyDecreaseFontSize = opt.value
-				}
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", opt.value)
+				singleton.options.keyDecreaseFontSize = opt.value
+				break
 			default:
-				logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Invalid option", opt.name)
+				logMessage(LEVEL_WARN, TYPE_NVIM, "Invalid option", opt.name)
 			}
 		}
 		proc.optionStack = proc.optionStack[0:0]
@@ -349,70 +358,70 @@ func (proc *NvimProcess) requestStartupVariables() {
 	var b bool
 	if proc.handle.Var(OPTION_CURSOR_ANIM_DEP, &f) == nil {
 		if f != options.cursorAnimTime {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_CURSOR_ANIM_DEP, "is", f)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_CURSOR_ANIM_DEP, "is", f)
 			options.cursorAnimTime = f
 		}
 	}
 	if proc.handle.Var(OPTION_TRANSPARENCY_DEP, &f) == nil {
 		if f != options.transparency {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_TRANSPARENCY_DEP, "is", f)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_TRANSPARENCY_DEP, "is", f)
 			options.transparency = f
 		}
 	}
 	if proc.handle.Var(OPTION_TARGET_TPS_DEP, &i) == nil {
 		if i != options.targetTPS {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_TARGET_TPS_DEP, "is", i)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_TARGET_TPS_DEP, "is", i)
 			options.targetTPS = i
 		}
 	}
 	if proc.handle.Var(OPTION_CONTEXT_MENU_DEP, &b) == nil {
 		if b != options.contextMenuEnabled {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_CONTEXT_MENU_DEP, "is", b)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_CONTEXT_MENU_DEP, "is", b)
 			options.contextMenuEnabled = b
 		}
 	}
 	if proc.handle.Var(OPTION_KEY_FULLSCRN_DEP, &s) == nil {
 		if s != options.keyToggleFullscreen {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_KEY_FULLSCRN_DEP, "is", s)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_KEY_FULLSCRN_DEP, "is", s)
 			options.keyToggleFullscreen = s
 		}
 	}
 	if proc.handle.Var(OPTION_KEY_ZOOMIN_DEP, &s) == nil {
 		if s != options.keyIncreaseFontSize {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMIN_DEP, "is", s)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMIN_DEP, "is", s)
 			options.keyIncreaseFontSize = s
 		}
 	}
 	if proc.handle.Var(OPTION_KEY_ZOOMOUT_DEP, &s) == nil {
 		if s != options.keyDecreaseFontSize {
-			logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMOUT_DEP, "is", s)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMOUT_DEP, "is", s)
 			options.keyDecreaseFontSize = s
 		}
 	}
 	// Window startup size
 	if proc.handle.Var(OPTION_WINDOW_SIZE_DEP, &s) == nil {
-		logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_WINDOW_SIZE_DEP, "is", s)
+		logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_WINDOW_SIZE_DEP, "is", s)
 		// Parse the string
 		width, height, ok := parseSizeString(s)
 		if ok {
 			singleton.window.setSize(width, height, true)
 		} else {
-			logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Could not parse size value:", s)
+			logMessage(LEVEL_WARN, TYPE_NVIM, "Could not parse size value:", s)
 		}
 	}
 	// Window startup state
 	if proc.handle.Var(OPTION_WINDOW_STATE_DEP, &s) == nil {
-		logDebugMsg(LOG_TYPE_NVIM, "Deprecated option", OPTION_WINDOW_STATE_DEP, "is", s)
+		logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_WINDOW_STATE_DEP, "is", s)
 		singleton.window.setState(s)
 	}
 }
 
 func (proc *NvimProcess) execCommand(format string, args ...interface{}) bool {
 	cmd := fmt.Sprintf(format, args...)
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NVIM, "Executing command: [", cmd, "]")
+	logMessage(LEVEL_DEBUG, TYPE_NVIM, "Executing command: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Command execution failed: [", cmd, "] err:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Command execution failed: [", cmd, "] err:", err)
 		return false
 	}
 	return true
@@ -421,7 +430,7 @@ func (proc *NvimProcess) execCommand(format string, args ...interface{}) bool {
 func (proc *NvimProcess) currentMode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to get current mode name:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to get current mode name:", err)
 		return ""
 	}
 	return mode.Mode
@@ -441,7 +450,7 @@ func (proc *NvimProcess) getRegister(register string) string {
 	var content string
 	err := proc.handle.Call("getreg", &content, register)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call getreg() failed:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Api call getreg() failed:", err)
 	}
 	return content
 }
@@ -474,7 +483,7 @@ func (proc *NvimProcess) copySelected() string {
 func (proc *NvimProcess) paste(str string) {
 	err := proc.handle.Call("nvim_paste", nil, str, true, -1)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Api call nvim_paste() failed:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Api call nvim_paste() failed:", err)
 	}
 }
 
@@ -496,41 +505,41 @@ func (proc *NvimProcess) openFile(file string) {
 }
 
 func (proc *NvimProcess) gotoLine(line int) {
-	logDebug("Goto Line:", line)
+	logMessage(LEVEL_DEBUG, TYPE_NVIM, "Goto Line:", line)
 	proc.handle.Call("cursor", nil, line, 0)
 }
 
 func (proc *NvimProcess) gotoColumn(col int) {
-	logDebug("Goto Column:", col)
+	logMessage(LEVEL_DEBUG, TYPE_NVIM, "Goto Column:", col)
 	proc.handle.Call("cursor", nil, 0, col)
 }
 
 func (proc *NvimProcess) feedKeys(keys string) {
 	keycode, err := proc.handle.ReplaceTermcodes(keys, true, true, true)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to replace termcodes:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to replace termcodes:", err)
 		return
 	}
 	err = proc.handle.FeedKeys(keycode, "m", true)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to feed keys:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to feed keys:", err)
 	}
 }
 
 func (proc *NvimProcess) input(keycode string) {
 	written, err := proc.handle.Input(keycode)
 	if err != nil {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send input keys:", err)
+		logMessage(LEVEL_WARN, TYPE_NVIM, "Failed to send input keys:", err)
 	}
 	if written != len(keycode) {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send some keys.")
+		logMessage(LEVEL_WARN, TYPE_NVIM, "Failed to send some keys.")
 	}
 }
 
 func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, column int) {
 	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
 	if err != nil {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to send mouse input:", err)
+		logMessage(LEVEL_WARN, TYPE_NVIM, "Failed to send mouse input:", err)
 	}
 }
 
@@ -538,7 +547,7 @@ func (proc *NvimProcess) requestResize(rows, cols int) {
 	if rows > 0 && cols > 0 {
 		err := proc.handle.TryResizeUI(cols, rows)
 		if err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Failed to send resize request:", err)
+			logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to send resize request:", err)
 			return
 		}
 	}
@@ -547,6 +556,6 @@ func (proc *NvimProcess) requestResize(rows, cols int) {
 func (proc *NvimProcess) Close() {
 	err := proc.handle.Close()
 	if err != nil {
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NVIM, "Failed to close neovim child process:", err)
+		logMessage(LEVEL_WARN, TYPE_NVIM, "Failed to close neovim child process:", err)
 	}
 }

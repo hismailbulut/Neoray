@@ -17,16 +17,16 @@ import (
 // Add empty ones to release file if they are not local.
 
 const (
-	MINIMUM_LOG_LEVEL       = LOG_LEVEL_DEBUG
+	MINIMUM_LOG_LEVEL       = LEVEL_DEBUG
 	BUILD_TYPE              = DEBUG
-	FONT_ATLAS_DEFAULT_SIZE = 256
+	FONT_ATLAS_DEFAULT_SIZE = 512
 )
 
 func start_pprof() {
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to start pprof:", err)
+			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to start pprof:", err)
 		}
 	}()
 }
@@ -149,13 +149,13 @@ func close_function_time_tracker() {
 			}
 			msg += " Max:" + ft.highest
 		}
-		logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_PERFORMANCE, msg)
+		logMessage(LEVEL_DEBUG, TYPE_PERFORMANCE, msg)
 	}
 }
 
 // This assert only works on debug build.
 func assert_debug(cond bool, message ...interface{}) {
 	if !cond {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Debug assertion failed:", message)
+		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Debug assertion failed:", message)
 	}
 }

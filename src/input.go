@@ -90,7 +90,7 @@ func initInputEvents() {
 	wh.SetCursorPosCallback(cursorPosCallback)
 	wh.SetScrollCallback(scrollCallback)
 	wh.SetDropCallback(dropCallback)
-	logDebug("Input callbacks are initialized.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Input callbacks are initialized.")
 }
 
 func sendKeyInput(keycode string) {
@@ -160,7 +160,7 @@ func checkNeorayKeybindings(keycode string) bool {
 		case "<C-F2>":
 			panic("Control+F2 manual panic")
 		case "<C-F3>":
-			logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Control+F3 manual fatal")
+			logMessage(LEVEL_FATAL, TYPE_NEORAY, "Control+F3 manual fatal")
 		}
 	}
 	return false

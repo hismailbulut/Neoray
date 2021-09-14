@@ -10,7 +10,7 @@ import (
 	"github.com/sqweek/dialog"
 )
 
-const ENABLE_COLORED_OUTPUT = true
+const enableAsciiColorOutput = true
 
 const (
 	AnsiBlack   = "\u001b[30m"
@@ -29,21 +29,21 @@ type LogType uint32
 
 const (
 	// log levels
-	LOG_LEVEL_DEBUG LogLevel = iota
-	LOG_LEVEL_TRACE
-	LOG_LEVEL_WARN
-	LOG_LEVEL_ERROR
+	LEVEL_DEBUG LogLevel = iota
+	LEVEL_TRACE
+	LEVEL_WARN
+	LEVEL_ERROR
 	// The fatal will be printed to logfile and a
 	// fatal popup will be shown. The program exits immediately.
-	LOG_LEVEL_FATAL
+	LEVEL_FATAL
 )
 
 const (
 	// Log types, makes easy to understand where the message coming from
-	LOG_TYPE_NVIM LogType = iota
-	LOG_TYPE_NEORAY
-	LOG_TYPE_RENDERER
-	LOG_TYPE_PERFORMANCE
+	TYPE_NVIM LogType = iota
+	TYPE_NEORAY
+	TYPE_RENDERER
+	TYPE_PERFORMANCE
 )
 
 var (
@@ -56,12 +56,12 @@ func initVerboseFile(filename string) {
 	}
 	path, err := filepath.Abs(filename)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to get absolute path:", err)
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to get absolute path:", err)
 		return
 	}
 	verboseFile, err = os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_SYNC, 0666)
 	if err != nil {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create log file:", err)
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create log file:", err)
 		return
 	}
 	// Print informations to log file.
@@ -74,7 +74,7 @@ func shutdownLogger() {
 	// fatal error.
 	if pmsg := recover(); pmsg != nil {
 		// Create crash report.
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "[PANIC!]", pmsg)
+		logMessage(LEVEL_FATAL, TYPE_NEORAY, "[PANIC!]", pmsg)
 	}
 	cleanup()
 }
@@ -86,7 +86,7 @@ func cleanup() {
 		verboseFile.Close()
 	}
 	// Reset terminal color
-	if ENABLE_COLORED_OUTPUT {
+	if enableAsciiColorOutput {
 		fmt.Print(AnsiReset)
 	}
 }
@@ -106,28 +106,28 @@ func createCrashReport(msg string) {
 	}
 }
 
-func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
-	if log_level < MINIMUM_LOG_LEVEL && verboseFile == nil {
+func logMessage(lvl LogLevel, typ LogType, message ...interface{}) {
+	if lvl < MINIMUM_LOG_LEVEL && verboseFile == nil {
 		return
 	}
 
 	fatal := false
 	colorCode := ""
 	logLevelString := ""
-	switch log_level {
-	case LOG_LEVEL_DEBUG:
+	switch lvl {
+	case LEVEL_DEBUG:
 		logLevelString = "[DEBUG]"
 		colorCode = AnsiWhite
-	case LOG_LEVEL_TRACE:
+	case LEVEL_TRACE:
 		logLevelString = "[TRACE]"
 		colorCode = AnsiGreen
-	case LOG_LEVEL_WARN:
+	case LEVEL_WARN:
 		logLevelString = "[WARNING]"
 		colorCode = AnsiYellow
-	case LOG_LEVEL_ERROR:
+	case LEVEL_ERROR:
 		logLevelString = "[ERROR]"
 		colorCode = AnsiRed
-	case LOG_LEVEL_FATAL:
+	case LEVEL_FATAL:
 		logLevelString = "[FATAL]"
 		colorCode = AnsiRed
 		fatal = true
@@ -136,14 +136,14 @@ func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
 	}
 
 	logTypeString := ""
-	switch log_type {
-	case LOG_TYPE_NVIM:
+	switch typ {
+	case TYPE_NVIM:
 		logTypeString = "[NVIM]"
-	case LOG_TYPE_NEORAY:
+	case TYPE_NEORAY:
 		logTypeString = "[NEORAY]"
-	case LOG_TYPE_RENDERER:
+	case TYPE_RENDERER:
 		logTypeString = "[RENDERER]"
-	case LOG_TYPE_PERFORMANCE:
+	case TYPE_PERFORMANCE:
 		logTypeString = "[PERFORMANCE]"
 	default:
 		panic("invalid log type")
@@ -152,7 +152,7 @@ func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
 	logString := logLevelString + " " + logTypeString + " " + fmt.Sprintln(message...)
 
 	// Print to stdout
-	if ENABLE_COLORED_OUTPUT {
+	if enableAsciiColorOutput {
 		fmt.Print(colorCode + logString)
 	} else {
 		fmt.Print(logString)
@@ -174,31 +174,20 @@ func logMessage(log_level LogLevel, log_type LogType, message ...interface{}) {
 	}
 }
 
-// Fast debug message
-func logDebug(message ...interface{}) {
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, message...)
-}
-
-// Fast debug message using format
-func logfDebug(format string, message ...interface{}) {
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_NEORAY, fmt.Sprintf(format, message...))
-}
-
-// Debug message with type
-func logDebugMsg(log_type LogType, message ...interface{}) {
-	logMessage(LOG_LEVEL_DEBUG, log_type, message...)
+func logMessageFmt(level LogLevel, typ LogType, format string, args ...interface{}) {
+	logMessage(level, typ, fmt.Sprintf(format, args...))
 }
 
 // This assert logs fatal when cond is false.
 func assert(cond bool, message ...interface{}) {
 	if cond == false {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
+		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}
 }
 
 // This assert logs error when cond is false.
 func assert_error(cond bool, message ...interface{}) {
 	if cond == false {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}
 }

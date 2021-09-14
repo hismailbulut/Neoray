@@ -141,7 +141,7 @@ func (options ParsedArgs) ProcessBefore() bool {
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
 		if err != nil {
-			logDebug("No instance found or tcp client creation failed:", err)
+			logMessage(LEVEL_DEBUG, TYPE_NEORAY, "No instance found or tcp client creation failed:", err)
 			return false
 		}
 		ok := false
@@ -171,10 +171,10 @@ func (options ParsedArgs) ProcessAfter() {
 	if options.singleInst {
 		server, err := CreateServer()
 		if err != nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Failed to create tcp server:", err)
+			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create tcp server:", err)
 		} else {
 			singleton.server = server
-			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Tcp server created.")
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Tcp server created.")
 		}
 	}
 	if options.file != "" {

@@ -46,26 +46,26 @@ func CreateClient() (*TCPClient, error) {
 		return nil, err
 	}
 	client.connection = c
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Connected to", c.RemoteAddr())
+	logMessage(LEVEL_TRACE, TYPE_NEORAY, "Connected to", c.RemoteAddr())
 	go func() {
 		for {
 			data := <-client.data
 			_, err := c.Write([]byte(data))
 			if err != nil {
-				logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send signal:", err)
+				logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to send signal:", err)
 				client.resp <- false
 				continue
 			}
 			resp, err := bufio.NewReader(c).ReadString('\n')
 			if err != nil {
-				logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to get response:", err)
+				logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to get response:", err)
 				client.resp <- false
 				continue
 			}
 			if resp == SIGNAL_CLOSE_CONNECTION {
 				client.connection.Close()
 				client.resp <- true
-				logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Disconnected from server.")
+				logMessage(LEVEL_TRACE, TYPE_NEORAY, "Disconnected from server.")
 				return
 			}
 			client.resp <- true
@@ -75,7 +75,7 @@ func CreateClient() (*TCPClient, error) {
 }
 
 func (client *TCPClient) sendSignal(signal string, args ...string) bool {
-	logDebug("Sending signal:", signal, args)
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Sending signal:", signal, args)
 	for _, arg := range args {
 		signal += "\x00" + arg
 	}
@@ -90,7 +90,7 @@ func (client *TCPClient) sendSignal(signal string, args ...string) bool {
 		}
 		break
 	case <-time.Tick(time.Second):
-		logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Signal timeout.")
+		logMessage(LEVEL_WARN, TYPE_NEORAY, "Signal timeout.")
 		return false
 	}
 	return true
@@ -100,7 +100,7 @@ func (client *TCPClient) Close() {
 	client.sendSignal(SIGNAL_CLOSE_CONNECTION)
 	close(client.data)
 	close(client.resp)
-	logDebug("Tcp client closed.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Tcp client closed.")
 }
 
 type TCPServer struct {
@@ -122,10 +122,10 @@ func CreateServer() (*TCPServer, error) {
 		for {
 			c, err := l.Accept()
 			if err != nil {
-				logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Server closed.")
+				logMessage(LEVEL_TRACE, TYPE_NEORAY, "Server closed.")
 				return
 			}
-			logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "New client connected:", c.RemoteAddr())
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "New client connected:", c.RemoteAddr())
 			// handle connection concurrently
 			go func() {
 				defer c.Close()
@@ -133,7 +133,7 @@ func CreateServer() (*TCPServer, error) {
 					var resp string
 					data, err := bufio.NewReader(c).ReadString('\n')
 					if err != nil {
-						logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to read client data:", err)
+						logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to read client data:", err)
 						break
 					}
 					switch data {
@@ -153,10 +153,10 @@ func CreateServer() (*TCPServer, error) {
 					}
 					_, err = c.Write([]byte(resp))
 					if err != nil {
-						logMessage(LOG_LEVEL_WARN, LOG_TYPE_NEORAY, "Failed to send response to client.")
+						logMessage(LEVEL_WARN, TYPE_NEORAY, "Failed to send response to client.")
 					}
 					if resp == SIGNAL_CLOSE_CONNECTION {
-						logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Client disconnected.")
+						logMessage(LEVEL_TRACE, TYPE_NEORAY, "Client disconnected.")
 						return
 					}
 				}
@@ -172,7 +172,7 @@ func (server *TCPServer) update() {
 		defer server.dataMutex.Unlock()
 		for _, sig := range server.data {
 			args := strings.Split(strings.Split(sig, "\n")[0], "\x00")
-			logDebug("Signal Received:", args)
+			logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Signal Received:", args)
 			switch args[0] {
 			case SIGNAL_OPEN_FILE:
 				singleton.nvim.openFile(args[1])
@@ -190,7 +190,7 @@ func (server *TCPServer) update() {
 				}
 				break
 			default:
-				logDebug("Signal is invalid.")
+				logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Signal is invalid.")
 				break
 			}
 		}
@@ -202,5 +202,5 @@ func (server *TCPServer) update() {
 
 func (server *TCPServer) Close() {
 	server.listener.Close()
-	logDebug("Tcp server closed.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Tcp server closed.")
 }

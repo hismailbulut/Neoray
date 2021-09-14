@@ -64,7 +64,7 @@ func (options *UIOptions) setGuiFont(guifont string) {
 			if ok {
 				singleton.renderer.setFont(font)
 			} else {
-				logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NEORAY, "Font", name, "not found!")
+				logMessage(LEVEL_ERROR, TYPE_NEORAY, "Font", name, "not found!")
 				singleton.nvim.echoErr("Font %s not found!", name)
 			}
 		}

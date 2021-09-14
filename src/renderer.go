@@ -152,10 +152,10 @@ func (renderer *Renderer) createVertexData() {
 
 func (renderer *Renderer) debugDrawFontAtlas() {
 	atlas_pos := F32Rect{
-		X: float32(singleton.window.width - FONT_ATLAS_DEFAULT_SIZE),
+		X: float32(singleton.window.width) - (float32(singleton.window.width) / 3),
 		Y: 0,
-		W: FONT_ATLAS_DEFAULT_SIZE,
-		H: FONT_ATLAS_DEFAULT_SIZE,
+		W: float32(singleton.window.width) / 3,
+		H: float32(singleton.window.height) / 3,
 	}
 	storage := renderer.reserveVertexData(1)
 	storage.setCellPos(0, atlas_pos)
@@ -291,7 +291,7 @@ func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
 	}
 	if pos.Y+singleton.cellHeight >= FONT_ATLAS_DEFAULT_SIZE {
 		// Fully filled
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Font atlas is full.")
+		logMessage(LEVEL_ERROR, TYPE_RENDERER, "Font atlas is full.")
 		renderer.clearAtlas()
 		// The clear atlas function calls a popup menu function to create its
 		// chars. This means the nextAtlasPosition is recursively calling
@@ -384,7 +384,7 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 		// Render character to an image
 		textImage := fontFace.RenderChar(char, underline, strikethrough)
 		if textImage == nil {
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Failed to render glyph:", string(char), char)
+			logMessage(LEVEL_ERROR, TYPE_RENDERER, "Failed to render glyph:", string(char), char)
 			id = UNSUPPORTED_GLYPH_ID
 			pos, ok := renderer.fontAtlas.characters[id]
 			if ok {

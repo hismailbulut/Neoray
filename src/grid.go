@@ -201,12 +201,12 @@ func (gridManager *GridManager) hide(id int) {
 	// Must be removed after this issue fixed
 	stop := false
 	if !editorParsedArgs.multiGrid {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim sent hide event even multigrid is not enabled.")
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Neovim sent hide event even multigrid is not enabled.")
 		stop = true
 	}
 	grid, ok := gridManager.grids[id]
 	if !ok {
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_NVIM, "Neovim sent hide event with wrong grid id.")
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Neovim sent hide event with wrong grid id.")
 		stop = true
 	}
 	if stop {

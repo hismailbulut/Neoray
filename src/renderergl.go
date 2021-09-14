@@ -47,10 +47,10 @@ var (
 func rglInit() {
 	defer measure_execution_time()()
 
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Initializing opengl.")
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Initializing opengl.")
 	// Initialize opengl
 	if err := gl.InitWithProcAddrFunc(glfw.GetProcAddress); err != nil {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to initialize opengl:", err)
+		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Failed to initialize opengl:", err)
 	}
 
 	// Init shaders
@@ -104,22 +104,22 @@ func rglInit() {
 	rglCheckError("gen framebuffer")
 	// We dont need to bind framebuffer because we need it only when clearing texture
 
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
+	logMessage(LEVEL_TRACE, TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
 
 	vendor := gl.GoStr(gl.GetString(gl.VENDOR))
 	renderer := gl.GoStr(gl.GetString(gl.RENDERER))
 	glsl := gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION))
 
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Vendor:", vendor)
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "Renderer:", renderer)
-	logMessage(LOG_LEVEL_DEBUG, LOG_TYPE_RENDERER, "GLSL:", glsl)
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Vendor:", vendor)
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Renderer:", renderer)
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "GLSL:", glsl)
 }
 
 func rglGetUniformLocation(name string) int32 {
 	uniform_name := gl.Str(name + "\x00")
 	loc := gl.GetUniformLocation(rgl_shader_program, uniform_name)
 	if loc < 0 {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to find uniform", name)
+		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Failed to find uniform", name)
 	}
 	return loc
 }
@@ -187,7 +187,7 @@ func rglInitShaders() {
 		gl.GetProgramiv(rgl_shader_program, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetProgramInfoLog(rgl_shader_program, logLength, nil, gl.Str(log))
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Failed to link shader program:", log)
+		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Failed to link shader program:", log)
 	}
 
 	gl.DeleteShader(vertShader)
@@ -232,7 +232,7 @@ func rglCompileShader(source string, shader_type uint32) uint32 {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_RENDERER, "Shader", rglGetShaderName(shader_type), "compilation failed:\n", log)
+		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Shader", rglGetShaderName(shader_type), "compilation failed:\n", log)
 	}
 
 	rglCheckError("compile shader")
@@ -271,10 +271,10 @@ func rglCheckError(callerName string) {
 		case gl.CONTEXT_LOST:
 			errName = "CONTEXT_LOST"
 		default:
-			logMessage(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", err, "on", callerName)
+			logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", err, "on", callerName)
 			return
 		}
-		logMessage(LOG_LEVEL_ERROR, LOG_TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
+		logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
 	}
 }
 

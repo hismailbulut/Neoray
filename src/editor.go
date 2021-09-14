@@ -12,6 +12,7 @@ type Options struct {
 	transparency        float32
 	targetTPS           int
 	contextMenuEnabled  bool
+	boxDrawingEnabled   bool
 	keyToggleFullscreen string
 	keyIncreaseFontSize string
 	keyDecreaseFontSize string
@@ -90,15 +91,15 @@ func (editor *Editor) Initialize() {
 	editor.renderer = CreateRenderer()
 
 	// DEPRECATED
-	logDebug("Requesting deprecated options.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Requesting deprecated options.")
 	editor.nvim.requestStartupVariables()
 	// NEW
-	logDebug("Checking user options.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Checking user options.")
 	editor.nvim.checkOptions()
 
 	// show the main window
 	editor.window.handle.Show()
-	logDebug("Window is now visible.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window is now visible.")
 }
 
 func CreateDefaultOptions() Options {
@@ -107,6 +108,7 @@ func CreateDefaultOptions() Options {
 		transparency:        1,
 		targetTPS:           60,
 		contextMenuEnabled:  true,
+		boxDrawingEnabled:   true,
 		keyToggleFullscreen: "<F11>",
 		keyIncreaseFontSize: "<C-kPlus>",
 		keyDecreaseFontSize: "<C-kMinus>",
@@ -116,9 +118,9 @@ func CreateDefaultOptions() Options {
 func (editor *Editor) initGlfw() {
 	defer measure_execution_time()()
 	if err := glfw.Init(); err != nil {
-		logMessage(LOG_LEVEL_FATAL, LOG_TYPE_NEORAY, "Failed to initialize glfw:", err)
+		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Failed to initialize glfw:", err)
 	}
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
+	logMessage(LEVEL_TRACE, TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
 }
 
 func (editor *Editor) MainLoop() {
@@ -165,7 +167,7 @@ func (editor *Editor) MainLoop() {
 			editor.mainLoopRunning = false
 		}
 	}
-	logMessage(LOG_LEVEL_TRACE, LOG_TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
+	logMessage(LEVEL_TRACE, TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
 }
 
 func (editor *Editor) update() {
@@ -220,7 +222,7 @@ func (editor *Editor) debugPrintCell(pos IntVec2) {
 	attrib_id: %d
 	needs_redraw: %t
 	data : %+v`
-	logfDebug(format, grid, x, y, string(cell.char), cell.char, cell.attribId, cell.needsDraw, vertex)
+	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, format, grid, x, y, string(cell.char), cell.char, cell.attribId, cell.needsDraw, vertex)
 }
 
 func (editor *Editor) Shutdown() {
@@ -231,5 +233,5 @@ func (editor *Editor) Shutdown() {
 	editor.renderer.Close()
 	editor.window.Close()
 	glfw.Terminate()
-	logDebug("Glfw terminated.")
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Glfw terminated.")
 }
