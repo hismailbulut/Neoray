@@ -27,8 +27,8 @@ Also you can download prebuild binaries from releases page.
 ## Configuration
 
 Neoray doesn't need any additional configuration, but you can customize it in
-your `init.vim`. All options can be set via NeoraySet command. Takes two arguments,
-first one is the name of the option and second one is the value.
+your `init.vim`. All options can be set via NeoraySet command. Takes at least
+two arguments, first one is the name of the option and others are arguments.
 
 The cursor is moving smoothly in neoray and you can specify how long it's move
 takes. Default is 0.06 (1.0 is one second) You can disable it by setting to 0.
@@ -58,6 +58,14 @@ terminal. You can disable it by setting this option to false. Default is true.
 NeoraySet ContextMenuOn true
 ```
 
+Neoray can handle some of the unicode box drawing characters itself, draws them
+pixel aligned which makes no gap between glyphs and makes them visually
+compatible with each other. This is enabled by default but you can disable it
+and use the font's glyphs.
+```vim
+NeoraySet BoxDrawingOn true
+```
+
 You can specify how the neoray window will be shown. The possible values are
 'minimized', 'maximized', 'fullscreen', 'centered'. Default is none.
 ```vim
@@ -82,6 +90,8 @@ NeoraySet KeyFullscreen <F11>
 NeoraySet KeyZoomIn     <C-kPlus>
 NeoraySet KeyZoomOut    <C-kMinus>
 ```
+
+NOTE: The old neoray_* options are deprecated and will be removed soon.
 ___
 ### font
 Neoray respects your guifont option, finds the font and loads it. If it can't
@@ -97,7 +107,7 @@ set guifont=:h13 " Use default font with 13 pt size
 ```
 NOTE: For now neoray doesn't support ttc fonts.
 ___
-### exaple init.vim
+### exaple init.vim with all options
 ```vim
 if exists('g:neoray')
     set guifont=Go_Mono:h11
@@ -105,6 +115,7 @@ if exists('g:neoray')
     NeoraySet Transparency   0.95
     NeoraySet TargetTPS      120
     NeoraySet ContextMenuOn  TRUE
+    NeoraySet BoxDrawingOn   TRUE
     NeoraySet WindowSize     120x40
     NeoraySet WindowState    centered
     NeoraySet KeyFullscreen  <M-C-CR>
@@ -118,13 +129,12 @@ You can disable all of these features.
 if exists('g:neoray')
     NeoraySet CursorAnimTime 0
     NeoraySet ContextMenuOn  FALSE
+    NeoraySet BoxDrawingOn   FALSE
     NeoraySet KeyFullscreen  <>
     NeoraySet KeyZoomIn      <>
     NeoraySet KeyZoomOut     <>
 endif
 ```
-
-NOTE: The old neoray_* options are deprecated and will be removed soon.
 ___
 ### flags
 Neoray accepts some flags for startup options and more. Other flags are used
