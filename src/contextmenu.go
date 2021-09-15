@@ -5,11 +5,13 @@ import (
 	"github.com/sqweek/dialog"
 )
 
-// You can add more buttons here.
-var ContextMenuButtons = []struct {
+type ContextButton struct {
 	name string
 	fn   func()
-}{
+}
+
+// You can add more buttons here.
+var ContextMenuButtons = []ContextButton{
 	{name: "Cut",
 		fn: func() {
 			text := singleton.nvim.cutSelected()
@@ -55,6 +57,12 @@ func CreateContextMenu() ContextMenu {
 	cMenu := ContextMenu{
 		hidden: true,
 	}
+	cMenu.createCells()
+	return cMenu
+}
+
+// Only call this function at initializing.
+func (cMenu *ContextMenu) createCells() {
 	// Find the longest text.
 	longest := 0
 	for _, btn := range ContextMenuButtons {
@@ -69,12 +77,6 @@ func CreateContextMenu() ContextMenu {
 	for i := range cMenu.cells {
 		cMenu.cells[i] = make([]rune, cMenu.width, cMenu.width)
 	}
-	cMenu.createCells()
-	return cMenu
-}
-
-// Only call this function at initializing.
-func (cMenu *ContextMenu) createCells() {
 	// Loop through all cells and give them correct characters
 	for x, row := range cMenu.cells {
 		for y := range row {
@@ -113,6 +115,15 @@ func (cMenu *ContextMenu) updateChars() {
 			cMenu.vertexData.setCellTex1(cell_id, atlasPos)
 		}
 	}
+}
+
+func (cMenu *ContextMenu) AddButton(button ContextButton) {
+	defer measure_execution_time()()
+	ContextMenuButtons = append(ContextMenuButtons, button)
+	singleton.contextMenu.createCells()
+	singleton.renderer.createVertexData()
+	singleton.contextMenu.updateChars()
+	singleton.fullDraw()
 }
 
 func (cMenu *ContextMenu) ShowAt(pos IntVec2) {

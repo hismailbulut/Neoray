@@ -1,7 +1,6 @@
 package main
 
 import (
-	// _ "embed"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -31,6 +30,7 @@ const (
 	OPTION_TRANSPARENCY = "Transparency"
 	OPTION_TARGET_TPS   = "TargetTPS"
 	OPTION_CONTEXT_MENU = "ContextMenuOn"
+	OPTION_CONTEXT_ITEM = "ContextMenuItem"
 	OPTION_BOX_DRAWING  = "BoxDrawingOn"
 	OPTION_WINDOW_STATE = "WindowState"
 	OPTION_WINDOW_SIZE  = "WindowSize"
@@ -45,6 +45,7 @@ var OptionsList = []string{
 	OPTION_TRANSPARENCY,
 	OPTION_TARGET_TPS,
 	OPTION_CONTEXT_MENU,
+	OPTION_CONTEXT_ITEM,
 	OPTION_BOX_DRAWING,
 	OPTION_WINDOW_STATE,
 	OPTION_WINDOW_SIZE,
@@ -53,17 +54,13 @@ var OptionsList = []string{
 	OPTION_KEY_ZOOMOUT,
 }
 
-type TemporaryOption struct {
-	name, value string
-}
-
-var OptionSetFuncScript string = `
+var NeorayOptionSet_Source string = `
 function NeorayOptionSet(...)
-	if a:0 != 2
-		echoerr 'NeoraySet needs 2 arguments.'
+	if a:0 < 2
+		echoerr 'NeoraySet needs at least 2 arguments.'
 		return
 	endif
-	call rpcnotify(CHANID, "NeorayOptionSet", a:1, a:2)
+	call call(function("rpcnotify"), [CHANID, "NeorayOptionSet"] + a:000)
 endfunction
 
 function NeorayCompletion(A, L, P)
@@ -80,7 +77,7 @@ type NvimProcess struct {
 	eventStack    [][][]interface{}
 	optionChanged AtomicBool
 	optionMutex   *sync.Mutex
-	optionStack   []TemporaryOption
+	optionStack   [][]string
 }
 
 func CreateNvimProcess() NvimProcess {
@@ -90,18 +87,18 @@ func CreateNvimProcess() NvimProcess {
 		eventMutex:  &sync.Mutex{},
 		eventStack:  make([][][]interface{}, 0),
 		optionMutex: &sync.Mutex{},
-		optionStack: make([]TemporaryOption, 0),
+		optionStack: make([][]string, 0),
 	}
 
 	args := append([]string{"--embed"}, editorParsedArgs.others...)
 
-	nv, err := nvim.NewChildProcess(
+	var err error
+	proc.handle, err = nvim.NewChildProcess(
 		nvim.ChildProcessArgs(args...),
 		nvim.ChildProcessCommand(editorParsedArgs.execPath))
 	if err != nil {
 		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to start neovim instance:", err)
 	}
-	proc.handle = nv
 
 	logMessage(LEVEL_DEBUG, TYPE_NVIM,
 		"Neovim started with command:", editorParsedArgs.execPath, mergeStringArray(args))
@@ -114,51 +111,7 @@ func CreateNvimProcess() NvimProcess {
 // are called in CreateNvimProcess
 func (proc *NvimProcess) init() {
 	proc.requestApiInfo()
-	proc.introduce()
-	// Set a variable that users can define their neoray specific customization.
-	proc.handle.SetVar("neoray", 1)
 	proc.registerScripts()
-}
-
-func (proc *NvimProcess) registerScripts() {
-	// Replace channel ids in the template
-	source := strings.ReplaceAll(OptionSetFuncScript, "CHANID", strconv.Itoa(proc.handle.ChannelID()))
-	// Create option list string
-	listStr := "["
-	for i := 0; i < len(OptionsList); i++ {
-		listStr += "'" + OptionsList[i] + "'"
-		if i < len(OptionsList)-1 {
-			listStr += ","
-		}
-	}
-	listStr += "]"
-	// Replace list in source
-	source = strings.Replace(source, "OPTIONLIST", listStr, 1)
-	// Trim whitespaces
-	source = strings.TrimSpace(source)
-	// Execute script
-	_, err := proc.handle.Exec(source, false)
-	if err != nil {
-		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to execute scripts.vim:", err)
-		return
-	}
-	// Register handler
-	proc.handle.RegisterHandler("NeorayOptionSet",
-		func(iName, iValue interface{}) {
-			name, ok1 := iName.(string)
-			value, ok2 := iValue.(string)
-			if !ok1 || !ok2 {
-				// This is not user fault.
-				logMessage(LEVEL_ERROR, TYPE_NVIM, "NeoraySet arguments are not string.")
-				return
-			}
-			proc.optionMutex.Lock()
-			defer proc.optionMutex.Unlock()
-			proc.optionStack = append(proc.optionStack, TemporaryOption{
-				name: name, value: value,
-			})
-			proc.optionChanged.Set(true)
-		})
 }
 
 func (proc *NvimProcess) requestApiInfo() {
@@ -166,8 +119,7 @@ func (proc *NvimProcess) requestApiInfo() {
 
 	info, err := proc.handle.APIInfo()
 	if err != nil {
-		// Maybe fatal?
-		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to get api information:", err)
+		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to get api information:", err)
 		return
 	}
 	// Check the version.
@@ -187,47 +139,56 @@ func (proc *NvimProcess) requestApiInfo() {
 	logMessage(LEVEL_TRACE, TYPE_NVIM, "Neovim version", vStr)
 }
 
-func (proc *NvimProcess) introduce() {
-	// Short name for the connected client
-	name := TITLE
-	// Dictionary describing the version
-	version := &nvim.ClientVersion{
-		Major: VERSION_MAJOR,
-		Minor: VERSION_MINOR,
-		Patch: VERSION_PATCH,
-		// Commit: "",
+func (proc *NvimProcess) registerScripts() {
+	// Set a variable that users can define their neoray specific customization.
+	proc.handle.SetVar("neoray", 1)
+	// Replace channel ids in the template
+	source := strings.ReplaceAll(NeorayOptionSet_Source, "CHANID", strconv.Itoa(proc.handle.ChannelID()))
+	// Create option list string
+	listStr := "["
+	for i := 0; i < len(OptionsList); i++ {
+		listStr += "'" + OptionsList[i] + "'"
+		if i < len(OptionsList)-1 {
+			listStr += ","
+		}
 	}
-	if isDebugBuild() {
-		version.Prerelease = "dev"
-	}
-	// Client type
-	typ := "ui"
-	// Builtin methods in the client
-	methods := make(map[string]*nvim.ClientMethod, 0)
-	// Arbitrary string:string map of informal client properties
-	attributes := make(nvim.ClientAttributes, 1)
-	attributes["website"] = WEBPAGE
-	attributes["license"] = LICENSE
-	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
+	listStr += "]"
+	// Replace list in source
+	source = strings.Replace(source, "OPTIONLIST", listStr, 1)
+	// Trim whitespaces
+	source = strings.TrimSpace(source)
+	// Execute script
+	_, err := proc.handle.Exec(source, false)
 	if err != nil {
-		// Maybe fatal?
-		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to set client information:", err)
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to execute NeorayOptionSet_Source:", err)
+		return
 	}
+	// Register handler
+	proc.handle.RegisterHandler("NeorayOptionSet",
+		func(args ...string) {
+			// arg 0 is the name of the option, others are arguments
+			proc.optionMutex.Lock()
+			defer proc.optionMutex.Unlock()
+			proc.optionStack = append(proc.optionStack, args)
+			proc.optionChanged.Set(true)
+		})
 }
 
-func (proc *NvimProcess) startUI() {
-	options := make(map[string]interface{})
-	options["rgb"] = true
-	options["ext_linegrid"] = true
+func (proc *NvimProcess) startUI(rows, cols int) {
+	defer measure_execution_time()()
+
+	options := map[string]interface{}{
+		"rgb":          true,
+		"ext_linegrid": true,
+	}
 
 	if editorParsedArgs.multiGrid {
 		options["ext_multigrid"] = true
 		logMessage(LEVEL_DEBUG, TYPE_NVIM, "Multigrid enabled.")
 	}
 
-	// TODO: calculate size
-	if err := proc.handle.AttachUI(60, 20, options); err != nil {
-		logMessage(LEVEL_FATAL, TYPE_NVIM, "Attaching ui failed:", err)
+	if err := proc.handle.AttachUI(cols, rows, options); err != nil {
+		logMessage(LEVEL_FATAL, TYPE_NVIM, "AttachUI failed:", err)
 	}
 
 	proc.handle.RegisterHandler("redraw",
@@ -247,7 +208,34 @@ func (proc *NvimProcess) startUI() {
 		singleton.quitRequested <- true
 	}()
 
+	proc.introduce()
 	logMessage(LEVEL_DEBUG, TYPE_NVIM, "Attached to neovim as an ui client.")
+}
+
+func (proc *NvimProcess) introduce() {
+	// Short name for the connected client
+	name := TITLE
+	// Dictionary describing the version
+	version := &nvim.ClientVersion{
+		Major: VERSION_MAJOR,
+		Minor: VERSION_MINOR,
+		Patch: VERSION_PATCH,
+	}
+	if isDebugBuild() {
+		version.Prerelease = "dev"
+	}
+	// Client type
+	typ := "ui"
+	// Builtin methods in the client
+	methods := make(map[string]*nvim.ClientMethod, 0)
+	// Arbitrary string:string map of informal client properties
+	attributes := make(nvim.ClientAttributes, 1)
+	attributes["website"] = WEBPAGE
+	attributes["license"] = LICENSE
+	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
+	if err != nil {
+		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to set client information:", err)
+	}
 }
 
 func (proc *NvimProcess) update() {
@@ -259,30 +247,30 @@ func (proc *NvimProcess) checkOptions() {
 		proc.optionMutex.Lock()
 		defer proc.optionMutex.Unlock()
 		for _, opt := range proc.optionStack {
-			switch opt.name {
+			switch opt[0] {
 			case OPTION_CURSOR_ANIM:
-				value, err := strconv.ParseFloat(opt.value, 32)
+				value, err := strconv.ParseFloat(opt[1], 32)
 				if err != nil {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_CURSOR_ANIM, "value isn't valid.")
 					break
 				}
-				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", opt.value)
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CURSOR_ANIM, "is", opt[1])
 				singleton.options.cursorAnimTime = float32(value)
 				break
 			case OPTION_TRANSPARENCY:
-				value, err := strconv.ParseFloat(opt.value, 32)
+				value, err := strconv.ParseFloat(opt[1], 32)
 				if err != nil {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_TRANSPARENCY, "value isn't valid.")
 					break
 				}
-				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt.value)
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt[1])
 				singleton.options.transparency = float32(value)
 				if singleton.mainLoopRunning {
 					singleton.fullDraw()
 				}
 				break
 			case OPTION_TARGET_TPS:
-				value, err := strconv.Atoi(opt.value)
+				value, err := strconv.Atoi(opt[1])
 				if err != nil {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_TARGET_TPS, "value isn't valid.")
 					break
@@ -294,7 +282,7 @@ func (proc *NvimProcess) checkOptions() {
 				}
 				break
 			case OPTION_CONTEXT_MENU:
-				value, err := strconv.ParseBool(opt.value)
+				value, err := strconv.ParseBool(opt[1])
 				if err != nil {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_CONTEXT_MENU, "value isn't valid.")
 					break
@@ -302,8 +290,21 @@ func (proc *NvimProcess) checkOptions() {
 				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", value)
 				singleton.options.contextMenuEnabled = value
 				break
+			case OPTION_CONTEXT_ITEM:
+				if len(opt) >= 3 {
+					logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CONTEXT_ITEM, "name is", opt[1], "and command is", opt[2])
+					// NOTE: If we pass opt[2] to execCommand directly, compiler does not copy the string
+					// and tries to access deleted slice and generates index out of range.
+					cmd := opt[2]
+					singleton.contextMenu.AddButton(ContextButton{
+						name: opt[1],
+						fn:   func() { proc.execCommand(cmd) },
+					})
+				} else {
+					logMessage(LEVEL_WARN, TYPE_NVIM, "Not enough argument for option", OPTION_CONTEXT_ITEM)
+				}
 			case OPTION_BOX_DRAWING:
-				value, err := strconv.ParseBool(opt.value)
+				value, err := strconv.ParseBool(opt[1])
 				if err != nil {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_BOX_DRAWING, "value isn't valid.")
 					break
@@ -315,11 +316,11 @@ func (proc *NvimProcess) checkOptions() {
 				}
 				break
 			case OPTION_WINDOW_STATE:
-				singleton.window.setState(opt.value)
-				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", opt.value)
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_WINDOW_STATE, "is", opt[1])
+				singleton.window.setState(opt[1])
 				break
 			case OPTION_WINDOW_SIZE:
-				width, height, ok := parseSizeString(opt.value)
+				width, height, ok := parseSizeString(opt[1])
 				if !ok {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_WINDOW_SIZE, "value isn't valid.")
 					break
@@ -328,19 +329,19 @@ func (proc *NvimProcess) checkOptions() {
 				singleton.window.setSize(width, height, true)
 				break
 			case OPTION_KEY_FULLSCRN:
-				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", opt.value)
-				singleton.options.keyToggleFullscreen = opt.value
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_FULLSCRN, "is", opt[1])
+				singleton.options.keyToggleFullscreen = opt[1]
 				break
 			case OPTION_KEY_ZOOMIN:
-				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", opt.value)
-				singleton.options.keyIncreaseFontSize = opt.value
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_ZOOMIN, "is", opt[1])
+				singleton.options.keyIncreaseFontSize = opt[1]
 				break
 			case OPTION_KEY_ZOOMOUT:
-				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", opt.value)
-				singleton.options.keyDecreaseFontSize = opt.value
+				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_KEY_ZOOMOUT, "is", opt[1])
+				singleton.options.keyDecreaseFontSize = opt[1]
 				break
 			default:
-				logMessage(LEVEL_WARN, TYPE_NVIM, "Invalid option", opt.name)
+				logMessage(LEVEL_WARN, TYPE_NVIM, "Invalid option", opt)
 			}
 		}
 		proc.optionStack = proc.optionStack[0:0]
@@ -544,16 +545,16 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 }
 
 func (proc *NvimProcess) requestResize(rows, cols int) {
-	if rows > 0 && cols > 0 {
-		err := proc.handle.TryResizeUI(cols, rows)
-		if err != nil {
-			logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to send resize request:", err)
-			return
-		}
+	assert(rows > 0 && cols > 0, "requested resize with zero parameter")
+	err := proc.handle.TryResizeUI(cols, rows)
+	if err != nil {
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to send resize request:", err)
+		return
 	}
 }
 
 func (proc *NvimProcess) Close() {
+	// NOTE: We are always trying to close neovim even though it closes itself before us.
 	err := proc.handle.Close()
 	if err != nil {
 		logMessage(LEVEL_WARN, TYPE_NVIM, "Failed to close neovim child process:", err)

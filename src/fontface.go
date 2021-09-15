@@ -152,11 +152,11 @@ func rastCorner(r *vector.Rasterizer, mid F32Vec2, points ...F32Vec3) {
 	}
 	for i, v := range points {
 		new_mid := mid
-		move := v.toVec2().minus(mid).normalized().multiplyS(points[boldest].Z / 2)
+		thick_half := v.toVec2().minus(mid).normalized().multiplyS(points[boldest].Z / 2)
 		if i == boldest {
-			new_mid = mid.minus(move)
+			new_mid = mid.minus(thick_half)
 		} else {
-			new_mid = mid.plus(move)
+			new_mid = mid.plus(thick_half)
 		}
 		rastLine(r, v.Z, new_mid, v.toVec2())
 	}
