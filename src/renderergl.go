@@ -151,20 +151,21 @@ func rglClearScreen(color U8Color) {
 
 func rglUpdateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
-		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(VertexStructSize), gl.Ptr(data), gl.STATIC_DRAW)
+		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(VertexStructSize), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
 		rglCheckError("vertex buffer data")
 		rgl_vertex_buffer_len = len(data)
 	} else {
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(VertexStructSize), gl.Ptr(data))
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(VertexStructSize), unsafe.Pointer(&data[0]))
 		rglCheckError("vertex buffer subdata")
 	}
 }
 
 func rglRender() {
 	gl.DrawArrays(gl.POINTS, 0, int32(rgl_vertex_buffer_len))
+	rglCheckError("draw arrays")
 	// Since we are not using doublebuffering, we don't need swapping buffers, but we need to flush.
 	gl.Flush()
-	rglCheckError("render")
+	rglCheckError("flush")
 }
 
 func rglInitShaders() {

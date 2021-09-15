@@ -22,6 +22,8 @@ type Renderer struct {
 	fontAtlas   FontAtlas
 	// Vertex data holds vertices for cells. Every cell has 1 vertex.
 	vertexData []Vertex
+	// Temporary values, can be used for checking whether the dimesions are same with requested.
+	_rows, _cols int
 	// Rows is row count and cols is column count of the vertex data.
 	rows, cols int
 	// If this is true, the Render function will be called from Update.
@@ -107,9 +109,11 @@ func (renderer *Renderer) updateCellSize(font *Font) bool {
 	if w != singleton.cellWidth || h != singleton.cellHeight {
 		singleton.cellWidth = w
 		singleton.cellHeight = h
-		rows := singleton.window.height / h
-		cols := singleton.window.width / w
-		singleton.nvim.requestResize(rows, cols)
+		renderer._rows = singleton.window.height / h
+		renderer._cols = singleton.window.width / w
+		if singleton.mainLoopRunning {
+			singleton.nvim.requestResize(renderer._rows, renderer._cols)
+		}
 		return true
 	}
 	return false
@@ -164,34 +168,34 @@ func (renderer *Renderer) debugDrawFontAtlas() {
 }
 
 func (storage VertexDataStorage) setCellPos(index int, pos F32Rect) {
-	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellPos oob!")
 	storage.renderer.vertexData[storage.begin+index].pos = pos
 }
 
 func (storage VertexDataStorage) setCellTex1(index int, texPos IntRect) {
-	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellTex1 oob!")
 	tex1pos := storage.renderer.fontAtlas.texture.glCoords(texPos)
 	storage.renderer.vertexData[storage.begin+index].tex1 = tex1pos
 }
 
 func (storage VertexDataStorage) setCellTex2(index int, texPos IntRect) {
-	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellTex2 oob!")
 	tex2pos := storage.renderer.fontAtlas.texture.glCoords(texPos)
 	storage.renderer.vertexData[storage.begin+index].tex2 = tex2pos
 }
 
 func (storage VertexDataStorage) setCellFg(index int, fg U8Color) {
-	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellFg oob!")
 	storage.renderer.vertexData[storage.begin+index].fg = fg.toF32()
 }
 
 func (storage VertexDataStorage) setCellBg(index int, bg U8Color) {
-	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellBg oob!")
 	storage.renderer.vertexData[storage.begin+index].bg = bg.toF32()
 }
 
 func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
-	assert_debug(index >= 0 && storage.begin+index < storage.end)
+	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellSp oob!")
 	storage.renderer.vertexData[storage.begin+index].sp = sp.toF32()
 }
 

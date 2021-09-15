@@ -75,7 +75,6 @@ func (editor *Editor) Initialize() {
 
 	editor.nvim = CreateNvimProcess()
 	editor.nvim.init()
-	editor.nvim.startUI()
 
 	editor.initGlfw()
 	editor.window = CreateWindow(800, 600, TITLE)
@@ -89,6 +88,13 @@ func (editor *Editor) Initialize() {
 	editor.cursor = CreateCursor()
 	editor.contextMenu = CreateContextMenu()
 	editor.renderer = CreateRenderer()
+
+	// NOTE: Calling this before other initializations makes startup faster,
+	// but weird things happens. Calling after checking options causes to
+	// neoray not receiving option events and we cant do our initializations
+	// such as WindowSize and WindowState (actually we can but doing them after
+	// showing the window causes an ugly startup)
+	editor.nvim.startUI(editor.renderer._rows, editor.renderer._cols)
 
 	// DEPRECATED
 	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Requesting deprecated options.")
