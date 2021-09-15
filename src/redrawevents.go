@@ -311,7 +311,7 @@ func grid_cursor_goto(args []interface{}) {
 func grid_scroll(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
+		grid_id := refToInt(v.Index(0))
 		top := refToInt(v.Index(1))
 		bot := refToInt(v.Index(2))
 		left := refToInt(v.Index(3))
@@ -319,54 +319,62 @@ func grid_scroll(args []interface{}) {
 		rows := refToInt(v.Index(5))
 		// cols := refToInt(v.Index(6))
 
-		singleton.gridManager.grids[grid].scroll(top, bot, rows, left, right)
+		grid, ok := singleton.gridManager.grids[grid_id]
+		if ok {
+			grid.scroll(top, bot, rows, left, right)
+		}
 	}
 }
 
 func win_pos(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
+		grid_id := refToInt(v.Index(0))
 		win := refToInt(v.Index(1))
 		start_row := refToInt(v.Index(2))
 		start_col := refToInt(v.Index(3))
 		width := refToInt(v.Index(4))
 		height := refToInt(v.Index(5))
 
-		singleton.gridManager.grids[grid].setPos(win, start_row, start_col, height, width, GridTypeNormal)
+		grid, ok := singleton.gridManager.grids[grid_id]
+		if ok {
+			grid.setPos(win, start_row, start_col, height, width, GridTypeNormal)
+		}
 	}
 }
 
 func win_float_pos(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
+		grid_id := refToInt(v.Index(0))
 		win := refToInt(v.Index(1))
 		anchor := v.Index(2).Elem().String()
-		anchor_grid := refToInt(v.Index(3))
+		anchor_grid_id := refToInt(v.Index(3))
 		anchor_row := refToInt(v.Index(4))
 		anchor_col := refToInt(v.Index(5))
 		// focusable := v.Index(6).Elem().Bool()
 
-		currentGrid := singleton.gridManager.grids[grid]
-		anchorGrid := singleton.gridManager.grids[anchor_grid]
+		grid, ok := singleton.gridManager.grids[grid_id]
+		anchor_grid, a_ok := singleton.gridManager.grids[anchor_grid_id]
 
-		row := anchorGrid.sRow + anchor_row
-		col := anchorGrid.sCol + anchor_col
+		if ok && a_ok {
+			row := anchor_grid.sRow + anchor_row
+			col := anchor_grid.sCol + anchor_col
 
-		// TODO: This needs to be revisited.
-		switch anchor {
-		case "NW":
-		case "NE":
-			col -= currentGrid.cols
-		case "SW":
-			row -= currentGrid.rows
-		case "SE":
-			col -= currentGrid.cols
-			row -= currentGrid.rows
+			// TODO: This needs to be revisited.
+			switch anchor {
+			case "NW":
+			case "NE":
+				col -= grid.cols
+			case "SW":
+				row -= grid.rows
+			case "SE":
+				col -= grid.cols
+				row -= grid.rows
+			}
+
+			grid.setPos(win, row, col, grid.rows, grid.cols, GridTypeFloat)
 		}
-
-		currentGrid.setPos(win, row, col, currentGrid.rows, currentGrid.cols, GridTypeFloat)
 	}
 }
 
@@ -402,16 +410,18 @@ func win_close(args []interface{}) {
 func msg_set_pos(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
+		grid_id := refToInt(v.Index(0))
 		row := refToInt(v.Index(1))
 		// scrolled := v.Index(2).Elem().Bool()
 		// sep_char := v.Index(3).Elem().String()
 
-		currentGrid := singleton.gridManager.grids[grid]
-		defaultGrid := singleton.gridManager.grids[1]
+		grid, ok := singleton.gridManager.grids[grid_id]
+		default_grid, d_ok := singleton.gridManager.grids[1]
 
-		currentGrid.setPos(currentGrid.window, defaultGrid.sRow+row, defaultGrid.sCol,
-			currentGrid.rows, currentGrid.cols, GridTypeMessage)
+		if ok && d_ok {
+			grid.setPos(grid.window, default_grid.sRow+row, default_grid.sCol,
+				grid.rows, grid.cols, GridTypeMessage)
+		}
 	}
 }
 

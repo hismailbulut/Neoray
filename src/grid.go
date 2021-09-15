@@ -199,44 +199,39 @@ func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
 func (gridManager *GridManager) hide(id int) {
 	// These two checks added here because of the issue #16
 	// Must be removed after this issue fixed
-	stop := false
-	if !editorParsedArgs.multiGrid {
-		logMessage(LEVEL_ERROR, TYPE_NVIM, "Neovim sent hide event even multigrid is not enabled.")
-		stop = true
-	}
 	grid, ok := gridManager.grids[id]
-	if !ok {
-		logMessage(LEVEL_ERROR, TYPE_NVIM, "Neovim sent hide event with wrong grid id.")
-		stop = true
+	if ok {
+		grid.hidden = true
+		// NOTE: Hide and destroy functions are only calling when multigrid is on.
+		// When this functions called from neovim, we know which grid is hided or
+		// destroyed but we dont know how many grids affected. Because grids can
+		// overlap and hiding a grid on top of a grid causes back grid needs to be
+		// rendered. This is also applies to setPos. We could also try to detect which
+		// grid must be drawed but fully drawing screen is fast and more stable.
+		singleton.fullDraw()
 	}
-	if stop {
-		return
-	}
-	grid.hidden = true
-	// NOTE: Hide and destroy functions are only calling when multigrid is on.
-	// When this functions called from neovim, we know which grid is hided or
-	// destroyed but we dont know how many grids affected. Because grids can
-	// overlap and hiding a grid on top of a grid causes back grid needs to be
-	// rendered. This is also applies to setPos. We could also try to detect which
-	// grid must be drawed but fully drawing screen is fast and more stable.
-	singleton.fullDraw()
 }
 
 func (gridManager *GridManager) destroy(id int) {
-	delete(gridManager.grids, id)
-	singleton.fullDraw()
+	_, ok := gridManager.grids[id]
+	if ok {
+		delete(gridManager.grids, id)
+		singleton.fullDraw()
+	}
 }
 
 func (gridManager *GridManager) clear(id int) {
-	grid := gridManager.grids[id]
-	for i := 0; i < grid.rows; i++ {
-		for j := 0; j < grid.cols; j++ {
-			grid.cells[i][j].char = 0
-			grid.cells[i][j].attribId = 0
-			grid.cells[i][j].needsDraw = true
+	grid, ok := gridManager.grids[id]
+	if ok {
+		for i := 0; i < grid.rows; i++ {
+			for j := 0; j < grid.cols; j++ {
+				grid.cells[i][j].char = 0
+				grid.cells[i][j].attribId = 0
+				grid.cells[i][j].needsDraw = true
+			}
 		}
+		singleton.draw()
 	}
-	singleton.draw()
 }
 
 // Sets cells with the given parameters, and advances y to the next. If
@@ -244,14 +239,16 @@ func (gridManager *GridManager) clear(id int) {
 // the first time). This function will not check the end of the row. And
 // currently only used by neovim.
 func (gridManager *GridManager) setCell(id, x int, y *int, char rune, attribId, repeat int) {
-	grid := gridManager.grids[id]
-	cell_count := 1
-	if repeat > 0 {
-		cell_count = repeat
-	}
-	for i := 0; i < cell_count; i++ {
-		grid.setCell(x, *y, char, attribId)
-		*y++
+	grid, ok := gridManager.grids[id]
+	if ok {
+		cell_count := 1
+		if repeat > 0 {
+			cell_count = repeat
+		}
+		for i := 0; i < cell_count; i++ {
+			grid.setCell(x, *y, char, attribId)
+			*y++
+		}
 	}
 }
 
