@@ -9,7 +9,7 @@ import (
 
 const (
 	MINIMUM_FONT_SIZE = 5
-	DEFAULT_FONT_SIZE = 12
+	DEFAULT_FONT_SIZE = 11
 )
 
 // If you want to disable a font, just set size to 0.
