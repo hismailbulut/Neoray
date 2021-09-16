@@ -116,6 +116,10 @@ func (v F32Vec2) perpendicular() F32Vec2 {
 	return F32Vec2{X: v.Y, Y: -v.X}
 }
 
+func (v F32Vec2) isHorizontal() bool {
+	return math.Abs(float64(v.X)) >= math.Abs(float64(v.Y))
+}
+
 type IntRect struct {
 	X, Y, W, H int
 }

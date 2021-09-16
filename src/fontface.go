@@ -85,7 +85,9 @@ func (face *FontFace) calcMetrics() {
 
 	// TODO: Dpi is also another factor here
 	face.thickness = float32(math.Ceil(4*(face.size/7.5)) / 4)
-	assert_error(face.thickness >= 1, "face thickness is not bigger than one, size:", face.size, "t:", face.thickness)
+	if face.thickness < 1 {
+		face.thickness = 1
+	}
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
@@ -144,21 +146,38 @@ func rastLine(r *vector.Rasterizer, thickness float32, begin, end F32Vec2) {
 
 // Z value of the vectors are thickness
 func rastCorner(r *vector.Rasterizer, mid F32Vec2, points ...F32Vec3) {
-	var boldest int
-	for i, v := range points {
-		if v.Z >= points[boldest].Z {
+	var boldest int = -1
+	var boldest_thickness float32
+	var boldest_horizontal bool
+	for i, p := range points {
+		if p.Z > boldest_thickness {
 			boldest = i
+			boldest_thickness = p.Z
+			boldest_horizontal = p.toVec2().minus(mid).isHorizontal()
 		}
 	}
-	for i, v := range points {
-		new_mid := mid
-		thick_half := v.toVec2().minus(mid).normalized().multiplyS(points[boldest].Z / 2)
-		if i == boldest {
-			new_mid = mid.minus(thick_half)
-		} else {
-			new_mid = mid.plus(thick_half)
+	var boldest2 int = -1
+	var boldest2_thickness float32
+	for i, p := range points {
+		if i != boldest &&
+			boldest_horizontal != p.toVec2().minus(mid).isHorizontal() &&
+			p.Z > boldest2_thickness {
+			boldest2 = i
+			boldest2_thickness = p.Z
 		}
-		rastLine(r, v.Z, new_mid, v.toVec2())
+	}
+	assert(boldest >= 0 && boldest2 >= 0, "corner needs at least two points and there must be perpendicular vectors")
+	for i, p := range points {
+		m := mid
+		vn := p.toVec2().minus(mid).normalized()
+		if i == boldest {
+			m = mid.minus(vn.multiplyS(boldest2_thickness / 2))
+		} else if vn.isHorizontal() == boldest_horizontal {
+			m = mid.plus(vn.multiplyS(boldest2_thickness / 2))
+		} else {
+			m = mid.plus(vn.multiplyS(boldest_thickness / 2))
+		}
+		rastLine(r, p.Z, m, p.toVec2())
 	}
 }
 

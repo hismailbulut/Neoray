@@ -121,9 +121,11 @@ func (cMenu *ContextMenu) AddButton(button ContextButton) {
 	defer measure_execution_time()()
 	ContextMenuButtons = append(ContextMenuButtons, button)
 	singleton.contextMenu.createCells()
-	singleton.renderer.createVertexData()
-	singleton.contextMenu.updateChars()
-	singleton.fullDraw()
+	if singleton.mainLoopRunning {
+		singleton.renderer.createVertexData()
+		singleton.contextMenu.updateChars()
+		singleton.fullDraw()
+	}
 }
 
 func (cMenu *ContextMenu) ShowAt(pos IntVec2) {
