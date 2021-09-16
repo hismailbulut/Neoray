@@ -118,7 +118,6 @@ func (cMenu *ContextMenu) updateChars() {
 }
 
 func (cMenu *ContextMenu) AddButton(button ContextButton) {
-	defer measure_execution_time()()
 	ContextMenuButtons = append(ContextMenuButtons, button)
 	singleton.contextMenu.createCells()
 	if singleton.mainLoopRunning {

@@ -167,7 +167,6 @@ func checkNeorayKeybindings(keycode string) bool {
 }
 
 func charCallback(w *glfw.Window, char rune) {
-	defer measure_execution_time()()
 	keycode := parseCharInput(char, lastModifiers)
 	if keycode != "" {
 		sendKeyInput(keycode)
@@ -208,7 +207,6 @@ func parseCharInput(char rune, mods BitMask) string {
 }
 
 func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-	defer measure_execution_time()()
 	// If this is a modifier key, we will store if it was pressed,
 	// delete if it was released
 	switch key {

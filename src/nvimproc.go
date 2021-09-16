@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	// DEPRECATED
 	// All options here are deprecated and will be removed soon
 	OPTION_CURSOR_ANIM_DEP  = "neoray_cursor_animation_time"
 	OPTION_TRANSPARENCY_DEP = "neoray_background_transparency"
@@ -350,7 +349,7 @@ func (proc *NvimProcess) checkOptions() {
 }
 
 // DEPRECATED
-func (proc *NvimProcess) requestStartupVariables() {
+func (proc *NvimProcess) checkDeprecatedOptions() {
 	defer measure_execution_time()()
 	options := &singleton.options
 	var s string

@@ -211,13 +211,10 @@ func rastDraw(r *vector.Rasterizer) *image.RGBA {
 }
 
 func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
-	defer measure_execution_time()()
-
 	light := face.thickness
 	heavy := light * 2
 
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
-
 	b := float32(0)
 	w := float32(singleton.cellWidth)
 	h := float32(singleton.cellHeight)

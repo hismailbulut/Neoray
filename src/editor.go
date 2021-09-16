@@ -96,9 +96,9 @@ func (editor *Editor) Initialize() {
 	// showing the window causes an ugly startup)
 	editor.nvim.startUI(editor.renderer._rows, editor.renderer._cols)
 
-	// DEPRECATED
+	// OLD
 	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Requesting deprecated options.")
-	editor.nvim.requestStartupVariables()
+	editor.nvim.checkDeprecatedOptions()
 	// NEW
 	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Checking user options.")
 	editor.nvim.checkOptions()
