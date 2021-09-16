@@ -14,21 +14,25 @@ You can install neoray with `go install` command:
 go install github.com/hismailbulut/neoray/src@latest
 ```
 
-NOTE: to successfully build it with go you will need to have
-some dependencies. On Ubuntu, install following packages:
-
+NOTE: To successfully build it on Linux with go you will need to have some
+dependencies. On Ubuntu, install following packages:
 ```
 sudo apt install libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev build-essential libgtk-3-dev xorg-dev
 ```
+For other distros you need to install corresponding libraries.
 
-Also you can download prebuild binaries from releases page.
-
+Also you can download prebuild binaries from releases page. If you are using
+linux you need x11 and gtk3 runtime libraries for run the neoray. Windows and
+Macos binaries doesn't have any dependencies except neovim.
 
 ## Configuration
 
 Neoray doesn't need any additional configuration, but you can customize it in
 your `init.vim`. All options can be set via NeoraySet command. Takes at least
 two arguments, first one is the name of the option and others are arguments.
+Neoray needs at least 0.4.4 version of neovim installed on your path, however
+if you want to use this NeoraySet commands and customize it then you need neovim
+version 0.5.0
 
 The cursor is moving smoothly in neoray and you can specify how long it's move
 takes. Default is 0.06 (1.0 is one second) You can disable it by setting to 0.
@@ -125,7 +129,7 @@ if exists('g:neoray')
     NeoraySet TargetTPS      120
     NeoraySet ContextMenuOn  TRUE
     NeoraySet BoxDrawingOn   TRUE
-    NeoraySet WindowSize     120x40
+    NeoraySet WindowSize     100x40
     NeoraySet WindowState    centered
     NeoraySet KeyFullscreen  <M-C-CR>
     NeoraySet KeyZoomIn      <C-ScrollWheelUp>
