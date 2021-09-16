@@ -58,6 +58,15 @@ terminal. You can disable it by setting this option to false. Default is true.
 NeoraySet ContextMenuOn true
 ```
 
+You can add custom buttons to context menu. First give a name to your button
+and write your command. You must escape spaces in the name and command. Every
+command adds a new button. My advice to you is don't write entire command here,
+write a function that does your job and call the function here. Do not escape
+space between name and command.
+```vim
+NeoraySet ContextMenuItem Say\ Hello :echo\ "Hello\ World!"
+```
+
 Neoray can handle some of the unicode box drawing characters itself, draws them
 pixel aligned which makes no gap between glyphs and makes them visually
 compatible with each other. This is enabled by default but you can disable it
