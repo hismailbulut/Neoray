@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/png"
-	"math"
-	"runtime"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -61,11 +59,7 @@ func CreateWindow(width int, height int, title string) Window {
 	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Monitor count:", len(glfw.GetMonitors()), "Selected monitor:", monitor.GetName())
 	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Video mode %+v", monitor.GetVideoMode())
 
-	window := Window{
-		title:  title,
-		width:  width,
-		height: height,
-	}
+	window := Window{title: title}
 
 	// Set opengl library version
 	glfw.WindowHint(glfw.ContextVersionMajor, 3)
@@ -92,14 +86,12 @@ func CreateWindow(width int, height int, title string) Window {
 		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Failed to create glfw window:", err)
 	}
 
-	// We need to check whether the window size is requested size.
-	w, h := window.handle.GetSize()
-	if w != width || h != height {
-		window.width = w
-		window.height = h
-	}
-
+	// Sometimes windows size is not same with requested size.
+	window.width, window.height = window.handle.GetSize()
 	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Glfw window created with size", window.width, window.height)
+
+	// Minimum window size
+	window.handle.SetSizeLimits(300, 200, glfw.DontCare, glfw.DontCare)
 
 	window.handle.MakeContextCurrent()
 	// Disable v-sync, already disabled by default but make sure.
@@ -122,6 +114,8 @@ func CreateWindow(width int, height int, title string) Window {
 				}
 				rglCreateViewport(width, height)
 				singleton.render()
+			} else {
+				// We can pause neoray
 			}
 		})
 
@@ -170,7 +164,6 @@ func CreateWindow(width int, height int, title string) Window {
 			// First recalculates dpi
 			// Second reloads all fonts with same size but different dpi
 			// Glfw itself also resizes the window
-			logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Content scale changed:", x, y)
 			singleton.window.calculateDPI()
 			singleton.renderer.setFontSize(0)
 		})
@@ -183,6 +176,39 @@ func (window *Window) update() {
 		fps_string := fmt.Sprintf(" | TPS: %d", singleton.time.lastUPS)
 		window.handle.SetTitle(window.title + fps_string)
 	}
+}
+
+func (window *Window) calculateDPI() {
+	scaleX, scaleY := window.handle.GetContentScale()
+	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Window content scale is: %.2f, %.2f", scaleX, scaleY)
+	window.dpi = 96 * float64(scaleY) // We only need Y (do we?)
+}
+
+func (window *Window) loadDefaultIcons() {
+	icons := []image.Image{}
+
+	icon48, err := png.Decode(bytes.NewReader(NeovimIconData48x48))
+	if err != nil {
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 48x48 icon:", err)
+	} else {
+		icons = append(icons, icon48)
+	}
+
+	icon32, err := png.Decode(bytes.NewReader(NeovimIconData32x32))
+	if err != nil {
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 32x32 icon:", err)
+	} else {
+		icons = append(icons, icon32)
+	}
+
+	icon16, err := png.Decode(bytes.NewReader(NeovimIconData16x16))
+	if err != nil {
+		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 16x16 icon:", err)
+	} else {
+		icons = append(icons, icon16)
+	}
+
+	window.handle.SetIcon(icons)
 }
 
 func (window *Window) hideCursor() {
@@ -204,11 +230,7 @@ func (window *Window) raise() {
 		window.handle.Restore()
 		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window restored from minimized state.")
 	}
-	// TODO: These are not working.
 	if !window.hasfocus {
-		// Move the window to the front and take input focus.
-		window.handle.SetAttrib(glfw.Floating, glfw.True)
-		window.handle.SetAttrib(glfw.Floating, glfw.False)
 		window.handle.Focus()
 	}
 	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window raised.")
@@ -270,6 +292,7 @@ func (window *Window) toggleFullscreen() {
 		X, Y := window.handle.GetPos()
 		W, H := window.handle.GetSize()
 		window.windowedRect = IntRect{X: X, Y: Y, W: W, H: H}
+		// TODO: Get monitor where the window is, not primary
 		monitor := glfw.GetPrimaryMonitor()
 		videoMode := monitor.GetVideoMode()
 		window.handle.SetMonitor(monitor, 0, 0, videoMode.Width, videoMode.Height, videoMode.RefreshRate)
@@ -280,76 +303,6 @@ func (window *Window) toggleFullscreen() {
 			window.windowedRect.X, window.windowedRect.Y,
 			window.windowedRect.W, window.windowedRect.H, 0)
 		window.windowState = WINDOW_STATE_NORMAL
-	}
-}
-
-func (window *Window) loadDefaultIcons() {
-	icons := []image.Image{}
-
-	icon48, err := png.Decode(bytes.NewReader(NeovimIconData48x48))
-	if err != nil {
-		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 48x48 icon:", err)
-	} else {
-		icons = append(icons, icon48)
-	}
-
-	icon32, err := png.Decode(bytes.NewReader(NeovimIconData32x32))
-	if err != nil {
-		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 32x32 icon:", err)
-	} else {
-		icons = append(icons, icon32)
-	}
-
-	icon16, err := png.Decode(bytes.NewReader(NeovimIconData16x16))
-	if err != nil {
-		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to decode 16x16 icon:", err)
-	} else {
-		icons = append(icons, icon16)
-	}
-
-	window.handle.SetIcon(icons)
-}
-
-func (window *Window) calculateDPI() {
-	// Most of the code in this function are experimental or here for testing purposes.
-	monitor := glfw.GetPrimaryMonitor()
-
-	// Calculate physical diagonal size of the monitor in inches
-	pWidth, pHeight := monitor.GetPhysicalSize() // returns size in millimeters
-	pDiagonal := math.Sqrt(float64(pWidth*pWidth+pHeight*pHeight)) * 0.0393700787
-
-	// Get content scale, these two are same on both windows, x11, wayland, but
-	// different on macos. We use average of them.
-	msx, msy := monitor.GetContentScale()
-	wsx, wsy := window.handle.GetContentScale()
-	scaleX := float64((msx + wsx) / 2)
-	scaleY := float64((msy + wsy) / 2)
-
-	// Calculate logical diagonal size of the monitor in pixels
-	mWidth := float64(monitor.GetVideoMode().Width) * scaleX
-	mHeight := float64(monitor.GetVideoMode().Height) * scaleY
-	mDiagonal := math.Sqrt(mWidth*mWidth + mHeight*mHeight)
-
-	// Calculate physical dpi
-	pdpi := mDiagonal / pDiagonal
-
-	// Calculate logical dpi
-	ldpi := 0.0
-	switch runtime.GOOS {
-	case "darwin":
-		ldpi = 72 * ((scaleX + scaleY) / 2)
-	default:
-		ldpi = 96 * ((scaleX + scaleY) / 2)
-	}
-
-	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Monitor diagonal: %.2f pdpi: %.2f ldpi: %.2f", pDiagonal, pdpi, ldpi)
-
-	// If pdpi is wrong or pdpi is not %10 close with logical dpi, use logical dpi
-	if pdpi <= 0 || math.Abs((pdpi/ldpi)-1) > 0.1 {
-		logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Using logical dpi.")
-		window.dpi = ldpi
-	} else {
-		window.dpi = pdpi
 	}
 }
 
