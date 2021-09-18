@@ -25,14 +25,15 @@ const (
 
 const (
 	// New options
-	OPTION_CURSOR_ANIM  = "CursorAnimTime"
-	OPTION_TRANSPARENCY = "Transparency"
-	OPTION_TARGET_TPS   = "TargetTPS"
-	OPTION_CONTEXT_MENU = "ContextMenuOn"
-	OPTION_CONTEXT_ITEM = "ContextMenuItem"
-	OPTION_BOX_DRAWING  = "BoxDrawingOn"
-	OPTION_WINDOW_STATE = "WindowState"
-	OPTION_WINDOW_SIZE  = "WindowSize"
+	OPTION_CURSOR_ANIM    = "CursorAnimTime"
+	OPTION_TRANSPARENCY   = "Transparency"
+	OPTION_TARGET_TPS     = "TargetTPS"
+	OPTION_CONTEXT_MENU   = "ContextMenuOn"
+	OPTION_CONTEXT_BUTTON = "ContextButton"
+	OPTION_BOX_DRAWING    = "BoxDrawingOn"
+	OPTION_WINDOW_STATE   = "WindowState"
+	OPTION_WINDOW_SIZE    = "WindowSize"
+	// Keybindings
 	OPTION_KEY_FULLSCRN = "KeyFullscreen"
 	OPTION_KEY_ZOOMIN   = "KeyZoomIn"
 	OPTION_KEY_ZOOMOUT  = "KeyZoomOut"
@@ -44,7 +45,7 @@ var OptionsList = []string{
 	OPTION_TRANSPARENCY,
 	OPTION_TARGET_TPS,
 	OPTION_CONTEXT_MENU,
-	OPTION_CONTEXT_ITEM,
+	OPTION_CONTEXT_BUTTON,
 	OPTION_BOX_DRAWING,
 	OPTION_WINDOW_STATE,
 	OPTION_WINDOW_SIZE,
@@ -263,7 +264,7 @@ func (proc *NvimProcess) checkOptions() {
 					break
 				}
 				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt[1])
-				singleton.options.transparency = float32(value)
+				singleton.options.transparency = f32clamp(float32(value), 0, 1)
 				if singleton.mainLoopRunning {
 					singleton.fullDraw()
 				}
@@ -289,9 +290,9 @@ func (proc *NvimProcess) checkOptions() {
 				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CONTEXT_MENU, "is", value)
 				singleton.options.contextMenuEnabled = value
 				break
-			case OPTION_CONTEXT_ITEM:
+			case OPTION_CONTEXT_BUTTON:
 				if len(opt) >= 3 {
-					logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CONTEXT_ITEM, "name is", opt[1], "and command is", opt[2])
+					logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", opt[2])
 					// NOTE: If we pass opt[2] to execCommand directly, compiler does not copy the string
 					// and tries to access deleted slice and generates index out of range.
 					cmd := opt[2]
@@ -300,7 +301,7 @@ func (proc *NvimProcess) checkOptions() {
 						fn:   func() { proc.execCommand(cmd) },
 					})
 				} else {
-					logMessage(LEVEL_WARN, TYPE_NVIM, "Not enough argument for option", OPTION_CONTEXT_ITEM)
+					logMessage(LEVEL_WARN, TYPE_NVIM, "Not enough argument for option", OPTION_CONTEXT_BUTTON)
 				}
 			case OPTION_BOX_DRAWING:
 				value, err := strconv.ParseBool(opt[1])
@@ -365,7 +366,7 @@ func (proc *NvimProcess) checkDeprecatedOptions() {
 	if proc.handle.Var(OPTION_TRANSPARENCY_DEP, &f) == nil {
 		if f != options.transparency {
 			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_TRANSPARENCY_DEP, "is", f)
-			options.transparency = f
+			options.transparency = f32clamp(f, 0, 1)
 		}
 	}
 	if proc.handle.Var(OPTION_TARGET_TPS_DEP, &i) == nil {
