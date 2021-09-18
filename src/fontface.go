@@ -21,6 +21,7 @@ type FontFace struct {
 	buffer     sfnt.Buffer
 
 	advance int
+	ascent  int
 	descent int
 	height  int
 
@@ -79,15 +80,13 @@ func (face *FontFace) calcMetrics() {
 		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to get font advance!")
 		return
 	}
-	face.advance = advance.Ceil()
-	face.descent = face.handle.Metrics().Descent.Floor()
-	face.height = face.handle.Metrics().Height.Floor()
+	face.advance = advance.Floor()
+	metrics := face.handle.Metrics()
+	face.ascent = metrics.Ascent.Ceil()
+	face.descent = metrics.Descent.Floor()
+	face.height = metrics.Height.Floor()
 
-	// TODO: Dpi is also another factor here
-	face.thickness = float32(math.Ceil(4*(face.size/7.5)) / 4)
-	if face.thickness < 1 {
-		face.thickness = 1
-	}
+	face.thickness = f32max(float32(math.Ceil(4*(float64(face.height)/12))/4), 1)
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
@@ -102,10 +101,11 @@ func (face *FontFace) renderUndercurl() *image.RGBA {
 	w := float32(singleton.cellWidth)
 	h := float32(singleton.cellHeight)
 	y := h - float32(face.descent)
-	const xd = 7
+	const xd = 10
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
-	rastCurve(r, face.thickness, F32Vec2{0, y}, F32Vec2{w / 2, y}, F32Vec2{w / xd, h})
-	rastCurve(r, face.thickness, F32Vec2{w / 2, y}, F32Vec2{w, y}, F32Vec2{w - (w / xd), h / 2})
+	thickness := f32max(face.thickness/2, 1)
+	rastCurve(r, thickness, F32Vec2{0, y}, F32Vec2{w / 2, y}, F32Vec2{w / xd, h})
+	rastCurve(r, thickness, F32Vec2{w / 2, y}, F32Vec2{w, y}, F32Vec2{w - (w / xd), h / 2})
 	return rastDraw(r)
 }
 
@@ -122,6 +122,16 @@ func drawLine(img *image.RGBA, begin, end F32Vec2) {
 			break
 		}
 		point = point.plus(step)
+	}
+}
+
+func drawRect(img *image.RGBA, rect F32Rect, alpha float32) {
+	a := uint8(f32clamp(alpha, 0, 1) * 255)
+	r := rect.toInt()
+	for x := r.X; x <= r.X+r.W; x++ {
+		for y := r.Y; y <= r.Y+r.H; y++ {
+			img.SetRGBA(x, y, color.RGBA{255, 255, 255, a})
+		}
 	}
 }
 
@@ -215,20 +225,19 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 	heavy := light * 2
 
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
-	b := float32(0)
 	w := float32(singleton.cellWidth)
 	h := float32(singleton.cellHeight)
 	center := F32Vec2{w / 2, h / 2}
 
 	switch char {
 	case 0x2500: // light horizontal line
-		rastLine(r, light, F32Vec2{b, h / 2}, F32Vec2{w, h / 2})
+		rastLine(r, light, F32Vec2{0, h / 2}, F32Vec2{w, h / 2})
 	case 0x2501: // heavy horizontal line
-		rastLine(r, heavy, F32Vec2{b, h / 2}, F32Vec2{w, h / 2})
+		rastLine(r, heavy, F32Vec2{0, h / 2}, F32Vec2{w, h / 2})
 	case 0x2502: // light vertical line
-		rastLine(r, light, F32Vec2{w / 2, b}, F32Vec2{w / 2, h})
+		rastLine(r, light, F32Vec2{w / 2, 0}, F32Vec2{w / 2, h})
 	case 0x2503: // heavy vertical line
-		rastLine(r, heavy, F32Vec2{w / 2, b}, F32Vec2{w / 2, h})
+		rastLine(r, heavy, F32Vec2{w / 2, 0}, F32Vec2{w / 2, h})
 
 	case 0x250C, 0x250D, 0x250E, 0x250F,
 		0x2510, 0x2511, 0x2512, 0x2513,
@@ -334,11 +343,11 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 	case 0x256D: // light down to right arc
 		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{w, h / 2}, center)
 	case 0x256E: // light down to left arc
-		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{b, h / 2}, center)
+		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{0, h / 2}, center)
 	case 0x256F: // light up to left arc
-		rastCurve(r, light, F32Vec2{w / 2, b}, F32Vec2{b, h / 2}, center)
+		rastCurve(r, light, F32Vec2{w / 2, 0}, F32Vec2{0, h / 2}, center)
 	case 0x2570: // light up to right arc
-		rastCurve(r, light, F32Vec2{w / 2, b}, F32Vec2{w, h / 2}, center)
+		rastCurve(r, light, F32Vec2{w / 2, 0}, F32Vec2{w, h / 2}, center)
 
 	case 0x2571: // diagonal bot-left to top-right
 		rastLine(r, light, F32Vec2{0, h}, F32Vec2{w, 0})
@@ -386,6 +395,78 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 	return rastDraw(r)
 }
 
+func (face *FontFace) drawUnicodeBlockGlyph(char rune) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, singleton.cellWidth, singleton.cellHeight))
+	w := float32(singleton.cellWidth)
+	h := float32(singleton.cellHeight)
+
+	switch char {
+	case 0x2580: // upper 1/2 block
+		drawRect(img, F32Rect{0, 0, w, h / 2}, 1)
+	case 0x2581: // lower 1/8 block
+		drawRect(img, F32Rect{0, h - h/8, w, h / 8}, 1)
+	case 0x2582: // lower 1/4 block
+		drawRect(img, F32Rect{0, h - h/4, w, h / 4}, 1)
+	case 0x2583: // lower 3/8 block
+		drawRect(img, F32Rect{0, h - (h * 3 / 8), w, h * 3 / 8}, 1)
+	case 0x2584: // lower 1/2 block
+		drawRect(img, F32Rect{0, h / 2, w, h / 2}, 1)
+	case 0x2585: // lower 5/8 block
+		drawRect(img, F32Rect{0, h - (h * 5 / 8), w, h * 5 / 8}, 1)
+	case 0x2586: // lower 3/4 block
+		drawRect(img, F32Rect{0, h - (h * 3 / 4), w, h * 3 / 4}, 1)
+	case 0x2587: // lower 7/8 block
+		drawRect(img, F32Rect{0, h - (h * 7 / 8), w, h * 7 / 8}, 1)
+	case 0x2588: // full block
+		drawRect(img, F32Rect{0, 0, w, h}, 1)
+	case 0x2589: // left 7/8 block
+		drawRect(img, F32Rect{0, 0, w * 7 / 8, h}, 1)
+	case 0x258A: // left 3/4 block
+		drawRect(img, F32Rect{0, 0, w * 3 / 4, h}, 1)
+	case 0x258B: // left 5/8 block
+		drawRect(img, F32Rect{0, 0, w * 5 / 8, h}, 1)
+	case 0x258C: // left 1/2 block
+		drawRect(img, F32Rect{0, 0, w / 2, h}, 1)
+	case 0x258D: // left 3/8 block
+		drawRect(img, F32Rect{0, 0, w * 3 / 8, h}, 1)
+	case 0x258E: // left 1/4 block
+		drawRect(img, F32Rect{0, 0, w / 4, h}, 1)
+	case 0x258F: // left 1/8 block
+		drawRect(img, F32Rect{0, 0, w / 8, h}, 1)
+	case 0x2590: // rigt 1/2 block
+		drawRect(img, F32Rect{w / 2, 0, w / 2, h}, 1)
+	case 0x2591: // light shade
+		drawRect(img, F32Rect{0, 0, w, h}, 0.25)
+	case 0x2592: // medium shade
+		drawRect(img, F32Rect{0, 0, w, h}, 0.50)
+	case 0x2593: // dark shade
+		drawRect(img, F32Rect{0, 0, w, h}, 0.75)
+	case 0x2594: // upper 1/8 block
+		drawRect(img, F32Rect{0, 0, w, h / 8}, 1)
+	case 0x2595: // right 1/8 block
+		drawRect(img, F32Rect{w - w/8, 0, w / 8, h}, 1)
+	case 0x2596, 0x2597, 0x2598, 0x2599, 0x259A,
+		0x259B, 0x259C, 0x259D, 0x259E, 0x259F: // quadrants
+		n := char - 0x2596
+		if n >= 2 && n <= 6 { // upper left
+			drawRect(img, F32Rect{0, 0, w / 2, h / 2}, 1)
+		}
+		if n == 0 || n == 3 || n == 5 || n == 8 || n == 9 { // lower left
+			drawRect(img, F32Rect{0, h / 2, w / 2, h / 2}, 1)
+		}
+		if n >= 5 && n <= 9 { // upper right
+			drawRect(img, F32Rect{w / 2, 0, w / 2, h / 2}, 1)
+		}
+		if n == 1 || n == 3 || n == 4 || n == 6 || n == 9 { // lower right
+			drawRect(img, F32Rect{w / 2, h / 2, w / 2, h / 2}, 1)
+		}
+	default:
+		assert(false, "missing block glyph:", char)
+	}
+
+	return img
+}
+
 // Renders given rune and returns rendered RGBA image.
 // Width of the image is always equal to cellWidth or cellWidth*2
 func (face *FontFace) renderGlyph(char rune) *image.RGBA {
@@ -411,16 +492,18 @@ func (face *FontFace) renderGlyph(char rune) *image.RGBA {
 // Renders given char to an RGBA image and returns.
 // Also renders underline and strikethrough if specified.
 func (face *FontFace) RenderChar(char rune, underline, strikethrough bool) *image.RGBA {
-	if singleton.options.boxDrawingEnabled && char >= 0x2500 && char <= 0x257F {
-		// You can look box drawing characters from here
-		// https://www.compart.com/en/unicode/block/U+2500
-		img := face.drawUnicodeBoxGlyph(char)
-		// hex := fmt.Sprintf("%.4x", char)
-		if img != nil {
-			// logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Drawed box glyph:", string(char), char, hex)
-			return img
-		} else {
-			// logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Unsupported box drawing character:", string(char), char, hex)
+	if singleton.options.boxDrawingEnabled {
+		if char >= 0x2500 && char <= 0x257F {
+			// Unicode box drawing characters
+			// https://www.compart.com/en/unicode/block/U+2500
+			img := face.drawUnicodeBoxGlyph(char)
+			if img != nil {
+				return img
+			}
+		} else if char >= 0x2580 && char <= 0x259F {
+			// Unicode block characters
+			// https://www.compart.com/en/unicode/block/U+2580
+			return face.drawUnicodeBlockGlyph(char)
 		}
 	}
 	// Render glyph
@@ -431,7 +514,7 @@ func (face *FontFace) RenderChar(char rune, underline, strikethrough bool) *imag
 	// Draw underline or strikethrough to glyph
 	w := float32(img.Rect.Dx())
 	if underline {
-		y := float32(singleton.cellHeight - face.descent)
+		y := float32(singleton.cellHeight-face.descent) + 1
 		drawLine(img, F32Vec2{0, y}, F32Vec2{w, y})
 	}
 	if strikethrough {
