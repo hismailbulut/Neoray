@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// NOTE: All functions, types, constants and variables must exist in brelease.go,
+// NOTE: All functions, types, constants and variables must exist in utils_release.go,
 // Add empty ones to release file if they are not local.
 
 const (

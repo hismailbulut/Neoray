@@ -13,7 +13,7 @@ type U8Color struct {
 	R, G, B, A uint8
 }
 
-func packColor(color U8Color) uint32 {
+func (color U8Color) pack() uint32 {
 	rgb24 := uint32(color.R)
 	rgb24 = (rgb24 << 8) | uint32(color.G)
 	rgb24 = (rgb24 << 8) | uint32(color.B)
@@ -67,7 +67,7 @@ type F32Vec3 struct {
 }
 
 func (v F32Vec3) toVec2() F32Vec2 {
-	return F32Vec2{v.X, v.Y}
+	return F32Vec2{X: v.X, Y: v.Y}
 }
 
 type F32Vec2 struct {
@@ -79,13 +79,14 @@ func (v F32Vec2) String() string {
 }
 
 func (v F32Vec2) toInt() IntVec2 {
-	x := int(math.Round(float64(v.X)))
-	y := int(math.Round(float64(v.Y)))
-	return IntVec2{x, y}
+	return IntVec2{
+		X: int(math.Floor(float64(v.X))),
+		Y: int(math.Floor(float64(v.Y))),
+	}
 }
 
 func (v F32Vec2) toVec3(Z float32) F32Vec3 {
-	return F32Vec3{v.X, v.Y, Z}
+	return F32Vec3{X: v.X, Y: v.Y, Z: Z}
 }
 
 func (v F32Vec2) plus(v2 F32Vec2) F32Vec2 {
@@ -106,6 +107,10 @@ func (v F32Vec2) multiplyS(S float32) F32Vec2 {
 
 func (v F32Vec2) length() float32 {
 	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+}
+
+func (v F32Vec2) distance(v2 F32Vec2) float32 {
+	return v2.minus(v).length()
 }
 
 func (v F32Vec2) normalized() F32Vec2 {
@@ -136,6 +141,70 @@ func (rect F32Rect) String() string {
 	return fmt.Sprintf("(X: %f, Y: %f, W: %f, H: %f)", rect.X, rect.Y, rect.W, rect.H)
 }
 
+func (rect F32Rect) toInt() IntRect {
+	return IntRect{
+		X: int(math.Floor(float64(rect.X))),
+		Y: int(math.Floor(float64(rect.Y))),
+		W: int(math.Floor(float64(rect.W))),
+		H: int(math.Floor(float64(rect.H))),
+	}
+}
+
+func min(s ...int) int {
+	m := s[0]
+	for _, v := range s {
+		if v < m {
+			m = v
+		}
+	}
+	return m
+}
+
+func f32min(s ...float32) float32 {
+	m := s[0]
+	for _, v := range s {
+		if v < m {
+			m = v
+		}
+	}
+	return m
+}
+
+func max(s ...int) int {
+	m := s[0]
+	for _, v := range s {
+		if v > m {
+			m = v
+		}
+	}
+	return m
+}
+
+func f32max(s ...float32) float32 {
+	m := s[0]
+	for _, v := range s {
+		if v > m {
+			m = v
+		}
+	}
+	return m
+}
+
+func clamp(v, minimum, maximum int) int {
+	return min(maximum, max(minimum, v))
+}
+
+func f32clamp(v, minimum, maximum float32) float32 {
+	return f32min(maximum, f32max(minimum, v))
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
 	return [16]float32{
@@ -164,15 +233,12 @@ func CreateAnimation(from, to F32Vec2, lifeTime float32) Animation {
 	}
 }
 
-// Returns current position of animation as x and y position
+// Returns current position of animation
 // If animation is finished, returned bool value will be true
 func (anim *Animation) GetCurrentStep(deltaTime float32) (F32Vec2, bool) {
 	if anim.lifeTime > 0 && deltaTime > 0 && !anim.finished {
-		anim.current.X += (anim.target.X - anim.current.X) / (anim.lifeTime / deltaTime)
-		anim.current.Y += (anim.target.Y - anim.current.Y) / (anim.lifeTime / deltaTime)
-		finishedX := math.Abs(float64(anim.target.X-anim.current.X)) < 0.1
-		finishedY := math.Abs(float64(anim.target.Y-anim.current.Y)) < 0.1
-		anim.finished = finishedX && finishedY
+		anim.current = anim.current.plus(anim.target.minus(anim.current).divideS(anim.lifeTime / deltaTime))
+		anim.finished = anim.target.distance(anim.current) < 0.1
 		return anim.current, anim.finished
 	}
 	return anim.target, true

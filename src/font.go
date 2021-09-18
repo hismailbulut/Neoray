@@ -146,7 +146,6 @@ func (font *Font) Resize(newsize float32) {
 		font.bold.Resize(newsize)
 	}
 	font.size = newsize
-	// logDebug("Font", font.name, "has resized to", newsize)
 }
 
 // This function returns nil when there is no requested font style
@@ -162,5 +161,8 @@ func (font *Font) GetSuitableFace(italic bool, bold bool) *FontFace {
 }
 
 func (font *Font) GetCellSize() (int, int) {
-	return font.regular.advance, font.regular.height
+	// return font.regular.advance, font.regular.height
+	// These may wrong
+	return max(font.regular.advance, font.bold_italic.advance, font.italic.advance, font.bold.advance),
+		max(font.regular.height, font.bold_italic.height, font.italic.height, font.bold.height)
 }

@@ -472,7 +472,7 @@ func (renderer *Renderer) DrawCellWithAttrib(x, y int, cell Cell, attrib Highlig
 	bg := singleton.gridManager.defaultBg
 	sp := singleton.gridManager.defaultSp
 	// bg transparency, this only affects default attribute backgrounds
-	bg.A = singleton.backgroundAlpha()
+	bg.A = uint8(singleton.options.transparency * 255)
 	// set attribute colors
 	if attrib.foreground.A > 0 {
 		fg = attrib.foreground
@@ -498,7 +498,7 @@ func (renderer *Renderer) DrawCell(x, y int, cell Cell) {
 	} else {
 		// attrib id 0 is default palette
 		bg := singleton.gridManager.defaultBg
-		bg.A = singleton.backgroundAlpha()
+		bg.A = uint8(singleton.options.transparency * 255)
 		renderer.DrawCellCustom(x, y, cell.char,
 			singleton.gridManager.defaultFg, bg, singleton.gridManager.defaultSp,
 			false, false, false, false, false)

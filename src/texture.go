@@ -24,8 +24,9 @@ func CreateTexture(width, height int) Texture {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	rglCheckError("texture params")
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0,
-		gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	// NOTE: If data is nil, glTexImage2D function allocates required memoray but does not initializes.
+	// If this happens in some point, we need to also clear the texture after this call.
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	rglCheckError("texture teximage2d")
 
 	return Texture{
@@ -35,25 +36,28 @@ func CreateTexture(width, height int) Texture {
 	}
 }
 
-func (texture *Texture) bind() {
-	gl.BindTexture(gl.TEXTURE_2D, texture.id)
-}
-
 func (texture *Texture) clear() {
 	// Bind framebuffer
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, rgl_fbo)
+	// init framebuffer with texture
 	gl.FramebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.id, 0)
-	rglCheckError("bind framebuffer")
-	// Clear the texture
-	gl.ClearColor(0, 0, 0, 0)
-	gl.Clear(gl.COLOR_BUFFER_BIT)
+	rglCheckError("framebuffer texture2d")
+	// Check if the framebuffer is complete and ready for draw
+	fbo_status := gl.CheckFramebufferStatus(gl.DRAW_FRAMEBUFFER)
+	if fbo_status == gl.FRAMEBUFFER_COMPLETE {
+		// Clear the texture
+		gl.ClearColor(0, 0, 0, 0)
+		gl.Clear(gl.COLOR_BUFFER_BIT)
+		rglCheckError("texture clear")
+	} else {
+		// NOTE: We can just print an error and recreate the texture
+		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Framebuffer is not complete:", fbo_status)
+	}
 	// Unbind framebuffer
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, 0)
-	rglCheckError("texture clear")
 }
 
 func (texture *Texture) updatePart(image *image.RGBA, dest IntRect) {
-	assert(image.Rect.Dx() == dest.W && image.Rect.Dy() == dest.H, "incorrect image bounds")
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0, int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
 	rglCheckError("texture update part")

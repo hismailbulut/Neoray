@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -193,10 +194,6 @@ func (editor *Editor) resetTicker() {
 	editor.time.ticker.Reset(editor.time.interval)
 }
 
-func (editor *Editor) backgroundAlpha() uint8 {
-	return uint8(editor.options.transparency * 255)
-}
-
 // If this function called, the screen will be rendered in current loop.
 func (editor *Editor) render() {
 	editor.renderer.renderCall = true
@@ -221,14 +218,16 @@ func (editor *Editor) debugPrintCell(pos IntVec2) {
 	grid := editor.gridManager.grids[id]
 	cell := grid.getCell(x, y)
 	vertex := editor.renderer.debugGetCellData(grid.sRow+x, grid.sCol+y)
+	hex := fmt.Sprintf("%.4x", cell.char)
 	format := `Cell information:
 	grid: %s
 	pos: %d %d
-	char: %s %d
+	char: %s %d %s
 	attrib_id: %d
 	needs_redraw: %t
 	data : %+v`
-	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, format, grid, x, y, string(cell.char), cell.char, cell.attribId, cell.needsDraw, vertex)
+	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY,
+		format, grid, x, y, string(cell.char), cell.char, hex, cell.attribId, cell.needsDraw, vertex)
 }
 
 func (editor *Editor) Shutdown() {

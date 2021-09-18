@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"reflect"
 	"strings"
 	"unsafe"
 
@@ -24,23 +25,18 @@ type Vertex struct {
 	sp F32Color // layout 5
 }
 
-const VertexStructSize = int32(unsafe.Sizeof(Vertex{}))
+const sizeof_Vertex = int32(unsafe.Sizeof(Vertex{}))
 
-// renderer gl global variables
+// renderer opengl global variables
 var (
 	rgl_vao uint32
-
 	// NOTE: We can use multiple vbo's for every grid and store vertex data per grid.
 	rgl_vbo uint32
-
 	// Framebuffer object used for clearing texture
 	rgl_fbo uint32
-
 	//go:embed shader.glsl
-	rgl_shader_sources string
-
-	rgl_shader_program uint32
-
+	rgl_shader_sources    string
+	rgl_shader_program    uint32
 	rgl_vertex_buffer_len int
 )
 
@@ -61,36 +57,22 @@ func rglInit() {
 	// Initialize vao
 	gl.GenVertexArrays(1, &rgl_vao)
 	gl.BindVertexArray(rgl_vao)
+	rglCheckError("gen vao")
+
 	// Initialize vbo
 	gl.GenBuffers(1, &rgl_vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, rgl_vbo)
-	rglCheckError("binding buffers")
+	rglCheckError("gen vbo")
 
-	// position
-	offset := 0
-	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointerWithOffset(0, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// main texture
-	offset += 4 * 4
-	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointerWithOffset(1, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// second texture
-	offset += 4 * 4
-	gl.EnableVertexAttribArray(2)
-	gl.VertexAttribPointerWithOffset(2, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// foreground color
-	offset += 4 * 4
-	gl.EnableVertexAttribArray(3)
-	gl.VertexAttribPointerWithOffset(3, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// background color
-	offset += 4 * 4
-	gl.EnableVertexAttribArray(4)
-	gl.VertexAttribPointerWithOffset(4, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	// special color
-	offset += 4 * 4
-	gl.EnableVertexAttribArray(5)
-	gl.VertexAttribPointerWithOffset(5, 4, gl.FLOAT, false, VertexStructSize, uintptr(offset))
-	rglCheckError("enable attributes")
+	// Enable attributes
+	valueof_Vertex := reflect.ValueOf(Vertex{})
+	offset := uintptr(0)
+	for i := 0; i < valueof_Vertex.NumField(); i++ {
+		attr_size := valueof_Vertex.Field(i).Type().Size()
+		gl.EnableVertexAttribArray(uint32(i))
+		gl.VertexAttribPointerWithOffset(uint32(i), int32(attr_size)/4, gl.FLOAT, false, sizeof_Vertex, offset)
+		offset += attr_size
+	}
 
 	if isDebugBuild() {
 		// We don't need blending. This is only for Renderer.DebugDrawFontAtlas
@@ -100,19 +82,14 @@ func rglInit() {
 	}
 
 	// Create framebuffer object
+	// We dont need to bind framebuffer because we need it only when clearing texture
 	gl.GenFramebuffers(1, &rgl_fbo)
 	rglCheckError("gen framebuffer")
-	// We dont need to bind framebuffer because we need it only when clearing texture
 
 	logMessage(LEVEL_TRACE, TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
-
-	vendor := gl.GoStr(gl.GetString(gl.VENDOR))
-	renderer := gl.GoStr(gl.GetString(gl.RENDERER))
-	glsl := gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION))
-
-	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Vendor:", vendor)
-	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Renderer:", renderer)
-	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "GLSL:", glsl)
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Vendor:", gl.GoStr(gl.GetString(gl.VENDOR)))
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Renderer:", gl.GoStr(gl.GetString(gl.RENDERER)))
+	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "GLSL:", gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)))
 }
 
 func rglGetUniformLocation(name string) int32 {
@@ -151,11 +128,11 @@ func rglClearScreen(color U8Color) {
 
 func rglUpdateVertices(data []Vertex) {
 	if rgl_vertex_buffer_len != len(data) {
-		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(VertexStructSize), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
+		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(sizeof_Vertex), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
 		rglCheckError("vertex buffer data")
 		rgl_vertex_buffer_len = len(data)
 	} else {
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(VertexStructSize), unsafe.Pointer(&data[0]))
+		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(sizeof_Vertex), unsafe.Pointer(&data[0]))
 		rglCheckError("vertex buffer subdata")
 	}
 }
@@ -235,7 +212,6 @@ func rglCompileShader(source string, shader_type uint32) uint32 {
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
 		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Shader", rglGetShaderName(shader_type), "compilation failed:\n", log)
 	}
-
 	rglCheckError("compile shader")
 
 	return shader
@@ -253,7 +229,8 @@ func rglGetShaderName(shader_type uint32) string {
 	panic("unknown shader name")
 }
 
-func rglCheckError(callerName string) {
+// If any opengl error happens, prints error to stdout and returns false
+func rglCheckError(callerName string) bool {
 	if err := gl.GetError(); err != gl.NO_ERROR {
 		var errName string
 		switch err {
@@ -273,14 +250,18 @@ func rglCheckError(callerName string) {
 			errName = "CONTEXT_LOST"
 		default:
 			logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", err, "on", callerName)
-			return
+			return false
 		}
 		logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
+		return false
 	}
+	return true
 }
 
 func rglClose() {
-	gl.DeleteProgram(rgl_shader_program)
+	gl.DeleteFramebuffers(1, &rgl_fbo)
 	gl.DeleteBuffers(1, &rgl_vbo)
 	gl.DeleteVertexArrays(1, &rgl_vao)
+	gl.DeleteProgram(rgl_shader_program)
+	rglCheckError("cleanup")
 }
