@@ -97,7 +97,9 @@ func CreateWindow(width int, height int, title string) Window {
 	// Disable v-sync, already disabled by default but make sure.
 	glfw.SwapInterval(0)
 
-	window.calculateDPI()
+	scaleX, scaleY := window.handle.GetContentScale()
+	window.calculateDPI(scaleX, scaleY)
+
 	window.loadDefaultIcons()
 
 	window.handle.SetFramebufferSizeCallback(
@@ -164,7 +166,7 @@ func CreateWindow(width int, height int, title string) Window {
 			// First recalculates dpi
 			// Second reloads all fonts with same size but different dpi
 			// Glfw itself also resizes the window
-			singleton.window.calculateDPI()
+			singleton.window.calculateDPI(x, y)
 			singleton.renderer.setFontSize(0)
 		})
 
@@ -178,10 +180,10 @@ func (window *Window) update() {
 	}
 }
 
-func (window *Window) calculateDPI() {
-	scaleX, scaleY := window.handle.GetContentScale()
-	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Window content scale is: %.2f, %.2f", scaleX, scaleY)
-	window.dpi = 96 * float64(scaleY) // We only need Y (do we?)
+// Argument x and y is window content scale
+func (window *Window) calculateDPI(x, y float32) {
+	logMessageFmt(LEVEL_DEBUG, TYPE_NEORAY, "Window content scale is: %.2f, %.2f", x, y)
+	window.dpi = 96 * float64(y) // We only need Y (?)
 }
 
 func (window *Window) loadDefaultIcons() {
@@ -283,7 +285,7 @@ func (window *Window) setSize(width, height int, inCellSize bool) {
 		height = window.height
 	}
 	window.handle.SetSize(width, height)
-	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window size changed internally:", width, height)
+	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Requested window size:", width, height)
 }
 
 func (window *Window) toggleFullscreen() {
@@ -291,9 +293,10 @@ func (window *Window) toggleFullscreen() {
 		// to fullscreen
 		X, Y := window.handle.GetPos()
 		W, H := window.handle.GetSize()
+		// Store dimension for restoring
 		window.windowedRect = IntRect{X: X, Y: Y, W: W, H: H}
-		// TODO: Get monitor where the window is, not primary
-		monitor := glfw.GetPrimaryMonitor()
+		// Fulscreen to current monitor
+		monitor := window.getCurrentMonitor(X, Y, W, H)
 		videoMode := monitor.GetVideoMode()
 		window.handle.SetMonitor(monitor, 0, 0, videoMode.Width, videoMode.Height, videoMode.RefreshRate)
 		window.windowState = WINDOW_STATE_FULLSCREEN
@@ -304,6 +307,26 @@ func (window *Window) toggleFullscreen() {
 			window.windowedRect.W, window.windowedRect.H, 0)
 		window.windowState = WINDOW_STATE_NORMAL
 	}
+}
+
+// Returns the monitor where the window currently is.
+func (window *Window) getCurrentMonitor(wx, wy, ww, wh int) *glfw.Monitor {
+	// Reference:
+	// https://stackoverflow.com/a/31526753
+	var bestMonitor *glfw.Monitor
+	var bestOverlap int
+	for _, monitor := range glfw.GetMonitors() {
+		mx, my := monitor.GetPos()
+		videoMode := monitor.GetVideoMode()
+		mw, mh := videoMode.Width, videoMode.Height
+		overlap := max(0, min(wx+ww, mx+mw)-max(wx, mx)) * max(0, min(wy+wh, my+mh)-max(wy, my))
+		if overlap > bestOverlap {
+			bestOverlap = overlap
+			bestMonitor = monitor
+		}
+	}
+	assert(bestMonitor != nil, "couldn't find window's monitor")
+	return bestMonitor
 }
 
 func (window *Window) Close() {
