@@ -11,19 +11,6 @@ import (
 )
 
 const (
-	// All options here are deprecated and will be removed soon
-	OPTION_CURSOR_ANIM_DEP  = "neoray_cursor_animation_time"
-	OPTION_TRANSPARENCY_DEP = "neoray_background_transparency"
-	OPTION_TARGET_TPS_DEP   = "neoray_target_ticks_per_second"
-	OPTION_CONTEXT_MENU_DEP = "neoray_context_menu_enabled"
-	OPTION_WINDOW_STATE_DEP = "neoray_window_startup_state"
-	OPTION_WINDOW_SIZE_DEP  = "neoray_window_startup_size"
-	OPTION_KEY_FULLSCRN_DEP = "neoray_key_toggle_fullscreen"
-	OPTION_KEY_ZOOMIN_DEP   = "neoray_key_increase_fontsize"
-	OPTION_KEY_ZOOMOUT_DEP  = "neoray_key_decrease_fontsize"
-)
-
-const (
 	// New options
 	OPTION_CURSOR_ANIM    = "CursorAnimTime"
 	OPTION_TRANSPARENCY   = "Transparency"
@@ -346,74 +333,6 @@ func (proc *NvimProcess) checkOptions() {
 		}
 		proc.optionStack = proc.optionStack[0:0]
 		proc.optionChanged.Set(false)
-	}
-}
-
-// DEPRECATED
-func (proc *NvimProcess) checkDeprecatedOptions() {
-	defer measure_execution_time()()
-	options := &singleton.options
-	var s string
-	var f float32
-	var i int
-	var b bool
-	if proc.handle.Var(OPTION_CURSOR_ANIM_DEP, &f) == nil {
-		if f != options.cursorAnimTime {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_CURSOR_ANIM_DEP, "is", f)
-			options.cursorAnimTime = f
-		}
-	}
-	if proc.handle.Var(OPTION_TRANSPARENCY_DEP, &f) == nil {
-		if f != options.transparency {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_TRANSPARENCY_DEP, "is", f)
-			options.transparency = f32clamp(f, 0, 1)
-		}
-	}
-	if proc.handle.Var(OPTION_TARGET_TPS_DEP, &i) == nil {
-		if i != options.targetTPS {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_TARGET_TPS_DEP, "is", i)
-			options.targetTPS = i
-		}
-	}
-	if proc.handle.Var(OPTION_CONTEXT_MENU_DEP, &b) == nil {
-		if b != options.contextMenuEnabled {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_CONTEXT_MENU_DEP, "is", b)
-			options.contextMenuEnabled = b
-		}
-	}
-	if proc.handle.Var(OPTION_KEY_FULLSCRN_DEP, &s) == nil {
-		if s != options.keyToggleFullscreen {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_KEY_FULLSCRN_DEP, "is", s)
-			options.keyToggleFullscreen = s
-		}
-	}
-	if proc.handle.Var(OPTION_KEY_ZOOMIN_DEP, &s) == nil {
-		if s != options.keyIncreaseFontSize {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMIN_DEP, "is", s)
-			options.keyIncreaseFontSize = s
-		}
-	}
-	if proc.handle.Var(OPTION_KEY_ZOOMOUT_DEP, &s) == nil {
-		if s != options.keyDecreaseFontSize {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_KEY_ZOOMOUT_DEP, "is", s)
-			options.keyDecreaseFontSize = s
-		}
-	}
-	// Window startup size
-	if proc.handle.Var(OPTION_WINDOW_SIZE_DEP, &s) == nil {
-		logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_WINDOW_SIZE_DEP, "is", s)
-		// Parse the string
-		width, height, ok := parseSizeString(s)
-		if ok {
-			singleton.window.setSize(width, height, true)
-		} else {
-			logMessage(LEVEL_WARN, TYPE_NVIM, "Could not parse size value:", s)
-		}
-	}
-	// Window startup state
-	if proc.handle.Var(OPTION_WINDOW_STATE_DEP, &s) == nil {
-		logMessage(LEVEL_WARN, TYPE_NVIM, "Deprecated option", OPTION_WINDOW_STATE_DEP, "is", s)
-		singleton.window.setState(s)
 	}
 }
 
