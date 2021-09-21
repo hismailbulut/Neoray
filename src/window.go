@@ -106,18 +106,15 @@ func CreateWindow(width int, height int, title string) Window {
 		func(w *glfw.Window, width, height int) {
 			singleton.window.width = width
 			singleton.window.height = height
-			// This happens when window minimized.
-			if width > 0 && height > 0 {
-				rows := height / singleton.cellHeight
-				cols := width / singleton.cellWidth
+			rows := height / singleton.cellHeight
+			cols := width / singleton.cellWidth
+			if rows > 0 && cols > 0 {
 				// Only resize if rows or cols has changed.
 				if rows != singleton.renderer.rows || cols != singleton.renderer.cols {
 					singleton.nvim.requestResize(rows, cols)
 				}
 				rglCreateViewport(width, height)
 				singleton.render()
-			} else {
-				// We can pause neoray
 			}
 		})
 

@@ -114,7 +114,7 @@ func (renderer *Renderer) updateCellSize(font *Font) bool {
 		// We need to only resize if the mainloop is running because renderer is initialized
 		// before we attached to neovim as ui. We are updating _rows, _cols for this reason
 		// and attach function uses this values for startup dimensions.
-		if singleton.mainLoopRunning {
+		if singleton.mainLoopRunning && renderer._rows > 0 && renderer._cols > 0 {
 			singleton.nvim.requestResize(renderer._rows, renderer._cols)
 		}
 		return true
