@@ -340,6 +340,8 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 			F32Vec3{w / 2, 0, upThickness}, F32Vec3{w, h / 2, rightThickness},
 			F32Vec3{w / 2, h, downThickness}, F32Vec3{0, h / 2, leftThickness})
 
+	// TODO: Doubles
+
 	case 0x256D: // light down to right arc
 		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{w, h / 2}, center)
 	case 0x256E: // light down to left arc
@@ -461,7 +463,7 @@ func (face *FontFace) drawUnicodeBlockGlyph(char rune) *image.RGBA {
 			drawRect(img, F32Rect{w / 2, h / 2, w / 2, h / 2}, 1)
 		}
 	default:
-		assert(false, "missing block glyph:", char)
+		logMessage(LEVEL_FATAL, TYPE_NEORAY, "missing block glyph:", char)
 	}
 
 	return img

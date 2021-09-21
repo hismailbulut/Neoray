@@ -260,6 +260,7 @@ func (window *Window) setState(state string) {
 }
 
 func (window *Window) center() {
+	// This may fail on multiple monitors
 	videoMode := glfw.GetPrimaryMonitor().GetVideoMode()
 	w, h := window.handle.GetSize()
 	x := (videoMode.Width / 2) - (w / 2)
