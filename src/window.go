@@ -106,9 +106,9 @@ func CreateWindow(width int, height int, title string) Window {
 		func(w *glfw.Window, width, height int) {
 			singleton.window.width = width
 			singleton.window.height = height
-			rows := height / singleton.cellHeight
-			cols := width / singleton.cellWidth
-			if rows > 0 && cols > 0 {
+			if width > 0 && height > 0 {
+				rows := height / singleton.cellHeight
+				cols := width / singleton.cellWidth
 				// Only resize if rows or cols has changed.
 				if rows != singleton.renderer.rows || cols != singleton.renderer.cols {
 					singleton.nvim.requestResize(rows, cols)

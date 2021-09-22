@@ -464,11 +464,12 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 }
 
 func (proc *NvimProcess) requestResize(rows, cols int) {
-	assert(rows > 0 && cols > 0, "requested resize with zero parameter")
-	err := proc.handle.TryResizeUI(cols, rows)
-	if err != nil {
-		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to send resize request:", err)
-		return
+	if rows > 0 && cols > 0 {
+		err := proc.handle.TryResizeUI(cols, rows)
+		if err != nil {
+			logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to send resize request:", err)
+			return
+		}
 	}
 }
 
