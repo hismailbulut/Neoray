@@ -190,14 +190,15 @@ func parseCharInput(char rune, mods BitMask) string {
 		}
 	}
 
+	// Dont send S alone with any char
+	if mods.hasonly(ModShift) {
+		mods.disable(ModShift)
+	}
+
 	special, ok := SpecialChars[char]
 	if ok {
 		return "<" + modsStr(mods) + special + ">"
 	} else {
-		// Dont send S alone with char
-		if mods.hasonly(ModShift) {
-			mods.disable(ModShift)
-		}
 		if mods == 0 || mods.hasonly(ModAltGr) {
 			return string(char)
 		} else {
