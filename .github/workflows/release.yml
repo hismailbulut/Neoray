@@ -30,7 +30,8 @@ jobs:
         GOARCH: amd64
       run: go build -ldflags -H=windowsgui -o bin/neoray-win64.exe ./src
 
-    #- name: Set up MinGW x86
+    - name: Set up MinGW x86
+      run: choco install mingw -y --x86
     #  uses: egor-tensin/setup-mingw@v2
     #    with:
     #    platform: x86
