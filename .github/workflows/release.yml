@@ -30,10 +30,10 @@ jobs:
         GOARCH: amd64
       run: go build -ldflags -H=windowsgui -o bin/neoray-win64.exe ./src
 
-    - name: Set up MinGW x86
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x86
+    #- name: Set up MinGW x86
+    #  uses: egor-tensin/setup-mingw@v2
+    #    with:
+    #    platform: x86
 
     - name: Build 386
       env:
