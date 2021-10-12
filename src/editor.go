@@ -20,6 +20,9 @@ type Options struct {
 }
 
 type Editor struct {
+	// Parsed startup arguments
+	// args.go
+	parsedArgs ParsedArgs
 	// Neovim child process
 	// nvim_process.go
 	nvim NvimProcess
@@ -209,7 +212,7 @@ func (editor *Editor) draw() {
 // This function prints cell at the pos.
 func (editor *Editor) debugPrintCell(pos IntVec2) {
 	id, x, y := editor.gridManager.getCellAt(pos)
-	if !editorParsedArgs.multiGrid {
+	if !singleton.parsedArgs.multiGrid {
 		id = 1
 	}
 	grid := editor.gridManager.grids[id]

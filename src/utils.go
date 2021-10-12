@@ -207,13 +207,15 @@ func abs(v int) int {
 
 func ortho(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
-	return [16]float32{
-		float32(2. / rml), 0, 0, 0, // 1
-		0, float32(2. / tmb), 0, 0, // 2
-		0, 0, float32(-2. / fmn), 0, // 3
-		float32(-(right + left) / rml), // 4
-		float32(-(top + bottom) / tmb),
-		float32(-(far + near) / fmn), 1}
+	matrix := [16]float32{}
+	matrix[0] = 2 / rml
+	matrix[5] = 2 / tmb
+	matrix[10] = -2 / fmn
+	matrix[12] = -(right + left) / rml
+	matrix[13] = -(top + bottom) / tmb
+	matrix[14] = -(far + near) / fmn
+	matrix[15] = 1
+	return matrix
 }
 
 type Animation struct {

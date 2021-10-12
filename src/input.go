@@ -100,7 +100,8 @@ func sendKeyInput(keycode string) {
 }
 
 func sendMouseInput(button, action string, mods BitMask, grid, row, column int) {
-	// We need to create keycode from this parameters
+	// We need to create keycode from this parameters for
+	// checking the mouse keybindings
 	keycode := ""
 	switch button {
 	case "left":

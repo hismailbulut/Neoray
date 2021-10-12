@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -28,17 +29,16 @@ type Vertex struct {
 const sizeof_Vertex = int32(unsafe.Sizeof(Vertex{}))
 
 // renderer opengl global variables
-var (
-	rgl_vao uint32
-	// NOTE: We can use multiple vbo's for every grid and store vertex data per grid.
-	rgl_vbo uint32
-	// Framebuffer object used for clearing texture
-	rgl_fbo uint32
-	//go:embed shader.glsl
-	rgl_shader_sources    string
-	rgl_shader_program    uint32
-	rgl_vertex_buffer_len int
-)
+var RGL struct {
+	vao               uint32 // Vertex Array Object
+	vbo               uint32 // Vertex Buffer Object
+	fbo               uint32 // Framebuffer Object (Only used for clearing textures)
+	shader_program    uint32
+	vertex_buffer_len int // Length of the vertex data is equals to rendered quads
+}
+
+//go:embed shader.glsl
+var EmbeddedShaderSources string
 
 func rglInit() {
 	defer measure_execution_time()()
@@ -51,17 +51,17 @@ func rglInit() {
 
 	// Init shaders
 	rglInitShaders()
-	gl.UseProgram(rgl_shader_program)
+	gl.UseProgram(RGL.shader_program)
 	rglCheckError("use program")
 
 	// Initialize vao
-	gl.GenVertexArrays(1, &rgl_vao)
-	gl.BindVertexArray(rgl_vao)
+	gl.GenVertexArrays(1, &RGL.vao)
+	gl.BindVertexArray(RGL.vao)
 	rglCheckError("gen vao")
 
 	// Initialize vbo
-	gl.GenBuffers(1, &rgl_vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, rgl_vbo)
+	gl.GenBuffers(1, &RGL.vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, RGL.vbo)
 	rglCheckError("gen vbo")
 
 	// Enable attributes
@@ -83,7 +83,7 @@ func rglInit() {
 
 	// Create framebuffer object
 	// We dont need to bind framebuffer because we need it only when clearing texture
-	gl.GenFramebuffers(1, &rgl_fbo)
+	gl.GenFramebuffers(1, &RGL.fbo)
 	rglCheckError("gen framebuffer")
 
 	logMessage(LEVEL_TRACE, TYPE_RENDERER, "Opengl Version:", gl.GoStr(gl.GetString(gl.VERSION)))
@@ -94,7 +94,7 @@ func rglInit() {
 
 func rglGetUniformLocation(name string) int32 {
 	uniform_name := gl.Str(name + "\x00")
-	loc := gl.GetUniformLocation(rgl_shader_program, uniform_name)
+	loc := gl.GetUniformLocation(RGL.shader_program, uniform_name)
 	if loc < 0 {
 		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Failed to find uniform", name)
 	}
@@ -106,12 +106,6 @@ func rglCreateViewport(w, h int) {
 	projection := ortho(0, 0, float32(w), float32(h), -1, 1)
 	gl.UniformMatrix4fv(rglGetUniformLocation("projection"), 1, true, &projection[0])
 	rglCheckError("create viewport")
-}
-
-func rglSetAtlasTexture(atlas *Texture) {
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, atlas.id)
-	rglCheckError("set atlas texture")
 }
 
 func rglSetUndercurlRect(val F32Rect) {
@@ -127,10 +121,10 @@ func rglClearScreen(color U8Color) {
 }
 
 func rglUpdateVertices(data []Vertex) {
-	if rgl_vertex_buffer_len != len(data) {
+	if RGL.vertex_buffer_len != len(data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(sizeof_Vertex), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
 		rglCheckError("vertex buffer data")
-		rgl_vertex_buffer_len = len(data)
+		RGL.vertex_buffer_len = len(data)
 	} else {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(sizeof_Vertex), unsafe.Pointer(&data[0]))
 		rglCheckError("vertex buffer subdata")
@@ -138,11 +132,10 @@ func rglUpdateVertices(data []Vertex) {
 }
 
 func rglRender() {
-	gl.DrawArrays(gl.POINTS, 0, int32(rgl_vertex_buffer_len))
-	rglCheckError("draw arrays")
+	gl.DrawArrays(gl.POINTS, 0, int32(RGL.vertex_buffer_len))
 	// Since we are not using doublebuffering, we don't need swapping buffers, but we need to flush.
 	gl.Flush()
-	rglCheckError("flush")
+	rglCheckError("render")
 }
 
 func rglInitShaders() {
@@ -152,19 +145,19 @@ func rglInitShaders() {
 	geomShader := rglCompileShader(gsSource, gl.GEOMETRY_SHADER)
 	fragShader := rglCompileShader(fsSource, gl.FRAGMENT_SHADER)
 
-	rgl_shader_program = gl.CreateProgram()
-	gl.AttachShader(rgl_shader_program, vertShader)
-	gl.AttachShader(rgl_shader_program, geomShader)
-	gl.AttachShader(rgl_shader_program, fragShader)
-	gl.LinkProgram(rgl_shader_program)
+	RGL.shader_program = gl.CreateProgram()
+	gl.AttachShader(RGL.shader_program, vertShader)
+	gl.AttachShader(RGL.shader_program, geomShader)
+	gl.AttachShader(RGL.shader_program, fragShader)
+	gl.LinkProgram(RGL.shader_program)
 
 	var status int32
-	gl.GetProgramiv(rgl_shader_program, gl.LINK_STATUS, &status)
+	gl.GetProgramiv(RGL.shader_program, gl.LINK_STATUS, &status)
 	if status == gl.FALSE {
 		var logLength int32
-		gl.GetProgramiv(rgl_shader_program, gl.INFO_LOG_LENGTH, &logLength)
+		gl.GetProgramiv(RGL.shader_program, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetProgramInfoLog(rgl_shader_program, logLength, nil, gl.Str(log))
+		gl.GetProgramInfoLog(RGL.shader_program, logLength, nil, gl.Str(log))
 		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Failed to link shader program:", log)
 	}
 
@@ -176,9 +169,9 @@ func rglInitShaders() {
 }
 
 func rglLoadDefaultShaders() (string, string, string) {
-	vsBegin := strings.Index(rgl_shader_sources, "// Vertex Shader")
-	gsBegin := strings.Index(rgl_shader_sources, "// Geometry Shader")
-	fsBegin := strings.Index(rgl_shader_sources, "// Fragment Shader")
+	vsBegin := strings.Index(EmbeddedShaderSources, "// Vertex Shader")
+	gsBegin := strings.Index(EmbeddedShaderSources, "// Geometry Shader")
+	fsBegin := strings.Index(EmbeddedShaderSources, "// Fragment Shader")
 
 	assert(vsBegin != -1 && gsBegin != -1 && fsBegin != -1,
 		"Shader sources are not correctly tagged!")
@@ -186,9 +179,9 @@ func rglLoadDefaultShaders() (string, string, string) {
 	assert(vsBegin < gsBegin && gsBegin < fsBegin,
 		"Shader sources are not correctly ordered!")
 
-	vsSource := rgl_shader_sources[vsBegin:gsBegin]
-	gsSource := rgl_shader_sources[gsBegin:fsBegin]
-	fsSource := rgl_shader_sources[fsBegin:]
+	vsSource := EmbeddedShaderSources[vsBegin:gsBegin]
+	gsSource := EmbeddedShaderSources[gsBegin:fsBegin]
+	fsSource := EmbeddedShaderSources[fsBegin:]
 
 	assert(vsSource != "" && gsSource != "" && fsSource != "",
 		"Loading default shaders failed.")
@@ -231,37 +224,39 @@ func rglGetShaderName(shader_type uint32) string {
 
 // If any opengl error happens, prints error to stdout and returns false
 func rglCheckError(callerName string) bool {
-	if err := gl.GetError(); err != gl.NO_ERROR {
-		var errName string
-		switch err {
-		case gl.INVALID_ENUM:
-			errName = "INVALID_ENUM"
-		case gl.INVALID_VALUE:
-			errName = "INVALID_VALUE"
-		case gl.INVALID_OPERATION:
-			errName = "INVALID_OPERATION"
-		case gl.STACK_OVERFLOW:
-			errName = "STACK_OVERFLOW"
-		case gl.STACK_UNDERFLOW:
-			errName = "STACK_UNDERFLOW"
-		case gl.OUT_OF_MEMORY:
-			errName = "OUT_OF_MEMORY"
-		case gl.CONTEXT_LOST:
-			errName = "CONTEXT_LOST"
-		default:
-			logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", err, "on", callerName)
-			return false
-		}
-		logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", errName, "on", callerName)
-		return false
+	error_code := gl.GetError()
+	if error_code == gl.NO_ERROR {
+		return true
 	}
-	return true
+
+	var error_name string
+	switch error_code {
+	case gl.INVALID_ENUM:
+		error_name = "INVALID_ENUM"
+	case gl.INVALID_VALUE:
+		error_name = "INVALID_VALUE"
+	case gl.INVALID_OPERATION:
+		error_name = "INVALID_OPERATION"
+	case gl.STACK_OVERFLOW:
+		error_name = "STACK_OVERFLOW"
+	case gl.STACK_UNDERFLOW:
+		error_name = "STACK_UNDERFLOW"
+	case gl.OUT_OF_MEMORY:
+		error_name = "OUT_OF_MEMORY"
+	case gl.CONTEXT_LOST:
+		error_name = "CONTEXT_LOST"
+	default:
+		error_name = fmt.Sprintf("#%.4x", error_code)
+	}
+
+	logMessage(LEVEL_ERROR, TYPE_RENDERER, "Opengl Error", error_name, "on", callerName)
+	return false
 }
 
 func rglClose() {
-	gl.DeleteFramebuffers(1, &rgl_fbo)
-	gl.DeleteBuffers(1, &rgl_vbo)
-	gl.DeleteVertexArrays(1, &rgl_vao)
-	gl.DeleteProgram(rgl_shader_program)
+	gl.DeleteFramebuffers(1, &RGL.fbo)
+	gl.DeleteBuffers(1, &RGL.vbo)
+	gl.DeleteVertexArrays(1, &RGL.vao)
+	gl.DeleteProgram(RGL.shader_program)
 	rglCheckError("cleanup")
 }

@@ -38,7 +38,7 @@ func CreateTexture(width, height int) Texture {
 
 func (texture *Texture) clear() {
 	// Bind framebuffer
-	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, rgl_fbo)
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, RGL.fbo)
 	// init framebuffer with texture
 	// NOTE: Are we need to do this every time ?
 	gl.FramebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.id, 0)

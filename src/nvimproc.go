@@ -77,18 +77,18 @@ func CreateNvimProcess() NvimProcess {
 		optionStack: make([][]string, 0),
 	}
 
-	args := append([]string{"--embed"}, editorParsedArgs.others...)
+	args := append([]string{"--embed"}, singleton.parsedArgs.others...)
 
 	var err error
 	proc.handle, err = nvim.NewChildProcess(
 		nvim.ChildProcessArgs(args...),
-		nvim.ChildProcessCommand(editorParsedArgs.execPath))
+		nvim.ChildProcessCommand(singleton.parsedArgs.execPath))
 	if err != nil {
 		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to start neovim instance:", err)
 	}
 
 	logMessage(LEVEL_DEBUG, TYPE_NVIM,
-		"Neovim started with command:", editorParsedArgs.execPath, mergeStringArray(args))
+		"Neovim started with command:", singleton.parsedArgs.execPath, mergeStringArray(args))
 
 	return proc
 }
@@ -169,7 +169,7 @@ func (proc *NvimProcess) startUI(rows, cols int) {
 		"ext_linegrid": true,
 	}
 
-	if editorParsedArgs.multiGrid {
+	if singleton.parsedArgs.multiGrid {
 		options["ext_multigrid"] = true
 		logMessage(LEVEL_DEBUG, TYPE_NVIM, "Multigrid enabled.")
 	}

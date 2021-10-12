@@ -35,26 +35,22 @@ func init() {
 // functions accessing it and these functions also not thread safe.
 var singleton Editor
 
-// Given arguments when starting this editor.
-var editorParsedArgs ParsedArgs
-
 func main() {
 	start := time.Now()
-	// If --verbose flag is set then new file will be created with given name
-	// and we need to close this file. This function will check if the file is open
-	// and than closes it. Also recovers panic and prints to the logfile if the program panics.
+	// This function will check if the verbose file is open and then closes it.
+	// Also recovers panic and prints to the logfile if the program panics.
 	// Only main goroutine panic can be captured.
 	defer shutdownLogger()
 	// Trackers are debug functions and collects data about what function
 	// called how many times and it's execution time. Works in only debug build
-	// You need to defer measure_execution_time()() in the beginning of the function
-	// you want to track.
+	// You need to defer measure_execution_time()() in the beginning of the
+	// function you want to track.
 	init_function_time_tracker()
 	defer close_function_time_tracker()
 	// Parse args
-	editorParsedArgs = ParseArgs(os.Args[1:])
+	singleton.parsedArgs = ParseArgs(os.Args[1:])
 	// If ProcessBefore returns true, neoray will not start.
-	if editorParsedArgs.ProcessBefore() {
+	if singleton.parsedArgs.ProcessBefore() {
 		return
 	}
 	// Starts a pprof server. This function is only implemented in debug build.
@@ -64,7 +60,7 @@ func main() {
 	// And shutdown will frees resources and closes everything.
 	defer singleton.Shutdown()
 	// Some arguments must be processed after initializing.
-	editorParsedArgs.ProcessAfter()
+	singleton.parsedArgs.ProcessAfter()
 	// Start time information
 	logMessage(LEVEL_TRACE, TYPE_PERFORMANCE, "Start time:", time.Since(start))
 	// MainLoop is main loop of the neoray.

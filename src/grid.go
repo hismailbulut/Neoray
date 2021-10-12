@@ -117,7 +117,7 @@ func (gridManager *GridManager) sortGrids() []*Grid {
 // The returned values are grid id, cell row, cell column
 func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
 	// The input_mouse api call wants 0 for grid when multigrid is not enabled
-	if editorParsedArgs.multiGrid == false {
+	if singleton.parsedArgs.multiGrid == false {
 		return 0, pos.Y / singleton.cellHeight, pos.X / singleton.cellWidth
 	}
 	id, row, col := -1, -1, -1

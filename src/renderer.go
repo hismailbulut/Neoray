@@ -55,7 +55,6 @@ func CreateRenderer() Renderer {
 	renderer.updateCellSize(&renderer.defaultFont)
 
 	rglCreateViewport(singleton.window.width, singleton.window.height)
-	rglSetAtlasTexture(&renderer.fontAtlas.texture)
 
 	return renderer
 }
