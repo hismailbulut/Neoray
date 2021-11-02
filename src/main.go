@@ -35,8 +35,10 @@ func init() {
 // functions accessing it and these functions also not thread safe.
 var singleton Editor
 
+var startTime time.Time
+
 func main() {
-	start := time.Now()
+	startTime = time.Now()
 	// This function will check if the verbose file is open and then closes it.
 	// Also recovers panic and prints to the logfile if the program panics.
 	// Only main goroutine panic can be captured.
@@ -62,7 +64,7 @@ func main() {
 	// Some arguments must be processed after initializing.
 	singleton.parsedArgs.ProcessAfter()
 	// Start time information
-	logMessage(LEVEL_TRACE, TYPE_PERFORMANCE, "Start time:", time.Since(start))
+	logMessage(LEVEL_TRACE, TYPE_PERFORMANCE, "Start time:", time.Since(startTime))
 	// MainLoop is main loop of the neoray.
 	singleton.MainLoop()
 }

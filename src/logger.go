@@ -178,6 +178,17 @@ func logMessageFmt(level LogLevel, typ LogType, format string, args ...interface
 	logMessage(level, typ, fmt.Sprintf(format, args...))
 }
 
+// Overload for built-in print function, use only for debugging
+func print(msg ...interface{}) {
+	assert_error(BUILD_TYPE != RELEASE, "print() function used in release build")
+	fmt.Println(msg...)
+}
+
+func printf(format string, args ...interface{}) {
+	assert_error(BUILD_TYPE != RELEASE, "printf() function used in release build")
+	fmt.Printf(format, args...)
+}
+
 // This assert logs fatal when cond is false.
 func assert(cond bool, message ...interface{}) {
 	if cond == false {
