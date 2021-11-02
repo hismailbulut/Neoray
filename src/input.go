@@ -209,8 +209,8 @@ func parseCharInput(char rune, mods BitMask) string {
 }
 
 func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-	// If this is a modifier key, we will store if it was pressed,
-	// delete if it was released
+
+	// Toggle modifiers
 	switch key {
 	case glfw.KeyLeftAlt:
 		lastModifiers.enableif(ModAlt, action != glfw.Release)
@@ -221,12 +221,26 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 	case glfw.KeyLeftControl, glfw.KeyRightControl:
 		lastModifiers.enableif(ModControl, action != glfw.Release)
 		return
-	case glfw.KeyLeftShift, glfw.KeyRightShift:
-		lastModifiers.enableif(ModShift, action != glfw.Release)
-		return
-	case glfw.KeyLeftSuper, glfw.KeyRightSuper:
-		lastModifiers.enableif(ModSuper, action != glfw.Release)
-		return
+	}
+
+	// NOTE: For shift and super we dont need to look exact keypress, but for ctrl and alt we need to check Altgr
+	// PROBLEM
+	// 	Mods always contains one modifier, but there may be more than one for one modifier
+	// 	Eg: Altgr generates Ctrl + Alt and user holding Ctrl, there must be two ctrl's, but it's not possible.
+	// 	HACK: use reported system modifiers when altgr is not pressed, but we are checking exact keypress for altgr
+	// 	and this also can be a problem.
+	// 	Altgr is always a problem, why it's not a different mod?
+
+	lastModifiers.enableif(ModShift, action != glfw.Release && mods&glfw.ModShift != 0)
+	lastModifiers.enableif(ModSuper, action != glfw.Release && mods&glfw.ModSuper != 0)
+
+	// Check is the modifiers are correct
+	if (lastModifiers.has(ModAlt) != (mods&glfw.ModAlt != 0)) || (lastModifiers.has(ModControl) != (mods&glfw.ModControl != 0)) {
+		// Use mods when altgr is disabled
+		if !lastModifiers.has(ModAltGr) {
+			lastModifiers.enableif(ModAlt, action != glfw.Release && mods&glfw.ModAlt != 0)
+			lastModifiers.enableif(ModControl, action != glfw.Release && mods&glfw.ModControl != 0)
+		}
 	}
 
 	// Keys
