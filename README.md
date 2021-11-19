@@ -1,37 +1,42 @@
 # neoray
 
-neoray is a simple and lightweight gui client for neovim. It's written in
-golang using glfw and opengl bindings. Neoray is easy to use and binary size
-is small. Supports most of the neovim features. Uses small amount of ram and
+neoray is a simple and lightweight GUI client for Neovim. It's written in
+Go using GLFW and OpenGL bindings. Neoray is easy to use and binary size
+is small. Supports most of the Neovim features. Uses small amount of ram and
 leaves no footprints on your computer.
 
 ![Screenshot](./assets/neoray-dark.png)
 
 ## Installation
 
+### Binaries
+You can download prebuilt binaries from [releases page](https://github.com/hismailbulut/neoray/releases).
+If you are using Linux you will need x11 and gtk3 runtime libraries to run the neoray.
+Windows and MacOS binaries doesn't have any dependencies except Neovim.
+
+### From source
 You can install neoray with `go install` command:
+
 ```
 go install github.com/hismailbulut/neoray/src@latest
 ```
 
 NOTE: To successfully build it on Linux with go you will need to have some
 dependencies. On Ubuntu, install following packages:
+
 ```
 sudo apt install libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev build-essential libgtk-3-dev xorg-dev
 ```
-For other distros you need to install corresponding libraries.
 
-Also you can download prebuild binaries from releases page. If you are using
-linux you need x11 and gtk3 runtime libraries for run the neoray. Windows and
-Macos binaries doesn't have any dependencies except neovim.
+For other distros you need to install corresponding libraries.
 
 ## Configuration
 
 Neoray doesn't need any additional configuration, but you can customize it in
 your `init.vim`. All options can be set via NeoraySet command. Takes at least
 two arguments, first one is the name of the option and others are arguments.
-Neoray needs at least 0.4.4 version of neovim installed on your path, however
-if you want to use this NeoraySet commands and customize it then you need neovim
+Neoray needs at least 0.4.4 version of Neovim installed on your path, however
+if you want to use this NeoraySet commands and customize it then you need Neovim
 version 0.5.0
 
 The cursor is moving smoothly in neoray and you can specify how long it's move
@@ -56,7 +61,7 @@ NeoraySet TargetTPS 60
 Neoray has a simple right click menu that gives you some abilities like
 copying, cutting to system clipboard and pasting. It has a open file
 functionality that opens system file dialog. Menu text is same as the font and
-the colors are from your colorscheme. This makes it look and feel like
+the colors are from your color scheme. This makes it look and feel like
 terminal. You can disable it by setting this option to false. Default is true.
 ```vim
 NeoraySet ContextMenuOn true
@@ -71,7 +76,7 @@ space between name and command.
 NeoraySet ContextButton Say\ Hello :echo\ "Hello\ World!"
 ```
 
-Neoray can handle some of the unicode box drawing characters itself, draws them
+Neoray can handle some of the Unicode box drawing characters itself, draws them
 pixel aligned which makes no gap between glyphs and makes them visually
 compatible with each other. This is enabled by default but you can disable it
 and use the font's glyphs.
@@ -104,15 +109,16 @@ NeoraySet KeyZoomIn     <C-kPlus>
 NeoraySet KeyZoomOut    <C-kMinus>
 ```
 
-NOTE: The old neoray_* options are deprecated and will be removed soon.
-___
-### font
-Neoray respects your guifont option, finds the font and loads it. If it can't
+NOTE: The old `neoray_*` options are deprecated and will be removed soon.
+
+### Font
+Neoray respects your `guifont` option, finds the font and loads it. If it can't
 find your font, try with different names and also with file name. Giving full
 shared name except the style and weight names will give best result. You can
-change the font without needing restart neoray. Underscores are treated as
-spaces. If you think you tried every possibilities but neoray still can't find
-the font, please report to me.
+change the font without having to restart neoray. Underscores are treated as
+spaces. If you think you tried every possibility but neoray still can't find
+the font, please [report to me](https://github.com/hismailbulut/neoray/issues/new/choose).
+
 ```vim
 set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
@@ -120,7 +126,7 @@ set guifont=:h13 " Use default font with 13 pt size
 ```
 NOTE: For now neoray doesn't support ttc fonts.
 ___
-### exaple init.vim with all options
+### Example init.vim with all options
 ```vim
 if exists('g:neoray')
     set guifont=Go_Mono:h11
@@ -147,37 +153,41 @@ if exists('g:neoray')
     NeoraySet KeyZoomIn      <>
     NeoraySet KeyZoomOut     <>
 endif
-```
-___
-### flags
-Neoray accepts some flags for startup options and more. Other flags are used
-for creating neovim. You can look all of them starting neoray with -h option.
+
+### Flags
+Neoray accepts command line arguments. Some of them configure neoray, the rest
+are passed to Neovim. To list neoray flags, run it with `-h` option.
 
 Some of them are very important (at least for me)
 
 #### --single-instance, -si
-When this option has given, neoray opens only one instance. Others will send
-all flags to already open instance and immediately quits. This is usefull for
-game engine like programs that you can use neovim as an external editor. For
-examle if you are using godot engine you can set external editor exec path to
-neoray executable and exec flags to this:
+With this option, neoray opens only one process instance. Others will send
+all flags to already opened instance and immediately quit. This is usefull for
+game engine-like programs which could use Neovim as an external editor. For
+example, if you are using Godot engine you can set external editor exec path to
+neoray executable and exec flags to the following:
+
 ```
 -si --file {file} --line {line} --column {col}
 ```
-Now, everytime you open a script in godot, this will open in the same neoray,
-and cursor goes to {line} and {col}
-___
-### contributing
-All types of contributing are apreciated. If you want to be a part of this
+Now, every time you open a script in Godot, this will open it in the same neoray,
+and cursor will go to {line} and {col}.
+
+### Contributing
+All types of contributing are appreciated. If you want to be a part of this
 project you can open issue when you find something not working, or help
 development by solving issues and implementing some features what you want.
-___
-### development
+
+### Development
 The source code is well documented enough. I try to make everything
-understandable. Neoray has no external dependencies (except linux). You need to
-clone this repository and perform a go get command. Everything will be
-installed and you will ready to fly.
-___
-### copyright
+understandable. 
+
+Clone this repository and perform a `go get` command. Everything will be
+installed and you will be ready to fly.
+
+`make build` builds a debug version of neoray in `./bin` folder,
+`make release` - release.
+
+### Copyright
 Neoray is licensed under MIT license. You can use, change, distribute it
 however you want.
