@@ -1,6 +1,6 @@
-# neoray
+# Neoray
 
-neoray is a simple and lightweight GUI client for Neovim. It's written in
+Neoray is a simple and lightweight GUI client for Neovim. It's written in
 Go using GLFW and OpenGL bindings. Neoray is easy to use and binary size
 is small. Supports most of the Neovim features. Uses small amount of ram and
 leaves no footprints on your computer.
@@ -11,11 +11,11 @@ leaves no footprints on your computer.
 
 ### Binaries
 You can download prebuilt binaries from [releases page](https://github.com/hismailbulut/neoray/releases).
-If you are using Linux you will need x11 and gtk3 runtime libraries to run the neoray.
+If you are using Linux you will need x11 and gtk3 runtime libraries to run the Neoray.
 Windows and MacOS binaries doesn't have any dependencies except Neovim.
 
 ### From source
-You can install neoray with `go install` command:
+You can install Neoray with `go install` command:
 
 ```
 go install github.com/hismailbulut/neoray/src@latest
@@ -39,7 +39,7 @@ Neoray needs at least 0.4.4 version of Neovim installed on your path, however
 if you want to use this NeoraySet commands and customize it then you need Neovim
 version 0.5.0
 
-The cursor is moving smoothly in neoray and you can specify how long it's move
+The cursor is moving smoothly in Neoray and you can specify how long it's move
 takes. Default is 0.06 (1.0 is one second) You can disable it by setting to 0.
 ```vim
 NeoraySet CursorAnimTime 0.06
@@ -52,7 +52,7 @@ statusline, tabline and texts are fully opaque.
 NeoraySet Transparency 0.95
 ```
 
-The target update time in one second. Like FPS but neoray doesn't render screen
+The target update time in one second. Like FPS but Neoray doesn't render screen
 in every frame. Default is 60.
 ```vim
 NeoraySet TargetTPS 60
@@ -84,7 +84,7 @@ and use the font's glyphs.
 NeoraySet BoxDrawingOn true
 ```
 
-You can specify how the neoray window will be shown. The possible values are
+You can specify how the Neoray window will be shown. The possible values are
 'minimized', 'maximized', 'fullscreen', 'centered'. Default is none.
 ```vim
 NeoraySet WindowState maximized
@@ -93,7 +93,7 @@ NeoraySet WindowState maximized
 Also you can specify the startup size of the window in cells. The default is
 none. The syntax is same below. First value is width (columns) and second value
 is height (rows). If you set one dimension to 0, it will not take effect and
-you can set other one dimension. The example starts neoray with 99 columns and
+you can set other one dimension. The example starts Neoray with 99 columns and
 don't touchs row/height. You may also want to call this before the WindowState option.
 ```vim
 NeoraySet WindowSize 99x0
@@ -115,8 +115,8 @@ NOTE: The old `neoray_*` options are deprecated and will be removed soon.
 Neoray respects your `guifont` option, finds the font and loads it. If it can't
 find your font, try with different names and also with file name. Giving full
 shared name except the style and weight names will give best result. You can
-change the font without having to restart neoray. Underscores are treated as
-spaces. If you think you tried every possibility but neoray still can't find
+change the font without having to restart Neoray. Underscores are treated as
+spaces. If you think you tried every possibility but Neoray still can't find
 the font, please [report to me](https://github.com/hismailbulut/neoray/issues/new/choose).
 
 ```vim
@@ -124,8 +124,8 @@ set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
 set guifont=:h13 " Use default font with 13 pt size
 ```
-NOTE: For now neoray doesn't support ttc fonts.
-___
+NOTE: For now Neoray doesn't support TTC fonts.
+
 ### Example init.vim with all options
 ```vim
 if exists('g:neoray')
@@ -155,23 +155,23 @@ if exists('g:neoray')
 endif
 
 ### Flags
-Neoray accepts command line arguments. Some of them configure neoray, the rest
-are passed to Neovim. To list neoray flags, run it with `-h` option.
+Neoray accepts command line arguments. Some of them configure Neoray, the rest
+are passed to Neovim. To list Neoray flags, run it with `-h` option.
 
 Some of them are very important (at least for me)
 
 #### --single-instance, -si
-With this option, neoray opens only one process instance. Others will send
+With this option, Neoray opens only one process instance. Others will send
 all flags to already opened instance and immediately quit. This is usefull for
 game engine-like programs which could use Neovim as an external editor. For
 example, if you are using Godot engine you can set external editor exec path to
-neoray executable and exec flags to the following:
+Neoray executable and exec flags to the following:
 
 ```
 -si --file {file} --line {line} --column {col}
 ```
-Now, every time you open a script in Godot, this will open it in the same neoray,
-and cursor will go to {line} and {col}.
+Now, every time you open a script in Godot, this will open it in the same Neoray,
+and cursor will go to specified line and column.
 
 ### Contributing
 All types of contributing are appreciated. If you want to be a part of this
@@ -185,7 +185,7 @@ understandable.
 Clone this repository and perform a `go get` command. Everything will be
 installed and you will be ready to fly.
 
-`make build` builds a debug version of neoray in `./bin` folder,
+`make build` builds a debug version of Neoray in `./bin` folder,
 `make release` - release.
 
 ### Copyright
