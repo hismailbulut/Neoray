@@ -153,6 +153,7 @@ if exists('g:neoray')
     NeoraySet KeyZoomIn      <>
     NeoraySet KeyZoomOut     <>
 endif
+```
 
 ### Flags
 Neoray accepts command line arguments. Some of them configure Neoray, the rest
@@ -170,6 +171,7 @@ Neoray executable and exec flags to the following:
 ```
 -si --file {file} --line {line} --column {col}
 ```
+
 Now, every time you open a script in Godot, this will open it in the same Neoray,
 and cursor will go to specified line and column.
 
