@@ -109,8 +109,6 @@ NeoraySet KeyZoomIn     <C-kPlus>
 NeoraySet KeyZoomOut    <C-kMinus>
 ```
 
-NOTE: The old `neoray_*` options are deprecated and will be removed soon.
-
 ### Font
 Neoray respects your `guifont` option, finds the font and loads it. If it can't
 find your font, try with different names and also with file name. Giving full
