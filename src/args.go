@@ -141,27 +141,29 @@ func (options ParsedArgs) ProcessBefore() bool {
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
 		if err != nil {
-			logMessage(LEVEL_DEBUG, TYPE_NEORAY, "No instance found or tcp client creation failed:", err)
+			logMessage(LEVEL_DEBUG, TYPE_NETWORK, "No instance found or ipc client creation failed:", err)
 			return false
 		}
-		ok := false
-		if client.sendSignal(SIGNAL_CHECK_CONNECTION) {
-			if options.file != "" {
-				fullPath, err := filepath.Abs(options.file)
-				if err == nil {
-					client.sendSignal(SIGNAL_OPEN_FILE, fullPath)
+		defer client.Close()
+		if options.file != "" {
+			fullPath, err := filepath.Abs(options.file)
+			if err == nil {
+				if !client.Call(IPC_MSG_TYPE_OPEN_FILE, fullPath) {
+					return false
 				}
 			}
-			if options.line != -1 {
-				client.sendSignal(SIGNAL_GOTO_LINE, strconv.Itoa(options.line))
-			}
-			if options.column != -1 {
-				client.sendSignal(SIGNAL_GOTO_COLUMN, strconv.Itoa(options.column))
-			}
-			ok = true
 		}
-		client.Close()
-		return ok
+		if options.line != -1 {
+			if !client.Call(IPC_MSG_TYPE_GOTO_LINE, options.line) {
+				return false
+			}
+		}
+		if options.column != -1 {
+			if !client.Call(IPC_MSG_TYPE_GOTO_COLUMN, options.column) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }
@@ -171,10 +173,10 @@ func (options ParsedArgs) ProcessAfter() {
 	if options.singleInst {
 		server, err := CreateServer()
 		if err != nil {
-			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create tcp server:", err)
+			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create ipc server:", err)
 		} else {
 			singleton.server = server
-			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Tcp server created.")
+			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Ipc server created.")
 		}
 	}
 	if options.file != "" {

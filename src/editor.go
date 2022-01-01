@@ -54,7 +54,7 @@ type Editor struct {
 	options Options
 	// Tcp server for singleinstance
 	// tcp.go
-	server *TCPServer
+	server *IpcServer
 	// If quitRequested is true the program will quit.
 	quitRequested chan bool
 	// Initializing in CreateRenderer
