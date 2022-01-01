@@ -10,18 +10,20 @@ import (
 	"github.com/sqweek/dialog"
 )
 
+type AnsiTermColor string
+
 const enableAsciiColorOutput = true
 
 const (
-	AnsiBlack   = "\u001b[30m"
-	AnsiRed     = "\u001b[31m"
-	AnsiGreen   = "\u001b[32m"
-	AnsiYellow  = "\u001b[33m"
-	AnsiBlue    = "\u001b[34m"
-	AnsiMagenta = "\u001b[35m"
-	AnsiCyan    = "\u001b[36m"
-	AnsiWhite   = "\u001b[37m"
-	AnsiReset   = "\u001b[0m"
+	AnsiBlack   AnsiTermColor = "\u001b[30m"
+	AnsiRed     AnsiTermColor = "\u001b[31m"
+	AnsiGreen   AnsiTermColor = "\u001b[32m"
+	AnsiYellow  AnsiTermColor = "\u001b[33m"
+	AnsiBlue    AnsiTermColor = "\u001b[34m"
+	AnsiMagenta AnsiTermColor = "\u001b[35m"
+	AnsiCyan    AnsiTermColor = "\u001b[36m"
+	AnsiWhite   AnsiTermColor = "\u001b[37m"
+	AnsiReset   AnsiTermColor = "\u001b[0m"
 )
 
 type LogLevel uint32
@@ -38,13 +40,65 @@ const (
 	LEVEL_FATAL
 )
 
+func (logLevel LogLevel) String() string {
+	switch logLevel {
+	case LEVEL_DEBUG:
+		return "[DEBUG]"
+	case LEVEL_TRACE:
+		return "[TRACE]"
+	case LEVEL_WARN:
+		return "[WARNING]"
+	case LEVEL_ERROR:
+		return "[ERROR]"
+	case LEVEL_FATAL:
+		return "[FATAL]"
+	default:
+		panic("invalid log level")
+	}
+}
+
+func getColorOfLogLevel(logLevel LogLevel) AnsiTermColor {
+	switch logLevel {
+	case LEVEL_DEBUG:
+		return AnsiWhite
+	case LEVEL_TRACE:
+		return AnsiGreen
+	case LEVEL_WARN:
+		return AnsiYellow
+	case LEVEL_ERROR:
+		return AnsiRed
+	case LEVEL_FATAL:
+		return AnsiRed
+	default:
+		panic("invalid log level")
+	}
+}
+
 const (
 	// Log types, makes easy to understand where the message coming from
 	TYPE_NVIM LogType = iota
 	TYPE_NEORAY
 	TYPE_RENDERER
 	TYPE_PERFORMANCE
+	TYPE_NETWORK
 )
+
+func (logType LogType) String() string {
+	switch logType {
+	case TYPE_NVIM:
+		return "[NVIM]"
+	case TYPE_NEORAY:
+		return "[NEORAY]"
+	case TYPE_RENDERER:
+		return "[RENDERER]"
+	case TYPE_PERFORMANCE:
+		return "[PERFORMANCE]"
+	case TYPE_NETWORK:
+		return "[NETWORK]"
+	default:
+		panic("invalid log type")
+	}
+}
 
 var (
 	verboseFile *os.File = nil
@@ -106,54 +160,18 @@ func createCrashReport(msg string) {
 	}
 }
 
-func logMessage(lvl LogLevel, typ LogType, message ...interface{}) {
-	if lvl < MINIMUM_LOG_LEVEL && verboseFile == nil {
+func logMessage(logLevel LogLevel, logType LogType, message ...interface{}) {
+	if logLevel < MINIMUM_LOG_LEVEL && verboseFile == nil {
 		return
 	}
 
-	fatal := false
-	colorCode := ""
-	logLevelString := ""
-	switch lvl {
-	case LEVEL_DEBUG:
-		logLevelString = "[DEBUG]"
-		colorCode = AnsiWhite
-	case LEVEL_TRACE:
-		logLevelString = "[TRACE]"
-		colorCode = AnsiGreen
-	case LEVEL_WARN:
-		logLevelString = "[WARNING]"
-		colorCode = AnsiYellow
-	case LEVEL_ERROR:
-		logLevelString = "[ERROR]"
-		colorCode = AnsiRed
-	case LEVEL_FATAL:
-		logLevelString = "[FATAL]"
-		colorCode = AnsiRed
-		fatal = true
-	default:
-		panic("invalid log level")
-	}
+	colorCode := getColorOfLogLevel(logLevel)
 
-	logTypeString := ""
-	switch typ {
-	case TYPE_NVIM:
-		logTypeString = "[NVIM]"
-	case TYPE_NEORAY:
-		logTypeString = "[NEORAY]"
-	case TYPE_RENDERER:
-		logTypeString = "[RENDERER]"
-	case TYPE_PERFORMANCE:
-		logTypeString = "[PERFORMANCE]"
-	default:
-		panic("invalid log type")
-	}
-
-	logString := logLevelString + " " + logTypeString + " " + fmt.Sprintln(message...)
+	logString := logLevel.String() + " " + logType.String() + " " + fmt.Sprintln(message...)
 
 	// Print to stdout
 	if enableAsciiColorOutput {
-		fmt.Print(colorCode + logString)
+		fmt.Print(string(colorCode) + logString)
 	} else {
 		fmt.Print(logString)
 	}
@@ -163,7 +181,7 @@ func logMessage(lvl LogLevel, typ LogType, message ...interface{}) {
 		verboseFile.WriteString(logString)
 	}
 
-	if fatal {
+	if logLevel == LEVEL_FATAL {
 		// Create crash report file
 		createCrashReport(logString)
 		// Open message box with error
@@ -178,9 +196,20 @@ func logMessageFmt(level LogLevel, typ LogType, format string, args ...interface
 	logMessage(level, typ, fmt.Sprintf(format, args...))
 }
 
+// NOTE: print* functions only used for debugging purposes. Use logMessage* for
+// actually logging them and never build a release version has print* function
+// usage.
+
 // Overload for built-in print function, use only for debugging
 func print(msg ...interface{}) {
 	assert_error(BUILD_TYPE != RELEASE, "print() function used in release build")
+	fmt.Println(msg...)
+}
+
+// Colored print
+func printc(color AnsiTermColor, msg ...interface{}) {
+	assert_error(BUILD_TYPE != RELEASE, "printc() function used in release build")
+	fmt.Print(color)
 	fmt.Println(msg...)
 }
 
