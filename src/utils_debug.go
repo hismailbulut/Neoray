@@ -23,7 +23,7 @@ func start_pprof() {
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
-			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to start pprof:", err)
+			printc(AnsiRed, "Failed to start pprof:", err)
 		}
 	}()
 }
