@@ -124,7 +124,7 @@ set guifont=:h13 " Use default font with 13 pt size
 ```
 NOTE:
 - For now Neoray doesn't support TTC fonts.
-- On Windows check the font names from here `C:\Users\%USERNAME%\AppData\Local\Microsoft\Windows\Fonts` to set the guifont. 
+- On Windows check the font names from here `C:\Users\%USERNAME%\AppData\Local\Microsoft\Windows\Fonts` to set the guifont.
 
 ### Example init.vim with all options
 ```vim
@@ -182,7 +182,7 @@ development by solving issues and implementing some features what you want.
 
 ### Development
 The source code is well documented enough. I try to make everything
-understandable. 
+understandable.
 
 Clone this repository and perform a `go get` command. Everything will be
 installed and you will be ready to fly.
