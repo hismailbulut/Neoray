@@ -155,11 +155,11 @@ func (client *IpcClient) Close() {
 
 // Server is a listener, not sends messages but processes incoming messages from clients
 type IpcServer struct {
-	listener     net.Listener
-	mac          uint64
-	dataReceived AtomicBool
-	dataMutex    sync.Mutex
-	calls        []IpcFuncCall
+	listener       net.Listener
+	mac            uint64
+	callsAvailable AtomicBool
+	callsMutex     sync.Mutex
+	calls          []IpcFuncCall
 }
 
 // Create a server and process incoming signals.
@@ -247,16 +247,16 @@ func (server *IpcServer) mainLoop() {
 }
 
 func (server *IpcServer) appendNewCall(call IpcFuncCall) {
-	server.dataMutex.Lock()
-	defer server.dataMutex.Unlock()
+	server.callsMutex.Lock()
+	defer server.callsMutex.Unlock()
 	server.calls = append(server.calls, call)
-	server.dataReceived.Set(true)
+	server.callsAvailable.Set(true)
 }
 
 func (server *IpcServer) update() {
-	if server.dataReceived.Get() {
-		server.dataMutex.Lock()
-		defer server.dataMutex.Unlock()
+	if server.callsAvailable.Get() {
+		server.callsMutex.Lock()
+		defer server.callsMutex.Unlock()
 		for _, call := range server.calls {
 			// bool, for JSON booleans
 			// float64, for JSON numbers
@@ -283,7 +283,7 @@ func (server *IpcServer) update() {
 			}
 		}
 		server.calls = server.calls[0:0]
-		server.dataReceived.Set(false)
+		server.callsAvailable.Set(false)
 		singleton.window.raise()
 	}
 }
