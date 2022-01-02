@@ -125,7 +125,7 @@ func rglUpdateVertices(data []Vertex) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(data)*int(sizeof_Vertex), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
 		rglCheckError("vertex buffer data")
 		RGL.vertex_buffer_len = len(data)
-	} else {
+	} else if len(data) > 0 {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(data)*int(sizeof_Vertex), unsafe.Pointer(&data[0]))
 		rglCheckError("vertex buffer subdata")
 	}
