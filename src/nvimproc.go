@@ -65,6 +65,10 @@ type NvimProcess struct {
 	optionChanged AtomicBool
 	optionMutex   *sync.Mutex
 	optionStack   [][]string
+	// This is required for when closing neoray. If neoray connected via stdin-out
+	// it responsible for closing nvim, but if neoray connected via tcp, it will
+	// not close nvim.
+	connectedViaTcp bool
 }
 
 func CreateNvimProcess() NvimProcess {
@@ -77,20 +81,40 @@ func CreateNvimProcess() NvimProcess {
 		optionStack: make([][]string, 0),
 	}
 
-	args := append([]string{"--embed"}, singleton.parsedArgs.others...)
-
-	var err error
-	proc.handle, err = nvim.NewChildProcess(
-		nvim.ChildProcessArgs(args...),
-		nvim.ChildProcessCommand(singleton.parsedArgs.execPath))
-	if err != nil {
-		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to start neovim instance:", err)
+	if singleton.parsedArgs.address != "" {
+		// Try to connect via tcp
+		var err error
+		proc.handle, err = nvim.Dial(singleton.parsedArgs.address,
+			nvim.DialLogf(NeovimServerLogfFunc),
+		)
+		if err != nil {
+			logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to connect existing neovim instance:", err)
+		} else {
+			logMessage(LEVEL_DEBUG, TYPE_NVIM, "Connected to existing neovim at address:", singleton.parsedArgs.address)
+			proc.connectedViaTcp = true
+		}
 	}
 
-	logMessage(LEVEL_DEBUG, TYPE_NVIM,
-		"Neovim started with command:", singleton.parsedArgs.execPath, mergeStringArray(args))
+	if !proc.connectedViaTcp {
+		// Connect via stdin-stdout
+		args := append([]string{"--embed"}, singleton.parsedArgs.others...)
+		var err error
+		proc.handle, err = nvim.NewChildProcess(
+			nvim.ChildProcessArgs(args...),
+			nvim.ChildProcessCommand(singleton.parsedArgs.execPath),
+		)
+		if err != nil {
+			logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to start neovim instance:", err)
+		}
+		logMessage(LEVEL_DEBUG, TYPE_NVIM,
+			"Neovim started with command:", singleton.parsedArgs.execPath, mergeStringArray(args))
+	}
 
 	return proc
+}
+
+func NeovimServerLogfFunc(format string, args ...interface{}) {
+	logMessageFmt(LEVEL_TRACE, TYPE_NVIM, format, args...)
 }
 
 // We are initializing some callback functions here because CreateNvimProcess
@@ -164,6 +188,17 @@ func (proc *NvimProcess) registerScripts() {
 func (proc *NvimProcess) startUI(rows, cols int) {
 	defer measure_execution_time()()
 
+	err := proc.handle.RegisterHandler("redraw",
+		func(updates ...[]interface{}) {
+			proc.eventMutex.Lock()
+			defer proc.eventMutex.Unlock()
+			proc.eventStack = append(proc.eventStack, updates)
+			proc.eventReceived.Set(true)
+		})
+	if err != nil {
+		logMessage(LEVEL_ERROR, TYPE_NVIM, "Failed to register redraw method:", err)
+	}
+
 	options := map[string]interface{}{
 		"rgb":          true,
 		"ext_linegrid": true,
@@ -178,25 +213,25 @@ func (proc *NvimProcess) startUI(rows, cols int) {
 		logMessage(LEVEL_FATAL, TYPE_NVIM, "AttachUI failed:", err)
 	}
 
-	proc.handle.RegisterHandler("redraw",
-		func(updates ...[]interface{}) {
-			proc.eventMutex.Lock()
-			defer proc.eventMutex.Unlock()
-			proc.eventStack = append(proc.eventStack, updates)
-			proc.eventReceived.Set(true)
-		})
-
 	go func() {
-		if err := proc.handle.Serve(); err != nil {
+		err := proc.handle.Serve()
+		if err != nil {
 			logMessage(LEVEL_ERROR, TYPE_NVIM, "Neovim child process closed with errors:", err)
-			return
+		} else if !proc.connectedViaTcp {
+			logMessage(LEVEL_TRACE, TYPE_NVIM, "Neovim child process closed.")
 		}
-		logMessage(LEVEL_TRACE, TYPE_NVIM, "Neovim child process closed.")
 		singleton.quitRequested <- true
 	}()
 
 	proc.introduce()
 	logMessage(LEVEL_DEBUG, TYPE_NVIM, "Attached to neovim as an ui client.")
+}
+
+// Neoray only has to call this when quiting without closing neovim
+func (proc *NvimProcess) disconnect() {
+	proc.handle.Unsubscribe("redraw")
+	proc.handle.Unsubscribe("NeorayOptionSet")
+	proc.handle.DetachUI()
 }
 
 func (proc *NvimProcess) introduce() {
@@ -474,7 +509,7 @@ func (proc *NvimProcess) requestResize(rows, cols int) {
 }
 
 func (proc *NvimProcess) Close() {
-	// NOTE: We are always trying to close neovim even though it closes itself before us.
+	// NOTE: Neoray always trying to close neovim even if it alread closed
 	err := proc.handle.Close()
 	if err != nil {
 		logMessage(LEVEL_WARN, TYPE_NVIM, "Failed to close neovim child process:", err)

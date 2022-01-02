@@ -31,6 +31,8 @@ Options:
 	Prints verbose debug output to a file.
 --nvim <path>
 	Path to nvim executable. May be relative or absolute.
+--server <address>
+	Connect to existing neovim instance.
 --multigrid
 	Enables multigrid support.
 --version, -v
@@ -47,6 +49,7 @@ type ParsedArgs struct {
 	column     int
 	singleInst bool
 	execPath   string
+	address    string
 	multiGrid  bool
 	others     []string
 }
@@ -59,6 +62,7 @@ func ParseArgs(args []string) ParsedArgs {
 		column:     -1,
 		singleInst: false,
 		execPath:   "nvim",
+		address:    "",
 		others:     []string{},
 	}
 	var err error
@@ -93,6 +97,11 @@ func ParseArgs(args []string) ParsedArgs {
 			if err == nil {
 				options.execPath = absolute
 			}
+			i++
+			break
+		case "--server":
+			assert(len(args) > i+1, "specify address after --server")
+			options.address = args[i+1]
 			i++
 			break
 		case "--multigrid":

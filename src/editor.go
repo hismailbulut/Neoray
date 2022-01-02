@@ -165,9 +165,17 @@ func (editor *Editor) MainLoop() {
 			glfw.PollEvents()
 			// Check for window close
 			if editor.window.handle.ShouldClose() {
-				// Send quit command to neovim and not quit until neovim quits.
-				editor.window.handle.SetShouldClose(false)
-				go editor.nvim.execCommand("qa")
+				if editor.nvim.connectedViaTcp {
+					// Neoray is not responsible for closing neovim.
+					editor.nvim.disconnect()
+					editor.mainLoopRunning = false
+				} else {
+					// Send quit command to neovim and wait until neovim quits.
+					editor.window.handle.SetShouldClose(false)
+					go editor.nvim.execCommand("qa")
+					// Sleep for a while
+					time.Sleep(time.Millisecond * 100)
+				}
 			}
 		case <-editor.quitRequested:
 			editor.mainLoopRunning = false
