@@ -197,8 +197,6 @@ func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
 }
 
 func (gridManager *GridManager) hide(id int) {
-	// These two checks added here because of the issue #16
-	// Must be removed after this issue fixed
 	grid, ok := gridManager.grids[id]
 	if ok {
 		grid.hidden = true
