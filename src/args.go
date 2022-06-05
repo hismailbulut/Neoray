@@ -12,7 +12,6 @@ import (
 
 var usageTemplate = `
 Neoray is an ui client for neovim.
-Copyright (c) 2021 Ismail Bulut.
 Version %d.%d.%d %s
 License %s
 Webpage %s
