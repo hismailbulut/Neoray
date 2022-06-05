@@ -115,7 +115,7 @@ func (gridManager *GridManager) sortGrids() []*Grid {
 
 // Returns grid id and cell position at the given global position.
 // The returned values are grid id, cell row, cell column
-func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
+func (gridManager *GridManager) getCellAt(pos Vector2[int]) (int, int, int) {
 	// The input_mouse api call wants 0 for grid when multigrid is not enabled
 	if singleton.parsedArgs.multiGrid == false {
 		return 0, pos.Y / singleton.cellHeight, pos.X / singleton.cellWidth
@@ -125,7 +125,7 @@ func (gridManager *GridManager) getCellAt(pos IntVec2) (int, int, int) {
 	for i := len(gridManager.sortedGrids) - 1; i >= 0; i-- {
 		grid := gridManager.sortedGrids[i]
 		if !grid.hidden {
-			gridRect := IntRect{
+			gridRect := Rectangle[int]{
 				X: grid.sCol * singleton.cellWidth,
 				Y: grid.sRow * singleton.cellHeight,
 				W: grid.cols * singleton.cellWidth,

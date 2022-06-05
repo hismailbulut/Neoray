@@ -45,7 +45,7 @@ var ContextMenuButtons = []ContextButton{
 }
 
 type ContextMenu struct {
-	pos        IntVec2
+	pos        Vector2[int]
 	vertexData VertexDataStorage
 	hidden     bool
 	width      int
@@ -103,7 +103,7 @@ func (cMenu *ContextMenu) updateChars() {
 	for x, row := range cMenu.cells {
 		for y, char := range row {
 			cell_id := x*cMenu.width + y
-			var atlasPos IntRect
+			var atlasPos Rectangle[int]
 			if char != 0 {
 				atlasPos = singleton.renderer.getCharPos(
 					char, false, false, false, false)
@@ -127,14 +127,14 @@ func (cMenu *ContextMenu) AddButton(button ContextButton) {
 	}
 }
 
-func (cMenu *ContextMenu) ShowAt(pos IntVec2) {
+func (cMenu *ContextMenu) ShowAt(pos Vector2[int]) {
 	cMenu.pos = pos
 	fg := singleton.gridManager.defaultBg
 	bg := singleton.gridManager.defaultFg
 	for x, row := range cMenu.cells {
 		for y := range row {
 			cell_id := x*cMenu.width + y
-			rect := F32Rect{
+			rect := Rectangle[float32]{
 				X: float32(pos.X + y*singleton.cellWidth),
 				Y: float32(pos.Y + x*singleton.cellHeight),
 				W: float32(singleton.cellWidth),
@@ -153,15 +153,15 @@ func (cMenu *ContextMenu) Hide() {
 	for x, row := range cMenu.cells {
 		for y := range row {
 			cell_id := x*cMenu.width + y
-			cMenu.vertexData.setCellPos(cell_id, F32Rect{})
+			cMenu.vertexData.setCellPos(cell_id, Rectangle[float32]{})
 		}
 	}
 	cMenu.hidden = true
 	singleton.render()
 }
 
-func (cMenu *ContextMenu) globalRect() IntRect {
-	return IntRect{
+func (cMenu *ContextMenu) globalRect() Rectangle[int] {
+	return Rectangle[int]{
 		X: cMenu.pos.X,
 		Y: cMenu.pos.Y,
 		W: cMenu.width * singleton.cellWidth,
@@ -171,12 +171,12 @@ func (cMenu *ContextMenu) globalRect() IntRect {
 
 // Returns true if given position intersects with menu,
 // and if the position is on the button, returns button index.
-func (cMenu *ContextMenu) intersects(pos IntVec2) (bool, int) {
+func (cMenu *ContextMenu) intersects(pos Vector2[int]) (bool, int) {
 	menuRect := cMenu.globalRect()
 	if pos.inRect(menuRect) {
 		// Areas are intersecting. Now we need to find button under the cursor.
 		// This is very simple. First we find the cell at the position.
-		relativePos := IntVec2{
+		relativePos := Vector2[int]{
 			X: pos.X - cMenu.pos.X,
 			Y: pos.Y - cMenu.pos.Y,
 		}
@@ -191,7 +191,7 @@ func (cMenu *ContextMenu) intersects(pos IntVec2) (bool, int) {
 }
 
 // Call this function when mouse moved.
-func (cMenu *ContextMenu) mouseMove(pos IntVec2) {
+func (cMenu *ContextMenu) mouseMove(pos Vector2[int]) {
 	if !cMenu.hidden {
 		// Fill all cells with default colors.
 		for i := 0; i < cMenu.width*cMenu.height; i++ {
@@ -225,7 +225,7 @@ func (cMenu *ContextMenu) mouseMove(pos IntVec2) {
 // If rightbutton is false (left button is pressed) and positions are
 // intersecting, this function returns true. This means if this function
 // returns true than you shouldn't send button event to neovim.
-func (cMenu *ContextMenu) mouseClick(rightbutton bool, pos IntVec2) bool {
+func (cMenu *ContextMenu) mouseClick(rightbutton bool, pos Vector2[int]) bool {
 	if !rightbutton && !cMenu.hidden {
 		// If positions are intersecting then call button click event, hide popup menu otherwise.
 		ok, index := cMenu.intersects(pos)

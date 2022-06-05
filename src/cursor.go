@@ -66,8 +66,8 @@ func (cursor *Cursor) createVertexData() {
 func (cursor *Cursor) setPosition(id, x, y int, immediately bool) {
 	if !immediately {
 		cursor.anim = CreateAnimation(
-			F32Vec2{X: float32(cursor.X), Y: float32(cursor.Y)},
-			F32Vec2{X: float32(x), Y: float32(y)},
+			Vector2[float32]{X: float32(cursor.X), Y: float32(cursor.Y)},
+			Vector2[float32]{X: float32(x), Y: float32(y)},
 			singleton.options.cursorAnimTime)
 	}
 	cursor.X = x
@@ -81,10 +81,10 @@ func (cursor *Cursor) isInArea(gridId, x, y, w, h int) bool {
 	return gridId == cursor.grid && cursor.X >= x && cursor.Y >= y && cursor.X < x+w && cursor.Y < y+h
 }
 
-func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, bool) {
+func (cursor *Cursor) modeRectangle(cell_pos Vector2[int], info ModeInfo) (Rectangle[float32], bool) {
 	switch info.cursor_shape {
 	case "block":
-		return F32Rect{
+		return Rectangle[float32]{
 			X: float32(cell_pos.X),
 			Y: float32(cell_pos.Y),
 			W: float32(singleton.cellWidth),
@@ -92,21 +92,21 @@ func (cursor *Cursor) modeRectangle(cell_pos IntVec2, info ModeInfo) (F32Rect, b
 		}, true
 	case "horizontal":
 		height := float32(singleton.cellHeight) / (100 / float32(info.cell_percentage))
-		return F32Rect{
+		return Rectangle[float32]{
 			X: float32(cell_pos.X),
 			Y: float32(cell_pos.Y) + (float32(singleton.cellHeight) - height),
 			W: float32(singleton.cellWidth),
 			H: height,
 		}, false
 	case "vertical":
-		return F32Rect{
+		return Rectangle[float32]{
 			X: float32(cell_pos.X),
 			Y: float32(cell_pos.Y),
 			W: float32(singleton.cellWidth) / (100 / float32(info.cell_percentage)),
 			H: float32(singleton.cellHeight),
 		}, false
 	default:
-		return F32Rect{}, false
+		return Rectangle[float32]{}, false
 	}
 }
 
@@ -129,16 +129,16 @@ func (cursor *Cursor) modeColors(info ModeInfo) (U8Color, U8Color) {
 // This function returns the current rendering position of the cursor Not grid
 // position. sRow and sCol are grid positions for adding to cursor position.
 // Sets cursor.needsDraw to false when an animation finished.
-func (cursor *Cursor) animPosition(sRow, sCol int) IntVec2 {
+func (cursor *Cursor) animPosition(sRow, sCol int) Vector2[int] {
 	aPos, finished := cursor.anim.GetCurrentStep(float32(singleton.time.delta))
 	if finished {
 		cursor.needsDraw = false
-		return IntVec2{
+		return Vector2[int]{
 			X: singleton.cellWidth * (sCol + cursor.Y),
 			Y: singleton.cellHeight * (sRow + cursor.X),
 		}
 	} else {
-		return IntVec2{
+		return Vector2[int]{
 			X: int(float32(singleton.cellWidth) * (float32(sCol) + aPos.Y)),
 			Y: int(float32(singleton.cellHeight) * (float32(sRow) + aPos.X)),
 		}
@@ -155,7 +155,7 @@ func (cursor *Cursor) blinkShow() {
 func (cursor *Cursor) blinkHide() {
 	if !cursor.hidden && !cursor.bHidden {
 		cursor.bHidden = true
-		cursor.vertexData.setCellPos(0, F32Rect{})
+		cursor.vertexData.setCellPos(0, Rectangle[float32]{})
 		singleton.render()
 	}
 }
@@ -170,7 +170,7 @@ func (cursor *Cursor) Show() {
 func (cursor *Cursor) Hide() {
 	if !cursor.hidden {
 		cursor.hidden = true
-		cursor.vertexData.setCellPos(0, F32Rect{})
+		cursor.vertexData.setCellPos(0, Rectangle[float32]{})
 		singleton.render()
 	}
 }
@@ -221,14 +221,14 @@ func (cursor *Cursor) Draw() {
 				cursor.drawWithCell(cell, fg)
 			} else {
 				// Clear foreground character of the cursor.
-				cursor.vertexData.setCellTex1(0, IntRect{})
+				cursor.vertexData.setCellTex1(0, Rectangle[int]{})
 				cursor.vertexData.setCellSp(0, U8Color{})
 			}
 			cursor.vertexData.setCellFg(0, fg)
 			cursor.vertexData.setCellBg(0, bg)
 		} else {
 			// No cell drawing needed. Clear foreground.
-			cursor.vertexData.setCellTex1(0, IntRect{})
+			cursor.vertexData.setCellTex1(0, Rectangle[int]{})
 			cursor.vertexData.setCellFg(0, U8Color{})
 			cursor.vertexData.setCellBg(0, bg)
 			cursor.vertexData.setCellSp(0, U8Color{})

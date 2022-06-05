@@ -58,14 +58,14 @@ func (texture *Texture) clear() {
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, 0)
 }
 
-func (texture *Texture) updatePart(image *image.RGBA, dest IntRect) {
+func (texture *Texture) updatePart(image *image.RGBA, dest Rectangle[int]) {
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0, int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H),
 		gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
 	rglCheckError("texture update part")
 }
 
-func (texture *Texture) glCoords(pos IntRect) F32Rect {
-	return F32Rect{
+func (texture *Texture) glCoords(pos Rectangle[int]) Rectangle[float32] {
+	return Rectangle[float32]{
 		X: float32(pos.X) / float32(texture.width),
 		Y: float32(pos.Y) / float32(texture.height),
 		W: float32(pos.W) / float32(texture.width),

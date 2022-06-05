@@ -160,7 +160,7 @@ func createCrashReport(msg string) {
 	}
 }
 
-func logMessage(logLevel LogLevel, logType LogType, message ...interface{}) {
+func logMessage(logLevel LogLevel, logType LogType, message ...any) {
 	if logLevel < MINIMUM_LOG_LEVEL && verboseFile == nil {
 		return
 	}
@@ -192,7 +192,7 @@ func logMessage(logLevel LogLevel, logType LogType, message ...interface{}) {
 	}
 }
 
-func logMessageFmt(level LogLevel, typ LogType, format string, args ...interface{}) {
+func logMessageFmt(level LogLevel, typ LogType, format string, args ...any) {
 	logMessage(level, typ, fmt.Sprintf(format, args...))
 }
 
@@ -201,32 +201,32 @@ func logMessageFmt(level LogLevel, typ LogType, format string, args ...interface
 // usage.
 
 // Overload for built-in print function, use only for debugging
-func print(msg ...interface{}) {
+func print(msg ...any) {
 	assert_error(BUILD_TYPE != RELEASE, "print() function used in release build")
 	fmt.Println(msg...)
 }
 
 // Colored print
-func printc(color AnsiTermColor, msg ...interface{}) {
+func printc(color AnsiTermColor, msg ...any) {
 	assert_error(BUILD_TYPE != RELEASE, "printc() function used in release build")
 	fmt.Print(color)
 	fmt.Println(msg...)
 }
 
-func printf(format string, args ...interface{}) {
+func printf(format string, args ...any) {
 	assert_error(BUILD_TYPE != RELEASE, "printf() function used in release build")
 	fmt.Printf(format, args...)
 }
 
 // This assert logs fatal when cond is false.
-func assert(cond bool, message ...interface{}) {
+func assert(cond bool, message ...any) {
 	if cond == false {
 		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}
 }
 
 // This assert logs error when cond is false.
-func assert_error(cond bool, message ...interface{}) {
+func assert_error(cond bool, message ...any) {
 	if cond == false {
 		logMessage(LEVEL_ERROR, TYPE_NEORAY, "Assertion Failed:", fmt.Sprint(message...))
 	}

@@ -217,7 +217,7 @@ func (editor *Editor) draw() {
 }
 
 // This function prints cell at the pos.
-func (editor *Editor) debugPrintCell(pos IntVec2) {
+func (editor *Editor) debugPrintCell(pos Vector2[int]) {
 	id, x, y := editor.gridManager.getCellAt(pos)
 	if !singleton.parsedArgs.multiGrid {
 		id = 1

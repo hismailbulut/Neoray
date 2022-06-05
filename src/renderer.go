@@ -12,8 +12,8 @@ const (
 
 type FontAtlas struct {
 	texture    Texture
-	pos        IntVec2
-	characters map[string]IntRect
+	pos        Vector2[int]
+	characters map[string]Rectangle[int]
 }
 
 type Renderer struct {
@@ -47,7 +47,7 @@ func CreateRenderer() Renderer {
 	renderer := Renderer{
 		fontAtlas: FontAtlas{
 			texture:    CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE),
-			characters: make(map[string]IntRect),
+			characters: make(map[string]Rectangle[int]),
 		},
 	}
 
@@ -125,8 +125,8 @@ func (renderer *Renderer) clearAtlas() {
 	defer measure_execution_time()()
 	// logDebug("Cleaning atlas.")
 	renderer.fontAtlas.texture.clear()
-	renderer.fontAtlas.characters = make(map[string]IntRect)
-	renderer.fontAtlas.pos = IntVec2{}
+	renderer.fontAtlas.characters = make(map[string]Rectangle[int])
+	renderer.fontAtlas.pos = Vector2[int]{}
 	singleton.contextMenu.updateChars()
 	singleton.fullDraw()
 }
@@ -157,7 +157,7 @@ func (renderer *Renderer) createVertexData() {
 }
 
 func (renderer *Renderer) debugDrawFontAtlas() {
-	atlas_pos := F32Rect{
+	atlas_pos := Rectangle[float32]{
 		X: float32(singleton.window.width) - (float32(singleton.window.width) / 3),
 		Y: 0,
 		W: float32(singleton.window.width) / 3,
@@ -165,22 +165,22 @@ func (renderer *Renderer) debugDrawFontAtlas() {
 	}
 	storage := renderer.reserveVertexData(1)
 	storage.setCellPos(0, atlas_pos)
-	storage.setCellTex1(0, IntRect{0, 0, FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE})
+	storage.setCellTex1(0, Rectangle[int]{0, 0, FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE})
 	storage.setCellFg(0, U8Color{R: 255, G: 255, B: 255, A: 255})
 }
 
-func (storage VertexDataStorage) setCellPos(index int, pos F32Rect) {
+func (storage VertexDataStorage) setCellPos(index int, pos Rectangle[float32]) {
 	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellPos oob!")
 	storage.renderer.vertexData[storage.begin+index].pos = pos
 }
 
-func (storage VertexDataStorage) setCellTex1(index int, texPos IntRect) {
+func (storage VertexDataStorage) setCellTex1(index int, texPos Rectangle[int]) {
 	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellTex1 oob!")
 	tex1pos := storage.renderer.fontAtlas.texture.glCoords(texPos)
 	storage.renderer.vertexData[storage.begin+index].tex1 = tex1pos
 }
 
-func (storage VertexDataStorage) setCellTex2(index int, texPos IntRect) {
+func (storage VertexDataStorage) setCellTex2(index int, texPos Rectangle[int]) {
 	assert_debug(index >= 0 && storage.begin+index < storage.end, "vds.setCellTex2 oob!")
 	tex2pos := storage.renderer.fontAtlas.texture.glCoords(texPos)
 	storage.renderer.vertexData[storage.begin+index].tex2 = tex2pos
@@ -234,12 +234,12 @@ func (renderer *Renderer) copyRowData(dst, src, left, right int) {
 	}
 }
 
-func (renderer *Renderer) setCellTex1(x, y int, pos IntRect) {
+func (renderer *Renderer) setCellTex1(x, y int, pos Rectangle[int]) {
 	tex1pos := renderer.fontAtlas.texture.glCoords(pos)
 	renderer.vertexData[renderer.cellVertexPos(x, y)].tex1 = tex1pos
 }
 
-func (renderer *Renderer) setCellTex2(x, y int, pos IntRect) {
+func (renderer *Renderer) setCellTex2(x, y int, pos Rectangle[int]) {
 	tex2pos := renderer.fontAtlas.texture.glCoords(pos)
 	renderer.vertexData[renderer.cellVertexPos(x, y)].tex2 = tex2pos
 }
@@ -275,8 +275,8 @@ func (renderer *Renderer) debugGetCellData(x, y int) Vertex {
 //     |
 //     v Row, y, second
 // This function returns position rectangle of the cell needed for opengl.
-func cellPos(x, y int) F32Rect {
-	return F32Rect{
+func cellPos(x, y int) Rectangle[float32] {
+	return Rectangle[float32]{
 		X: float32(y * singleton.cellWidth),
 		Y: float32(x * singleton.cellHeight),
 		W: float32(singleton.cellWidth),
@@ -288,7 +288,7 @@ func (renderer *Renderer) cellVertexPos(x, y int) int {
 	return x*renderer.cols + y
 }
 
-func (renderer *Renderer) nextAtlasPosition(width int) IntVec2 {
+func (renderer *Renderer) nextAtlasPosition(width int) Vector2[int] {
 	atlas := &renderer.fontAtlas
 	pos := atlas.pos
 	if pos.X+width >= FONT_ATLAS_DEFAULT_SIZE {
@@ -346,7 +346,7 @@ func (renderer *Renderer) checkUndercurlPos() {
 		// Render undercurl image
 		textImage := renderer.defaultFont.regular.renderUndercurl()
 		textPos := renderer.nextAtlasPosition(singleton.cellWidth)
-		rect := IntRect{
+		rect := Rectangle[int]{
 			X: textPos.X,
 			Y: textPos.Y,
 			W: singleton.cellWidth,
@@ -362,7 +362,7 @@ func (renderer *Renderer) checkUndercurlPos() {
 }
 
 // Returns given character position at the font atlas.
-func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) IntRect {
+func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) Rectangle[int] {
 	assert_debug(char != ' ' && char != 0, "char is zero or space")
 	// disable underline or strikethrough if this glyph is not alphanumeric
 	if !unicode.IsLetter(char) {
@@ -400,7 +400,7 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 		width := textImage.Rect.Dx()
 		// Get empty atlas position for this character
 		text_pos := renderer.nextAtlasPosition(width)
-		position := IntRect{
+		position := Rectangle[int]{
 			X: text_pos.X,
 			Y: text_pos.Y,
 			W: width,
@@ -423,9 +423,9 @@ func (renderer *Renderer) DrawCellCustom(
 		// This is an empty cell, clear foreground data
 		if y+1 < renderer.cols {
 			// Clear next cells second texture
-			renderer.setCellTex2(x, y+1, IntRect{})
+			renderer.setCellTex2(x, y+1, Rectangle[int]{})
 		}
-		renderer.setCellTex1(x, y, IntRect{})
+		renderer.setCellTex1(x, y, Rectangle[int]{})
 		renderer.setCellSp(x, y, U8Color{})
 		return
 	}
@@ -451,7 +451,7 @@ func (renderer *Renderer) DrawCellCustom(
 			// Draw the parts more than width to the next cell.
 			// NOTE: The more part has the same color with next cell.
 			// NOTE: Multiwidth cells causes glyphs to overlap. But we don't care.
-			secAtlasPos := IntRect{
+			secAtlasPos := Rectangle[int]{
 				X: atlasPos.X + singleton.cellWidth,
 				Y: atlasPos.Y,
 				W: singleton.cellWidth,
@@ -462,7 +462,7 @@ func (renderer *Renderer) DrawCellCustom(
 		}
 	} else {
 		// Clear second texture.
-		renderer.setCellTex2(x, y+1, IntRect{})
+		renderer.setCellTex2(x, y+1, Rectangle[int]{})
 	}
 	// draw
 	renderer.setCellTex1(x, y, atlasPos)

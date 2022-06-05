@@ -107,7 +107,7 @@ func CreateNvimProcess() NvimProcess {
 			logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to start neovim instance:", err)
 		}
 		logMessage(LEVEL_DEBUG, TYPE_NVIM,
-			"Neovim started with command:", singleton.parsedArgs.execPath, mergeStringArray(args))
+			"Neovim started with command:", singleton.parsedArgs.execPath, args)
 	}
 
 	return proc
@@ -286,7 +286,7 @@ func (proc *NvimProcess) checkOptions() {
 					break
 				}
 				logMessage(LEVEL_DEBUG, TYPE_NVIM, "Option", OPTION_TRANSPARENCY, "is", opt[1])
-				singleton.options.transparency = f32clamp(float32(value), 0, 1)
+				singleton.options.transparency = clamp(float32(value), 0, 1)
 				if singleton.mainLoopRunning {
 					singleton.fullDraw()
 				}
@@ -342,7 +342,23 @@ func (proc *NvimProcess) checkOptions() {
 				singleton.window.setState(opt[1])
 				break
 			case OPTION_WINDOW_SIZE:
-				width, height, ok := parseSizeString(opt[1])
+				width, height, ok := func(size string) (int, int, bool) {
+					// Size must be in form of '10x10'
+					values := strings.Split(size, "x")
+					if len(values) != 2 {
+						return 0, 0, false
+					}
+					width, err := strconv.Atoi(values[0])
+					if err != nil {
+						return 0, 0, false
+					}
+					height, err := strconv.Atoi(values[1])
+					if err != nil {
+						return 0, 0, false
+					}
+					return width, height, true
+
+				}(opt[1])
 				if !ok {
 					logMessage(LEVEL_WARN, TYPE_NVIM, OPTION_WINDOW_SIZE, "value isn't valid.")
 					break

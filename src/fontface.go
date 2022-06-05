@@ -86,7 +86,7 @@ func (face *FontFace) calcMetrics() {
 	face.descent = metrics.Descent.Floor()
 	face.height = metrics.Height.Floor()
 
-	face.thickness = f32max(float32(math.Ceil(4*(float64(face.height)/12))/4), 1)
+	face.thickness = max(float32(math.Ceil(4*(float64(face.height)/12))/4), 1)
 }
 
 // ContainsGlyph returns the whether font contains the given glyph.
@@ -103,14 +103,14 @@ func (face *FontFace) renderUndercurl() *image.RGBA {
 	y := h - float32(face.descent)
 	const xd = 10
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
-	thickness := f32max(face.thickness/2, 1)
-	rastCurve(r, thickness, F32Vec2{0, y}, F32Vec2{w / 2, y}, F32Vec2{w / xd, h})
-	rastCurve(r, thickness, F32Vec2{w / 2, y}, F32Vec2{w, y}, F32Vec2{w - (w / xd), h / 2})
+	thickness := max(face.thickness/2, 1)
+	rastCurve(r, thickness, Vector2[float32]{0, y}, Vector2[float32]{w / 2, y}, Vector2[float32]{w / xd, h})
+	rastCurve(r, thickness, Vector2[float32]{w / 2, y}, Vector2[float32]{w, y}, Vector2[float32]{w - (w / xd), h / 2})
 	return rastDraw(r)
 }
 
 // Faster line, not antialiased and only 1 pixel
-func drawLine(img *image.RGBA, begin, end F32Vec2) {
+func drawLine(img *image.RGBA, begin, end Vector2[float32]) {
 	// Round to pixels
 	step := end.minus(begin).normalized()
 	end_pix := end.toInt()
@@ -125,8 +125,8 @@ func drawLine(img *image.RGBA, begin, end F32Vec2) {
 	}
 }
 
-func drawRect(img *image.RGBA, rect F32Rect, alpha float32) {
-	a := uint8(f32clamp(alpha, 0, 1) * 255)
+func drawRect(img *image.RGBA, rect Rectangle[float32], alpha float32) {
+	a := uint8(clamp(alpha, 0, 1) * 255)
 	r := rect.toInt()
 	for x := r.X; x <= r.X+r.W; x++ {
 		for y := r.Y; y <= r.Y+r.H; y++ {
@@ -136,7 +136,7 @@ func drawRect(img *image.RGBA, rect F32Rect, alpha float32) {
 }
 
 // Adds line operation to r
-func rastLine(r *vector.Rasterizer, thickness float32, begin, end F32Vec2) {
+func rastLine(r *vector.Rasterizer, thickness float32, begin, end Vector2[float32]) {
 	perp := end.minus(begin).perpendicular().normalized().multiplyS(thickness)
 	perp_half := perp.divideS(2)
 
@@ -155,7 +155,7 @@ func rastLine(r *vector.Rasterizer, thickness float32, begin, end F32Vec2) {
 }
 
 // Z value of the vectors are thickness
-func rastCorner(r *vector.Rasterizer, mid F32Vec2, points ...F32Vec3) {
+func rastCorner(r *vector.Rasterizer, mid Vector2[float32], points ...Vector3[float32]) {
 	var boldest int = -1
 	var boldest_thickness float32
 	var boldest_horizontal bool
@@ -192,7 +192,7 @@ func rastCorner(r *vector.Rasterizer, mid F32Vec2, points ...F32Vec3) {
 }
 
 // Adds quadratic bezier curve operation to r
-func rastCurve(r *vector.Rasterizer, thickness float32, begin, end, control F32Vec2) {
+func rastCurve(r *vector.Rasterizer, thickness float32, begin, end, control Vector2[float32]) {
 	bePerp := end.minus(begin).perpendicular().normalized().multiplyS(thickness)
 	bcPerp := control.minus(begin).perpendicular().normalized().multiplyS(thickness)
 	cePerp := end.minus(control).perpendicular().normalized().multiplyS(thickness)
@@ -227,30 +227,30 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
 	w := float32(singleton.cellWidth)
 	h := float32(singleton.cellHeight)
-	center := F32Vec2{w / 2, h / 2}
+	center := Vector2[float32]{w / 2, h / 2}
 
 	switch char {
 	case 0x2500: // light horizontal line
-		rastLine(r, light, F32Vec2{0, h / 2}, F32Vec2{w, h / 2})
+		rastLine(r, light, Vector2[float32]{0, h / 2}, Vector2[float32]{w, h / 2})
 	case 0x2501: // heavy horizontal line
-		rastLine(r, heavy, F32Vec2{0, h / 2}, F32Vec2{w, h / 2})
+		rastLine(r, heavy, Vector2[float32]{0, h / 2}, Vector2[float32]{w, h / 2})
 	case 0x2502: // light vertical line
-		rastLine(r, light, F32Vec2{w / 2, 0}, F32Vec2{w / 2, h})
+		rastLine(r, light, Vector2[float32]{w / 2, 0}, Vector2[float32]{w / 2, h})
 	case 0x2503: // heavy vertical line
-		rastLine(r, heavy, F32Vec2{w / 2, 0}, F32Vec2{w / 2, h})
+		rastLine(r, heavy, Vector2[float32]{w / 2, 0}, Vector2[float32]{w / 2, h})
 
 	case 0x250C, 0x250D, 0x250E, 0x250F,
 		0x2510, 0x2511, 0x2512, 0x2513,
 		0x2514, 0x2515, 0x2516, 0x2517,
 		0x2518, 0x2519, 0x251A, 0x251B:
 		n := char - 0x250C
-		up := F32Vec2{w / 2, h}
+		up := Vector2[float32]{w / 2, h}
 		if n/8 > 0 {
-			up = F32Vec2{w / 2, 0}
+			up = Vector2[float32]{w / 2, 0}
 		}
-		left := F32Vec2{w, h / 2}
+		left := Vector2[float32]{w, h / 2}
 		if (n/4)%2 != 0 {
-			left = F32Vec2{0, h / 2}
+			left = Vector2[float32]{0, h / 2}
 		}
 		upThickness := light
 		if (n/2)%2 != 0 {
@@ -267,9 +267,9 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 		0x2524, 0x2525, 0x2526, 0x2527,
 		0x2528, 0x2529, 0x252A, 0x252B:
 		n := char - 0x251C
-		right := F32Vec2{w, h / 2}
+		right := Vector2[float32]{w, h / 2}
 		if n >= 8 {
-			right = F32Vec2{0, h / 2}
+			right = Vector2[float32]{0, h / 2}
 			n -= 8
 		}
 		upThickness := light
@@ -285,18 +285,18 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 			downThickness = heavy
 		}
 		rastCorner(r, center,
-			F32Vec3{w / 2, 0, upThickness},
+			Vector3[float32]{w / 2, 0, upThickness},
 			right.toVec3(rightThickness),
-			F32Vec3{w / 2, h, downThickness})
+			Vector3[float32]{w / 2, h, downThickness})
 
 	case 0x252C, 0x252D, 0x252E, 0x252F,
 		0x2530, 0x2531, 0x2532, 0x2533,
 		0x2534, 0x2535, 0x2536, 0x2537,
 		0x2538, 0x2539, 0x253A, 0x253B:
 		n := char - 0x252C
-		down := F32Vec2{w / 2, h}
+		down := Vector2[float32]{w / 2, h}
 		if n >= 8 {
-			down = F32Vec2{w / 2, 0}
+			down = Vector2[float32]{w / 2, 0}
 		}
 		leftThickness := light
 		if n%2 != 0 {
@@ -311,8 +311,8 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 			downThickness = heavy
 		}
 		rastCorner(r, center,
-			F32Vec3{0, h / 2, leftThickness},
-			F32Vec3{w, h / 2, rightThickness},
+			Vector3[float32]{0, h / 2, leftThickness},
+			Vector3[float32]{w, h / 2, rightThickness},
 			down.toVec3(downThickness))
 
 	case 0x253C, 0x253D, 0x253E, 0x253F,
@@ -337,39 +337,39 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 			leftThickness = heavy
 		}
 		rastCorner(r, center,
-			F32Vec3{w / 2, 0, upThickness}, F32Vec3{w, h / 2, rightThickness},
-			F32Vec3{w / 2, h, downThickness}, F32Vec3{0, h / 2, leftThickness})
+			Vector3[float32]{w / 2, 0, upThickness}, Vector3[float32]{w, h / 2, rightThickness},
+			Vector3[float32]{w / 2, h, downThickness}, Vector3[float32]{0, h / 2, leftThickness})
 
 	// TODO: Doubles
 
 	case 0x256D: // light down to right arc
-		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{w, h / 2}, center)
+		rastCurve(r, light, Vector2[float32]{w / 2, h}, Vector2[float32]{w, h / 2}, center)
 	case 0x256E: // light down to left arc
-		rastCurve(r, light, F32Vec2{w / 2, h}, F32Vec2{0, h / 2}, center)
+		rastCurve(r, light, Vector2[float32]{w / 2, h}, Vector2[float32]{0, h / 2}, center)
 	case 0x256F: // light up to left arc
-		rastCurve(r, light, F32Vec2{w / 2, 0}, F32Vec2{0, h / 2}, center)
+		rastCurve(r, light, Vector2[float32]{w / 2, 0}, Vector2[float32]{0, h / 2}, center)
 	case 0x2570: // light up to right arc
-		rastCurve(r, light, F32Vec2{w / 2, 0}, F32Vec2{w, h / 2}, center)
+		rastCurve(r, light, Vector2[float32]{w / 2, 0}, Vector2[float32]{w, h / 2}, center)
 
 	case 0x2571: // diagonal bot-left to top-right
-		rastLine(r, light, F32Vec2{0, h}, F32Vec2{w, 0})
+		rastLine(r, light, Vector2[float32]{0, h}, Vector2[float32]{w, 0})
 	case 0x2572: // diagonal top-left to bot-right
-		rastLine(r, light, F32Vec2{0, 0}, F32Vec2{w, h})
+		rastLine(r, light, Vector2[float32]{0, 0}, Vector2[float32]{w, h})
 	case 0x2573: // both
-		rastLine(r, light, F32Vec2{0, h}, F32Vec2{w, 0})
-		rastLine(r, light, F32Vec2{0, 0}, F32Vec2{w, h})
+		rastLine(r, light, Vector2[float32]{0, h}, Vector2[float32]{w, 0})
+		rastLine(r, light, Vector2[float32]{0, 0}, Vector2[float32]{w, h})
 
 	case 0x2574, 0x2575, 0x2576, 0x2577,
 		0x2578, 0x2579, 0x257A, 0x257B:
 		n := char - 0x2574
-		pos := F32Vec2{0, h / 2}
+		pos := Vector2[float32]{0, h / 2}
 		switch n % 4 {
 		case 1: // up
-			pos = F32Vec2{w / 2, 0}
+			pos = Vector2[float32]{w / 2, 0}
 		case 2: // right
-			pos = F32Vec2{w, h / 2}
+			pos = Vector2[float32]{w, h / 2}
 		case 3: // down
-			pos = F32Vec2{w / 2, h}
+			pos = Vector2[float32]{w / 2, h}
 		}
 		thickness := light
 		if n/4 >= 1 {
@@ -378,17 +378,17 @@ func (face *FontFace) drawUnicodeBoxGlyph(char rune) *image.RGBA {
 		rastLine(r, thickness, pos, center)
 
 	case 0x257C:
-		rastLine(r, light, F32Vec2{0, h / 2}, center)
-		rastLine(r, heavy, F32Vec2{w, h / 2}, center)
+		rastLine(r, light, Vector2[float32]{0, h / 2}, center)
+		rastLine(r, heavy, Vector2[float32]{w, h / 2}, center)
 	case 0x257D:
-		rastLine(r, light, F32Vec2{w / 2, 0}, center)
-		rastLine(r, heavy, F32Vec2{w / 2, h}, center)
+		rastLine(r, light, Vector2[float32]{w / 2, 0}, center)
+		rastLine(r, heavy, Vector2[float32]{w / 2, h}, center)
 	case 0x257E:
-		rastLine(r, heavy, F32Vec2{0, h / 2}, center)
-		rastLine(r, light, F32Vec2{w, h / 2}, center)
+		rastLine(r, heavy, Vector2[float32]{0, h / 2}, center)
+		rastLine(r, light, Vector2[float32]{w, h / 2}, center)
 	case 0x257F:
-		rastLine(r, heavy, F32Vec2{w / 2, 0}, center)
-		rastLine(r, light, F32Vec2{w / 2, h}, center)
+		rastLine(r, heavy, Vector2[float32]{w / 2, 0}, center)
+		rastLine(r, light, Vector2[float32]{w / 2, h}, center)
 
 	default:
 		return nil
@@ -404,63 +404,63 @@ func (face *FontFace) drawUnicodeBlockGlyph(char rune) *image.RGBA {
 
 	switch char {
 	case 0x2580: // upper 1/2 block
-		drawRect(img, F32Rect{0, 0, w, h / 2}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w, h / 2}, 1)
 	case 0x2581: // lower 1/8 block
-		drawRect(img, F32Rect{0, h - h/8, w, h / 8}, 1)
+		drawRect(img, Rectangle[float32]{0, h - h/8, w, h / 8}, 1)
 	case 0x2582: // lower 1/4 block
-		drawRect(img, F32Rect{0, h - h/4, w, h / 4}, 1)
+		drawRect(img, Rectangle[float32]{0, h - h/4, w, h / 4}, 1)
 	case 0x2583: // lower 3/8 block
-		drawRect(img, F32Rect{0, h - (h * 3 / 8), w, h * 3 / 8}, 1)
+		drawRect(img, Rectangle[float32]{0, h - (h * 3 / 8), w, h * 3 / 8}, 1)
 	case 0x2584: // lower 1/2 block
-		drawRect(img, F32Rect{0, h / 2, w, h / 2}, 1)
+		drawRect(img, Rectangle[float32]{0, h / 2, w, h / 2}, 1)
 	case 0x2585: // lower 5/8 block
-		drawRect(img, F32Rect{0, h - (h * 5 / 8), w, h * 5 / 8}, 1)
+		drawRect(img, Rectangle[float32]{0, h - (h * 5 / 8), w, h * 5 / 8}, 1)
 	case 0x2586: // lower 3/4 block
-		drawRect(img, F32Rect{0, h - (h * 3 / 4), w, h * 3 / 4}, 1)
+		drawRect(img, Rectangle[float32]{0, h - (h * 3 / 4), w, h * 3 / 4}, 1)
 	case 0x2587: // lower 7/8 block
-		drawRect(img, F32Rect{0, h - (h * 7 / 8), w, h * 7 / 8}, 1)
+		drawRect(img, Rectangle[float32]{0, h - (h * 7 / 8), w, h * 7 / 8}, 1)
 	case 0x2588: // full block
-		drawRect(img, F32Rect{0, 0, w, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w, h}, 1)
 	case 0x2589: // left 7/8 block
-		drawRect(img, F32Rect{0, 0, w * 7 / 8, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w * 7 / 8, h}, 1)
 	case 0x258A: // left 3/4 block
-		drawRect(img, F32Rect{0, 0, w * 3 / 4, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w * 3 / 4, h}, 1)
 	case 0x258B: // left 5/8 block
-		drawRect(img, F32Rect{0, 0, w * 5 / 8, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w * 5 / 8, h}, 1)
 	case 0x258C: // left 1/2 block
-		drawRect(img, F32Rect{0, 0, w / 2, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w / 2, h}, 1)
 	case 0x258D: // left 3/8 block
-		drawRect(img, F32Rect{0, 0, w * 3 / 8, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w * 3 / 8, h}, 1)
 	case 0x258E: // left 1/4 block
-		drawRect(img, F32Rect{0, 0, w / 4, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w / 4, h}, 1)
 	case 0x258F: // left 1/8 block
-		drawRect(img, F32Rect{0, 0, w / 8, h}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w / 8, h}, 1)
 	case 0x2590: // rigt 1/2 block
-		drawRect(img, F32Rect{w / 2, 0, w / 2, h}, 1)
+		drawRect(img, Rectangle[float32]{w / 2, 0, w / 2, h}, 1)
 	case 0x2591: // light shade
-		drawRect(img, F32Rect{0, 0, w, h}, 0.25)
+		drawRect(img, Rectangle[float32]{0, 0, w, h}, 0.25)
 	case 0x2592: // medium shade
-		drawRect(img, F32Rect{0, 0, w, h}, 0.50)
+		drawRect(img, Rectangle[float32]{0, 0, w, h}, 0.50)
 	case 0x2593: // dark shade
-		drawRect(img, F32Rect{0, 0, w, h}, 0.75)
+		drawRect(img, Rectangle[float32]{0, 0, w, h}, 0.75)
 	case 0x2594: // upper 1/8 block
-		drawRect(img, F32Rect{0, 0, w, h / 8}, 1)
+		drawRect(img, Rectangle[float32]{0, 0, w, h / 8}, 1)
 	case 0x2595: // right 1/8 block
-		drawRect(img, F32Rect{w - w/8, 0, w / 8, h}, 1)
+		drawRect(img, Rectangle[float32]{w - w/8, 0, w / 8, h}, 1)
 	case 0x2596, 0x2597, 0x2598, 0x2599, 0x259A,
 		0x259B, 0x259C, 0x259D, 0x259E, 0x259F: // quadrants
 		n := char - 0x2596
 		if n >= 2 && n <= 6 { // upper left
-			drawRect(img, F32Rect{0, 0, w / 2, h / 2}, 1)
+			drawRect(img, Rectangle[float32]{0, 0, w / 2, h / 2}, 1)
 		}
 		if n == 0 || n == 3 || n == 5 || n == 8 || n == 9 { // lower left
-			drawRect(img, F32Rect{0, h / 2, w / 2, h / 2}, 1)
+			drawRect(img, Rectangle[float32]{0, h / 2, w / 2, h / 2}, 1)
 		}
 		if n >= 5 && n <= 9 { // upper right
-			drawRect(img, F32Rect{w / 2, 0, w / 2, h / 2}, 1)
+			drawRect(img, Rectangle[float32]{w / 2, 0, w / 2, h / 2}, 1)
 		}
 		if n == 1 || n == 3 || n == 4 || n == 6 || n == 9 { // lower right
-			drawRect(img, F32Rect{w / 2, h / 2, w / 2, h / 2}, 1)
+			drawRect(img, Rectangle[float32]{w / 2, h / 2, w / 2, h / 2}, 1)
 		}
 	default:
 		logMessage(LEVEL_FATAL, TYPE_NEORAY, "missing block glyph:", char)
@@ -517,11 +517,11 @@ func (face *FontFace) RenderChar(char rune, underline, strikethrough bool) *imag
 	w := float32(img.Rect.Dx())
 	if underline {
 		y := float32(singleton.cellHeight-face.descent) + 1
-		drawLine(img, F32Vec2{0, y}, F32Vec2{w, y})
+		drawLine(img, Vector2[float32]{0, y}, Vector2[float32]{w, y})
 	}
 	if strikethrough {
 		y := float32(singleton.cellHeight) / 2
-		drawLine(img, F32Vec2{0, y}, F32Vec2{w, y})
+		drawLine(img, Vector2[float32]{0, y}, Vector2[float32]{w, y})
 	}
 	return img
 }

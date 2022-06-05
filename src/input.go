@@ -72,8 +72,8 @@ var (
 	}
 
 	// Global input variables
-	lastMousePos    IntVec2
-	lastDragPos     IntVec2
+	lastMousePos    Vector2[int]
+	lastDragPos     Vector2[int]
 	lastDragGrid    int
 	lastMouseButton string
 	lastMouseAction glfw.Action

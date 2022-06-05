@@ -13,11 +13,11 @@ import (
 
 type Vertex struct {
 	// position of this vertex
-	pos F32Rect // layout 0
+	pos Rectangle[float32] // layout 0
 	// texture position
-	tex1 F32Rect // layout 1
+	tex1 Rectangle[float32] // layout 1
 	// second texture position used for multiwidth characters
-	tex2 F32Rect // layout 2
+	tex2 Rectangle[float32] // layout 2
 	// foreground color
 	fg F32Color // layout 3
 	// background color
@@ -108,7 +108,7 @@ func rglCreateViewport(w, h int) {
 	rglCheckError("create viewport")
 }
 
-func rglSetUndercurlRect(val F32Rect) {
+func rglSetUndercurlRect(val Rectangle[float32]) {
 	loc := rglGetUniformLocation("undercurlRect")
 	gl.Uniform4f(loc, val.X, val.Y, val.W, val.H)
 }

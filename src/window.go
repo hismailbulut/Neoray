@@ -45,7 +45,7 @@ type Window struct {
 	dpi      float64
 	hasfocus bool
 
-	windowedRect IntRect
+	windowedRect Rectangle[int]
 	windowState  WindowState
 	cursorHidden bool
 }
@@ -292,7 +292,7 @@ func (window *Window) toggleFullscreen() {
 		X, Y := window.handle.GetPos()
 		W, H := window.handle.GetSize()
 		// Store dimension for restoring
-		window.windowedRect = IntRect{X: X, Y: Y, W: W, H: H}
+		window.windowedRect = Rectangle[int]{X: X, Y: Y, W: W, H: H}
 		// Fulscreen to current monitor
 		monitor := window.getCurrentMonitor(X, Y, W, H)
 		videoMode := monitor.GetVideoMode()
