@@ -1,19 +1,14 @@
 package main
 
-import (
-	"fmt"
-	"unicode"
-)
-
 const (
-	UNSUPPORTED_GLYPH_ID = "Unsupported"
-	UNDERCURL_GLYPH_ID   = "Undercurl"
+	UNSUPPORTED_GLYPH_ID = 0xffffffffffffffff // "Unsupported"
+	UNDERCURL_GLYPH_ID   = 0xfffffffffffffffe // "Undercurl"
 )
 
 type FontAtlas struct {
 	texture    Texture
 	pos        Vector2[int]
-	characters map[string]Rectangle[int]
+	characters map[uint64]Rectangle[int]
 }
 
 type Renderer struct {
@@ -47,7 +42,7 @@ func CreateRenderer() Renderer {
 	renderer := Renderer{
 		fontAtlas: FontAtlas{
 			texture:    CreateTexture(FONT_ATLAS_DEFAULT_SIZE, FONT_ATLAS_DEFAULT_SIZE),
-			characters: make(map[string]Rectangle[int]),
+			characters: make(map[uint64]Rectangle[int]),
 		},
 	}
 
@@ -125,7 +120,7 @@ func (renderer *Renderer) clearAtlas() {
 	defer measure_execution_time()()
 	// logDebug("Cleaning atlas.")
 	renderer.fontAtlas.texture.clear()
-	renderer.fontAtlas.characters = make(map[string]Rectangle[int])
+	renderer.fontAtlas.characters = make(map[uint64]Rectangle[int])
 	renderer.fontAtlas.pos = Vector2[int]{}
 	singleton.contextMenu.updateChars()
 	singleton.fullDraw()
@@ -361,6 +356,24 @@ func (renderer *Renderer) checkUndercurlPos() {
 	}
 }
 
+func (renderer *Renderer) getCharID(char rune, italic, bold, underline, strikethrough bool) uint64 {
+	defer measure_execution_time()()
+	id := uint64(char)
+	if italic {
+		id = id | uint64(1)<<32
+	}
+	if bold {
+		id = id | uint64(1)<<40
+	}
+	if underline {
+		id = id | uint64(1)<<48
+	}
+	if strikethrough {
+		id = id | uint64(1)<<56
+	}
+	return id
+}
+
 // Returns given character position at the font atlas.
 func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) Rectangle[int] {
 	assert_debug(char != ' ' && char != 0, "char is zero or space")
@@ -370,7 +383,7 @@ func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, striket
 		strikethrough = false
 	}
 	// generate specific id for this character
-	id := fmt.Sprintf("%d%t%t%t%t", char, italic, bold, underline, strikethrough)
+	id := renderer.getCharID(char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
 		// use stored texture
 		return pos
