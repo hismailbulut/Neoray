@@ -377,11 +377,6 @@ func (renderer *Renderer) getCharID(char rune, italic, bold, underline, striketh
 // Returns given character position at the font atlas.
 func (renderer *Renderer) getCharPos(char rune, italic, bold, underline, strikethrough bool) Rectangle[int] {
 	assert_debug(char != ' ' && char != 0, "char is zero or space")
-	// disable underline or strikethrough if this glyph is not alphanumeric
-	if !unicode.IsLetter(char) {
-		underline = false
-		strikethrough = false
-	}
 	// generate specific id for this character
 	id := renderer.getCharID(char, italic, bold, underline, strikethrough)
 	if pos, ok := renderer.fontAtlas.characters[id]; ok == true {
