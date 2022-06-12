@@ -135,12 +135,19 @@ func (renderer *Renderer) resize(rows, cols int) {
 
 func (renderer *Renderer) createVertexData() {
 	defer measure_execution_time()()
-	renderer.vertexData = make([]Vertex, renderer.rows*renderer.cols)
+
+	// Vertex data must be cleared everytime it recreated
+	// NOTE: Allocates bunch of memory on every resize
+	newLen := renderer.rows * renderer.cols
+	renderer.vertexData = make([]Vertex, newLen)
+
+	// Initializes all of the vertices
 	for x := 0; x < renderer.rows; x++ {
 		for y := 0; y < renderer.cols; y++ {
 			renderer.vertexData[renderer.cellVertexPos(x, y)].pos = cellPos(x, y)
 		}
 	}
+
 	// Add cursor to data.
 	singleton.cursor.createVertexData()
 	// Add popup menu to data.
@@ -202,9 +209,9 @@ func (storage VertexDataStorage) setCellSp(index int, sp U8Color) {
 // as cell positions, not vertex data positions.
 func (renderer *Renderer) reserveVertexData(cellCount int) VertexDataStorage {
 	begin := len(renderer.vertexData)
-	for i := 0; i < cellCount; i++ {
-		renderer.vertexData = append(renderer.vertexData, Vertex{})
-	}
+	// for i := 0; i < cellCount; i++ {
+	renderer.vertexData = append(renderer.vertexData, make([]Vertex, cellCount)...)
+	// }
 	return VertexDataStorage{
 		renderer: renderer,
 		begin:    begin,
@@ -550,7 +557,7 @@ func (renderer *Renderer) drawCells(fullDraw bool) {
 					cell := grid.getCell(x, y)
 					if fullDraw || cell.needsDraw {
 						renderer.DrawCell(grid.sRow+x, grid.sCol+y, cell)
-						grid.cells[x][y].needsDraw = false
+						grid.setCellDrawed(x, y)
 					}
 				}
 			}

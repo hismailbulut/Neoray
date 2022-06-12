@@ -5,12 +5,6 @@ import (
 	"sort"
 )
 
-type Cell struct {
-	char      rune
-	attribId  int
-	needsDraw bool
-}
-
 type HighlightAttribute struct {
 	foreground    U8Color
 	background    U8Color
@@ -32,6 +26,26 @@ const (
 	GridTypeFloat                   // Float window, will be rendered most front
 )
 
+func (gridType GridType) String() string {
+	switch gridType {
+	case GridTypeNormal:
+		return "Normal"
+	case GridTypeMessage:
+		return "Message"
+	case GridTypeFloat:
+		return "Float"
+	}
+	panic("unknown grid type")
+}
+
+// Because of the struct packing, this order of elements is important
+// Current size of the Cell is 16 bytes
+type Cell struct {
+	needsDraw bool
+	char      rune
+	attribId  int
+}
+
 type Grid struct {
 	id         int // id is the same id used in the grids hashmap
 	number     int // number specifies the create order of the grid, which starts from zero and counts
@@ -40,7 +54,132 @@ type Grid struct {
 	rows, cols int // rows and columns of the grid
 	window     int // grid's window id
 	hidden     bool
-	cells      [][]Cell
+	cells      []Cell
+}
+
+// For debugging purposes.
+func (grid *Grid) String() string {
+	return fmt.Sprint("Id: ", grid.id, " Nr: ", grid.number,
+		" Y: ", grid.sRow, " X: ", grid.sCol, " H: ", grid.rows, " W: ", grid.cols,
+		" Win: ", grid.window, " Hidden: ", grid.hidden, " Type: ", grid.typ)
+}
+
+// x is column number
+// y is row number
+func (grid *Grid) cellIndex(x, y int) int {
+	return y*grid.rows + x
+}
+
+// This function returns a copy of the cell. Does not check bounds.
+func (grid *Grid) getCell(x, y int) Cell {
+	return grid.cells[grid.cellIndex(x, y)]
+}
+
+// Sets the cell in grid. Does not check bounds.
+func (grid *Grid) setCell(x, y int, char rune, attribId int) {
+	index := grid.cellIndex(x, y)
+	grid.cells[index].char = char
+	grid.cells[index].attribId = attribId
+	grid.cells[index].needsDraw = true
+}
+
+func (grid *Grid) setCellDrawed(x, y int) {
+	index := grid.cellIndex(x, y)
+	grid.cells[index].needsDraw = false
+}
+
+// dst and src are row numbers
+// left and right are column numbers
+func (grid *Grid) copyRow(dst, src, left, right int) {
+	copy(grid.cells[grid.cellIndex(dst, left):grid.cellIndex(dst, right)], grid.cells[grid.cellIndex(src, left):grid.cellIndex(src, right)])
+	// Renderer needs global position
+	singleton.renderer.copyRowData(dst+grid.sRow, src+grid.sRow, left+grid.sCol, right+grid.sCol)
+}
+
+func (grid *Grid) scroll(top, bot, rows, left, right int) {
+	defer measure_execution_time()()
+	if rows > 0 { // Scroll down, move up
+		for y := top + rows; y < bot; y++ {
+			grid.copyRow(y-rows, y, left, right)
+		}
+	} else { // Scroll up, move down
+		for y := (bot + rows) - 1; y >= top; y-- {
+			grid.copyRow(y-rows, y, left, right)
+		}
+	}
+	// Animate cursor when scrolling
+	cursor := &singleton.cursor
+	if cursor.isInArea(grid.id, top, left, bot-top, right-left) {
+		// This is for cursor animation when scrolling. Simply we are moving cursor
+		// with scroll area immediately, and returning back to its position smoothly.
+		target := cursor.X - rows
+		if target >= 0 && target < singleton.gridManager.grids[cursor.grid].rows {
+			current := cursor.X
+			cursor.setPosition(cursor.grid, target, cursor.Y, true)
+			cursor.setPosition(cursor.grid, current, cursor.Y, false)
+		}
+	}
+	// We dont need to draw screen because we already directly moved vertex
+	// data. Only rendering will be fine.
+	singleton.render()
+}
+
+// Don't use this function directly. Use gridManager's resize function.
+func (grid *Grid) resize(rows, cols int) {
+	// Don't resize if size is already same
+	if rows == grid.rows && cols == grid.cols {
+		return
+	}
+
+	// Resize grid and copy cells
+	const DEFAULTCAP = 2 << 12 // 8192 * 16 / 1024 / 1024 = 0.125 MB per grid minimum
+	newLen := rows * cols
+	// printf("Grid.Resize, ID: %d, Rows: %d, Cols: %d, NewLen: %d, Len: %d, Cap: %d, Pointer: %p\n", grid.id, rows, cols, newLen, len(grid.cells), cap(grid.cells), &grid.cells)
+
+	switch {
+	case grid.cells == nil:
+		// Calculate reqired newCap, always multiplies of DEFAULTCAP
+		newCap := DEFAULTCAP
+		for newCap < newLen {
+			newCap += DEFAULTCAP
+		}
+		grid.cells = make([]Cell, newLen, newCap)
+	case len(grid.cells) < newLen:
+		if newLen > cap(grid.cells) {
+			// Recalculate newCap
+			newCap := DEFAULTCAP
+			for newCap < newLen {
+				newCap += DEFAULTCAP
+			}
+			// Resize cells and copy items
+			temp := make([]Cell, len(grid.cells), cap(grid.cells))
+			copy(temp, grid.cells)
+			grid.cells = make([]Cell, newLen, newCap)
+			copy(grid.cells, temp)
+			// This is the most expensive operation, hopefully we don't do this everytime
+		} else {
+			grid.cells = grid.cells[:newLen]
+		}
+	case len(grid.cells) > newLen:
+		grid.cells = grid.cells[:newLen]
+	}
+
+	grid.rows = rows
+	grid.cols = cols
+
+	singleton.fullDraw()
+}
+
+func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
+	grid.window = win
+	grid.typ = typ
+	grid.hidden = false
+
+	grid.sRow = sRow
+	grid.sCol = sCol
+	grid.resize(rows, cols)
+
+	singleton.fullDraw()
 }
 
 type GridManager struct {
@@ -58,25 +197,6 @@ func CreateGridManager() GridManager {
 		attributes: make(map[int]HighlightAttribute),
 	}
 	return grid
-}
-
-func (gridType GridType) String() string {
-	switch gridType {
-	case GridTypeNormal:
-		return "Normal"
-	case GridTypeMessage:
-		return "Message"
-	case GridTypeFloat:
-		return "Float"
-	}
-	panic("unknown grid type")
-}
-
-// For debugging purposes.
-func (grid *Grid) String() string {
-	return fmt.Sprint("Id: ", grid.id, " Nr: ", grid.number,
-		" Y: ", grid.sRow, " X: ", grid.sCol, " H: ", grid.rows, " W: ", grid.cols,
-		" Win: ", grid.window, " Hidden: ", grid.hidden, " Type: ", grid.typ)
 }
 
 // Sorts grids according to rendering order and returns it.
@@ -154,48 +274,6 @@ func (gridManager *GridManager) resize(id int, rows, cols int) {
 	grid.resize(rows, cols)
 }
 
-// Don't use this function directly. Use gridManager's resize function.
-func (grid *Grid) resize(rows, cols int) {
-	// Don't resize if size is already same
-	if rows == grid.rows && cols == grid.cols {
-		return
-	}
-	// Resize grid and copy cells
-	if len(grid.cells) < rows {
-		temp := make([][]Cell, len(grid.cells))
-		copy(temp, grid.cells)
-		grid.cells = make([][]Cell, rows)
-		copy(grid.cells, temp)
-	} else {
-		grid.cells = grid.cells[:rows]
-	}
-	for i := 0; i < rows; i++ {
-		if len(grid.cells[i]) < cols {
-			temp := make([]Cell, len(grid.cells[i]))
-			copy(temp, grid.cells[i])
-			grid.cells[i] = make([]Cell, cols)
-			copy(grid.cells[i], temp)
-		} else {
-			grid.cells[i] = grid.cells[i][:cols]
-		}
-	}
-	grid.rows = rows
-	grid.cols = cols
-	singleton.fullDraw()
-}
-
-func (grid *Grid) setPos(win, sRow, sCol, rows, cols int, typ GridType) {
-	grid.window = win
-	grid.typ = typ
-	grid.hidden = false
-
-	grid.sRow = sRow
-	grid.sCol = sCol
-	grid.resize(rows, cols)
-
-	singleton.fullDraw()
-}
-
 func (gridManager *GridManager) hide(id int) {
 	grid, ok := gridManager.grids[id]
 	if ok {
@@ -223,9 +301,7 @@ func (gridManager *GridManager) clear(id int) {
 	if ok {
 		for i := 0; i < grid.rows; i++ {
 			for j := 0; j < grid.cols; j++ {
-				grid.cells[i][j].char = 0
-				grid.cells[i][j].attribId = 0
-				grid.cells[i][j].needsDraw = true
+				grid.setCell(i, j, 0, 0)
 			}
 		}
 		singleton.draw()
@@ -248,50 +324,4 @@ func (gridManager *GridManager) setCell(id, x int, y *int, char rune, attribId, 
 			*y++
 		}
 	}
-}
-
-// Sets the cell in grid. Does not check bounds.
-func (grid *Grid) setCell(x, y int, char rune, attribId int) {
-	grid.cells[x][y].char = char
-	grid.cells[x][y].attribId = attribId
-	grid.cells[x][y].needsDraw = true
-}
-
-// This function returns a copy of the cell. Does not check bounds.
-func (grid *Grid) getCell(x, y int) Cell {
-	return grid.cells[x][y]
-}
-
-func (grid *Grid) copyRow(dst, src, left, right int) {
-	copy(grid.cells[dst][left:right], grid.cells[src][left:right])
-	// Renderer needs global position
-	singleton.renderer.copyRowData(dst+grid.sRow, src+grid.sRow, left+grid.sCol, right+grid.sCol)
-}
-
-func (grid *Grid) scroll(top, bot, rows, left, right int) {
-	defer measure_execution_time()()
-	if rows > 0 { // Scroll down, move up
-		for y := top + rows; y < bot; y++ {
-			grid.copyRow(y-rows, y, left, right)
-		}
-	} else { // Scroll up, move down
-		for y := (bot + rows) - 1; y >= top; y-- {
-			grid.copyRow(y-rows, y, left, right)
-		}
-	}
-	// Animate cursor when scrolling
-	cursor := &singleton.cursor
-	if cursor.isInArea(grid.id, top, left, bot-top, right-left) {
-		// This is for cursor animation when scrolling. Simply we are moving cursor
-		// with scroll area immediately, and returning back to its position smoothly.
-		target := cursor.X - rows
-		if target >= 0 && target < singleton.gridManager.grids[cursor.grid].rows {
-			current := cursor.X
-			cursor.setPosition(cursor.grid, target, cursor.Y, true)
-			cursor.setPosition(cursor.grid, current, cursor.Y, false)
-		}
-	}
-	// We dont need to draw screen because we already directly moved vertex
-	// data. Only rendering will be fine.
-	singleton.render()
 }
