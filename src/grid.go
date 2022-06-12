@@ -54,7 +54,7 @@ type Grid struct {
 	rows, cols int // rows and columns of the grid
 	window     int // grid's window id
 	hidden     bool
-	cells      []Cell
+	cells      [][]Cell
 }
 
 // For debugging purposes.
@@ -64,34 +64,27 @@ func (grid *Grid) String() string {
 		" Win: ", grid.window, " Hidden: ", grid.hidden, " Type: ", grid.typ)
 }
 
-// x is column number
-// y is row number
-func (grid *Grid) cellIndex(x, y int) int {
-	return y*grid.rows + x
-}
-
 // This function returns a copy of the cell. Does not check bounds.
 func (grid *Grid) getCell(x, y int) Cell {
-	return grid.cells[grid.cellIndex(x, y)]
+	return grid.cells[x][y]
 }
 
 // Sets the cell in grid. Does not check bounds.
 func (grid *Grid) setCell(x, y int, char rune, attribId int) {
-	index := grid.cellIndex(x, y)
-	grid.cells[index].char = char
-	grid.cells[index].attribId = attribId
-	grid.cells[index].needsDraw = true
+	grid.cells[x][y].char = char
+	grid.cells[x][y].attribId = attribId
+	grid.cells[x][y].needsDraw = true
 }
 
 func (grid *Grid) setCellDrawed(x, y int) {
-	index := grid.cellIndex(x, y)
-	grid.cells[index].needsDraw = false
+	grid.cells[x][y].needsDraw = false
 }
 
 // dst and src are row numbers
 // left and right are column numbers
 func (grid *Grid) copyRow(dst, src, left, right int) {
-	copy(grid.cells[grid.cellIndex(dst, left):grid.cellIndex(dst, right)], grid.cells[grid.cellIndex(src, left):grid.cellIndex(src, right)])
+	// copy(grid.cells[grid.cellIndex(dst, left):grid.cellIndex(dst, right)], grid.cells[grid.cellIndex(src, left):grid.cellIndex(src, right)])
+	copy(grid.cells[dst][left:right], grid.cells[src][left:right])
 	// Renderer needs global position
 	singleton.renderer.copyRowData(dst+grid.sRow, src+grid.sRow, left+grid.sCol, right+grid.sCol)
 }
@@ -126,42 +119,29 @@ func (grid *Grid) scroll(top, bot, rows, left, right int) {
 
 // Don't use this function directly. Use gridManager's resize function.
 func (grid *Grid) resize(rows, cols int) {
+	print("Grid.Resize, ID:", grid.id, "Rows:", rows, "Cols:", cols)
 	// Don't resize if size is already same
 	if rows == grid.rows && cols == grid.cols {
 		return
 	}
 
 	// Resize grid and copy cells
-	const DEFAULTCAP = 2 << 12 // 8192 * 16 / 1024 / 1024 = 0.125 MB per grid minimum
-	newLen := rows * cols
-	// printf("Grid.Resize, ID: %d, Rows: %d, Cols: %d, NewLen: %d, Len: %d, Cap: %d, Pointer: %p\n", grid.id, rows, cols, newLen, len(grid.cells), cap(grid.cells), &grid.cells)
-
-	switch {
-	case grid.cells == nil:
-		// Calculate reqired newCap, always multiplies of DEFAULTCAP
-		newCap := DEFAULTCAP
-		for newCap < newLen {
-			newCap += DEFAULTCAP
-		}
-		grid.cells = make([]Cell, newLen, newCap)
-	case len(grid.cells) < newLen:
-		if newLen > cap(grid.cells) {
-			// Recalculate newCap
-			newCap := DEFAULTCAP
-			for newCap < newLen {
-				newCap += DEFAULTCAP
-			}
-			// Resize cells and copy items
-			temp := make([]Cell, len(grid.cells), cap(grid.cells))
-			copy(temp, grid.cells)
-			grid.cells = make([]Cell, newLen, newCap)
-			copy(grid.cells, temp)
-			// This is the most expensive operation, hopefully we don't do this everytime
+	// NOTE: May not be efficient
+	if len(grid.cells) < rows {
+		remaining := rows - len(grid.cells)
+		grid.cells = append(grid.cells, make([][]Cell, remaining)...)
+	} else {
+		grid.cells = grid.cells[:rows]
+	}
+	assert(len(grid.cells) == rows)
+	for i := 0; i < rows; i++ {
+		if len(grid.cells[i]) < cols {
+			remaining := cols - len(grid.cells[i])
+			grid.cells[i] = append(grid.cells[i], make([]Cell, remaining)...)
 		} else {
-			grid.cells = grid.cells[:newLen]
+			grid.cells[i] = grid.cells[i][:cols]
 		}
-	case len(grid.cells) > newLen:
-		grid.cells = grid.cells[:newLen]
+		assert(len(grid.cells[i]) == cols)
 	}
 
 	grid.rows = rows
@@ -315,11 +295,7 @@ func (gridManager *GridManager) clear(id int) {
 func (gridManager *GridManager) setCell(id, x int, y *int, char rune, attribId, repeat int) {
 	grid, ok := gridManager.grids[id]
 	if ok {
-		cell_count := 1
-		if repeat > 0 {
-			cell_count = repeat
-		}
-		for i := 0; i < cell_count; i++ {
+		for i := 0; i < max(repeat, 1); i++ {
 			grid.setCell(x, *y, char, attribId)
 			*y++
 		}
