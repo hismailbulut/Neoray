@@ -14,11 +14,11 @@ const (
 	DEBUG   = 0
 	RELEASE = 1
 
-	TITLE         = "neoray"
+	TITLE         = "Neoray"
 	VERSION_MAJOR = 0
 	VERSION_MINOR = 1
 	VERSION_PATCH = 1
-	WEBPAGE       = "github.com/hismailbulut/neoray"
+	WEBPAGE       = "github.com/hismailbulut/Neoray"
 	LICENSE       = "MIT"
 )
 
