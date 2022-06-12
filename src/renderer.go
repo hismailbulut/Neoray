@@ -364,7 +364,6 @@ func (renderer *Renderer) checkUndercurlPos() {
 }
 
 func (renderer *Renderer) getCharID(char rune, italic, bold, underline, strikethrough bool) uint64 {
-	defer measure_execution_time()()
 	id := uint64(char)
 	if italic {
 		id = id | uint64(1)<<32
