@@ -45,7 +45,8 @@ func rglInit() {
 
 	logMessage(LEVEL_DEBUG, TYPE_RENDERER, "Initializing opengl.")
 	// Initialize opengl
-	if err := gl.InitWithProcAddrFunc(glfw.GetProcAddress); err != nil {
+	err := gl.InitWithProcAddrFunc(glfw.GetProcAddress)
+	if err != nil {
 		logMessage(LEVEL_FATAL, TYPE_RENDERER, "Failed to initialize opengl:", err)
 	}
 
