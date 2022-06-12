@@ -101,9 +101,7 @@ func (face *FontFace) renderUndercurl() *image.RGBA {
 	w := float32(singleton.cellWidth)
 	h := float32(singleton.cellHeight)
 	y := h - float32(face.descent)/2
-	// const xd = 10
 	r := vector.NewRasterizer(singleton.cellWidth, singleton.cellHeight)
-	// thickness := max(face.thickness/2, 1)
 	rastCurve(r, face.thickness, Vector2[float32]{0, y}, Vector2[float32]{w / 2, y}, Vector2[float32]{w / 4, y + h/8})
 	rastCurve(r, face.thickness, Vector2[float32]{w / 2, y}, Vector2[float32]{w, y}, Vector2[float32]{w / 4 * 3, y - h/8})
 	return rastDraw(r)
