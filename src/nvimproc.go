@@ -254,10 +254,13 @@ func (proc *NvimProcess) introduce() {
 	attributes := make(nvim.ClientAttributes, 1)
 	attributes["website"] = WEBPAGE
 	attributes["license"] = LICENSE
-	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
-	if err != nil {
-		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to set client information:", err)
-	}
+	go func() {
+		err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
+		if err != nil {
+			logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to set client information:", err)
+		}
+		print("Introduced without error:", err)
+	}()
 }
 
 func (proc *NvimProcess) update() {
