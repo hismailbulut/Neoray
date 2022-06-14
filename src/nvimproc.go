@@ -254,17 +254,10 @@ func (proc *NvimProcess) introduce() {
 	attributes := make(nvim.ClientAttributes, 1)
 	attributes["website"] = WEBPAGE
 	attributes["license"] = LICENSE
-	// If nvim fails to parse init.vim it gives error and during this time
-	// setting client information is blocked until user key press. Program
-	// stucks there because we are waiting for client and not loading window. I
-	// just made this process concurrent to continue to load window.
-	// See issue #33
-	go func() {
-		err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
-		if err != nil {
-			logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to set client information:", err)
-		}
-	}()
+	err := proc.handle.SetClientInfo(name, version, typ, methods, attributes)
+	if err != nil {
+		logMessage(LEVEL_FATAL, TYPE_NVIM, "Failed to set client information:", err)
+	}
 }
 
 func (proc *NvimProcess) update() {
