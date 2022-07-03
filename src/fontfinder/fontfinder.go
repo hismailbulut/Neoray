@@ -82,8 +82,8 @@ func find(name string) FontPathInfo {
 			styles := strings.Replace(baseWithoutExt, name, "", 1)
 			fonts = append(fonts, fontSearchInfo{
 				handle:       f,
-				nameWords:    SplitWords(f.Name),
-				styleWords:   SplitWords(styles),
+				nameWords:    splitWords(f.Name),
+				styleWords:   splitWords(styles),
 				baseNameWExt: baseWithoutExt,
 			})
 		}
@@ -154,7 +154,7 @@ func sortFileNameLen(fonts *[]fontSearchInfo) {
 // Example:
 //  This:           "HelloWorld_from-Turkey"
 //  Turns to this:  [Hello, World, from, Turkey]
-func SplitWords(str string) []string {
+func splitWords(str string) []string {
 	// CamelCase pascalCase and "-_ "
 	arr := []string{}
 	runes := []rune(str)

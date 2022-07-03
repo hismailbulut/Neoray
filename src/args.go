@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/hismailbulut/neoray/src/logger"
 	"github.com/sqweek/dialog"
 )
 
@@ -88,7 +89,7 @@ func ParseArgs(args []string) ParsedArgs {
 			options.singleInst = true
 			break
 		case "--verbose":
-			initVerboseFile("neoray_verbose.log")
+			logger.InitFile("Neoray_verbose.log")
 			break
 		case "--nvim":
 			assert(len(args) > i+1, "specify path after --nvim")
@@ -121,7 +122,8 @@ func ParseArgs(args []string) ParsedArgs {
 }
 
 func PrintVersion() {
-	msg := "Neoray " + versionString() + "\n" + "Start with -h option for more information."
+	version := logger.Version{Major: VERSION_MAJOR, Minor: VERSION_MINOR, Patch: VERSION_PATCH}
+	msg := "Neoray " + version.String() + "\n" + "Start with -h option for more information."
 	switch runtime.GOOS {
 	case "windows":
 		dialog.Message(msg).Title("Version").Info()
@@ -134,7 +136,7 @@ func PrintHelp() {
 	// About
 	msg := fmt.Sprintf(usageTemplate,
 		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
-		buildTypeString(), LICENSE, WEBPAGE)
+		BUILD_TYPE, LICENSE, WEBPAGE)
 	dialog.Message(msg).Title("Help").Info()
 	if runtime.GOOS != "windows" {
 		// Also print help to stdout for linux and darwin
@@ -149,7 +151,7 @@ func (options ParsedArgs) ProcessBefore() bool {
 		// waiting http requests will make neoray opens slower.
 		client, err := CreateClient()
 		if err != nil {
-			logMessage(LEVEL_DEBUG, TYPE_NETWORK, "No instance found or ipc client creation failed:", err)
+			logger.Log(logger.DEBUG, "No instance found or ipc client creation failed:", err)
 			return false
 		}
 		defer client.Close()
@@ -181,19 +183,19 @@ func (options ParsedArgs) ProcessAfter() {
 	if options.singleInst {
 		server, err := CreateServer()
 		if err != nil {
-			logMessage(LEVEL_ERROR, TYPE_NEORAY, "Failed to create ipc server:", err)
+			logger.Log(logger.ERROR, "Failed to create ipc server:", err)
 		} else {
-			singleton.server = server
-			logMessage(LEVEL_TRACE, TYPE_NEORAY, "Ipc server created.")
+			Editor.server = server
+			logger.Log(logger.TRACE, "Ipc server created")
 		}
 	}
 	if options.file != "" {
-		singleton.nvim.openFile(options.file)
+		Editor.nvim.openFile(options.file)
 	}
 	if options.line != -1 {
-		singleton.nvim.gotoLine(options.line)
+		Editor.nvim.gotoLine(options.line)
 	}
 	if options.column != -1 {
-		singleton.nvim.gotoColumn(options.column)
+		Editor.nvim.gotoColumn(options.column)
 	}
 }

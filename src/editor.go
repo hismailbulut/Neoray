@@ -1,9 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"time"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/hismailbulut/neoray/src/assets"
+	"github.com/hismailbulut/neoray/src/common"
+	"github.com/hismailbulut/neoray/src/fontkit"
+	"github.com/hismailbulut/neoray/src/logger"
+	"github.com/hismailbulut/neoray/src/window"
 )
 
 type Options struct {
@@ -18,97 +26,7 @@ type Options struct {
 	keyDecreaseFontSize string
 }
 
-type Editor struct {
-	// Parsed startup arguments
-	// args.go
-	parsedArgs ParsedArgs
-	// Neovim child process
-	// nvim_process.go
-	nvim NvimProcess
-	// Main window of this program.
-	// window.go
-	window Window
-	// Grid is a neovim window if multigrid option is enabled, otherwise full
-	// screen. Grid has cells and it's attributes, and contains all
-	// information how cells and fonts will be rendered.
-	// gridManager.go
-	gridManager GridManager
-	// Cursor represents a neovim cursor and all it's information
-	// cursor.go
-	cursor Cursor
-	// Mode is current nvim mode information struct (normal, visual etc.)
-	// We need for cursor rendering
-	// mode.go
-	mode Mode
-	// Renderer is responsible for holding and oragnizing rendering data and
-	// sending them to opengl.
-	// renderer.go, opengl calls is in renderergl.go
-	renderer Renderer
-	// UIOptions is a struct, holds some user ui uiOptions like guifont.
-	// uioptions.go
-	uiOptions UIOptions
-	// ContextMenu is the only context menu in this program for right click menu.
-	// contextmenu.go
-	contextMenu ContextMenu
-	// Neoray options.
-	options Options
-	// Tcp server for singleinstance
-	// tcp.go
-	server *IpcServer
-	// If quitRequested is true the program will quit.
-	quitRequested chan bool
-	// Initializing in CreateRenderer
-	// TODO: I am going to implement per grid font size, and these variables will be moved to grid.
-	cellWidth  int
-	cellHeight int
-	// A variable that we can use for checking whether main loop has begun
-	mainLoopRunning bool
-	// Mainloop timing values
-	time struct {
-		ticker   *time.Ticker
-		interval time.Duration
-		lastTick time.Time
-		delta    float64
-		lastUPS  int
-	}
-}
-
-func (editor *Editor) Initialize() {
-	editor.quitRequested = make(chan bool)
-
-	editor.nvim = CreateNvimProcess()
-	editor.nvim.init()
-
-	editor.initGlfw()
-	editor.window = CreateWindow(800, 600, TITLE)
-	initInputEvents()
-
-	editor.uiOptions = CreateUIOptions()
-	editor.options = CreateDefaultOptions()
-	editor.gridManager = CreateGridManager()
-	editor.mode = CreateMode()
-
-	editor.cursor = CreateCursor()
-	editor.contextMenu = CreateContextMenu()
-	editor.renderer = CreateRenderer()
-
-	// NOTE: Calling this before other initializations makes startup faster,
-	// but weird things happens. Calling after checking options causes to
-	// neoray not receiving option events and we cant do our initializations
-	// such as WindowSize and WindowState (actually we can but doing them after
-	// showing the window causes an ugly startup)
-	editor.nvim.startUI(editor.renderer._rows, editor.renderer._cols)
-
-	// NEW
-	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Checking user options.")
-	editor.nvim.checkOptions()
-
-	// show the main window
-	editor.window.handle.Show()
-	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Window is now visible.")
-}
-
-func CreateDefaultOptions() Options {
+func DefaultOptions() Options {
 	return Options{
 		cursorAnimTime:      0.06,
 		transparency:        1,
@@ -121,128 +39,348 @@ func CreateDefaultOptions() Options {
 	}
 }
 
-func (editor *Editor) initGlfw() {
-	defer measure_execution_time()()
-	if err := glfw.Init(); err != nil {
-		logMessage(LEVEL_FATAL, TYPE_NEORAY, "Failed to initialize glfw:", err)
-	}
-	logMessage(LEVEL_TRACE, TYPE_NEORAY, "Glfw version:", glfw.GetVersionString())
+type EditorState uint32
+
+const (
+	EditorNotInitialized EditorState = iota
+	EditorInitialized
+	EditorLoopStarted // Mainloop started and app running, but not everything ready because of neovim events processed at mainloop
+	EditorFirstFlush  // This is where we start to check NeoraySet options
+	EditorWindowShown // We show window after first NeoraySet option check
+	EditorLoopStopped
+	EditorDestroyed
+)
+
+var Editor struct {
+	state EditorState
+	// Parsed startup arguments
+	parsedArgs ParsedArgs
+	// IPC server for singleinstance
+	server *IpcServer
+	// Neoray options.
+	options Options
+	// Main window of this program.
+	window *window.Window
+	// Grid manager holds information about neovim grids and how they will be rendered
+	// We also use its underlying rendering structure when rendering cursor and context menu
+	gridManager *GridManager
+	// Cursor represents a neovim cursor and all it's information
+	cursor *Cursor
+	// ContextMenu is the only context menu in this program for right click menu.
+	contextMenu *ContextMenu
+	// UIOptions is a struct, holds some user ui uiOptions like guifont.
+	uiOptions UIOptions
+	// Neovim child process
+	nvim *NvimProcess
+	// MainLoop ticker
+	ticker *time.Ticker
+	// Stops mainloop
+	quitChan chan bool
+	// Draw calls
+	cDraw      bool
+	cForceDraw bool
+	cRender    bool
 }
 
-func (editor *Editor) MainLoop() {
+func InitEditor() {
+	var err error
+
+	Editor.options = DefaultOptions()
+
+	err = glfw.Init()
+	if err != nil {
+		logger.Log(logger.FATAL, "Failed to initialize GLFW3:", err)
+	}
+	logger.Log(logger.TRACE, "GLFW3 Version:", glfw.GetVersionString())
+
+	Editor.window, err = window.New(NAME, 800, 600, BUILD_TYPE == logger.Debug)
+	if err != nil {
+		logger.Log(logger.FATAL, err)
+	}
+	// Event handler function runs when we call window.PollEvents
+	Editor.window.SetEventHandler(EventHandler)
+	// Set window minimum size
+	Editor.window.SetMinSize(common.Vec2(300, 200))
+	// Set window icons
+	LoadDefaultIcons()
+	// Update opengl viewport
+	Editor.window.GL().SetViewport(Editor.window.Viewport())
+	// Print some opengl info
+	info := Editor.window.GL().Info()
+	logger.Log(logger.TRACE, "Opengl Version:", info.Version)
+	logger.Log(logger.TRACE, "Vendor:", info.Vendor)
+	logger.Log(logger.TRACE, "Renderer:", info.Renderer)
+	logger.Log(logger.TRACE, "GLSL:", info.ShadingLanguageVersion)
+	logger.Log(logger.TRACE, "Max Texture Size:", info.MaxTextureSize)
+	// Initialize gridManager
+	Editor.gridManager = NewGridManager()
+	// Initialize cursor
+	Editor.cursor = NewCursor(Editor.window)
+	// Initialize contextMenu
+	Editor.contextMenu = NewContextMenu()
+	// TODO Move this to gridManager
+	Editor.uiOptions = CreateUIOptions()
+	// Start neovim
+	Editor.nvim = CreateNvimProcess()
+	// Calculate temporary start size and start the ui connection
+	// The size will be updated according to user preferences
+	cellSize := DefaultCellSize()
+	cols := Editor.window.Size().Width() / cellSize.Width()
+	rows := Editor.window.Size().Height() / cellSize.Height()
+	logger.Log(logger.DEBUG, "Calculated startup size of the neovim is", rows, cols)
+	Editor.nvim.StartUI(rows, cols)
+
+	Editor.quitChan = make(chan bool, 1)
+
+	SetEditorState(EditorInitialized)
+}
+
+func LoadDefaultIcons() {
+	icons := [3]image.Image{}
+	icon48, err := png.Decode(bytes.NewReader(assets.NeovimIconData48x48))
+	if err != nil {
+		logger.Log(logger.ERROR, "Failed to decode 48x48 icon:", err)
+	} else {
+		icons[0] = icon48
+	}
+
+	icon32, err := png.Decode(bytes.NewReader(assets.NeovimIconData32x32))
+	if err != nil {
+		logger.Log(logger.ERROR, "Failed to decode 32x32 icon:", err)
+	} else {
+		icons[1] = icon32
+	}
+
+	icon16, err := png.Decode(bytes.NewReader(assets.NeovimIconData16x16))
+	if err != nil {
+		logger.Log(logger.ERROR, "Failed to decode 16x16 icon:", err)
+	} else {
+		icons[2] = icon16
+	}
+	Editor.window.SetIcon(icons)
+}
+
+// A helper function, if default grid is not set by neovim yet we use this for cell size
+func DefaultCellSize() common.Vector2[int] {
+	face, _ := fontkit.Default().DefaultFont().CreateFace(DEFAULT_FONT_SIZE, Editor.window.DPI(), false, false)
+	return face.ImageSize()
+}
+
+func ResizeWindowInCellFormat(rows, cols int) {
+	var size common.Vector2[int]
+	defaultGrid := Editor.gridManager.Grid(1)
+	if defaultGrid != nil {
+		size.X = cols * defaultGrid.CellSize().Width()
+		size.Y = rows * defaultGrid.CellSize().Height()
+	} else {
+		cellSize := DefaultCellSize()
+		size.X = cols * cellSize.Width()
+		size.Y = rows * cellSize.Height()
+	}
+	Editor.window.Resize(size)
+}
+
+// This is for making sure the state changing valid
+func SetEditorState(state EditorState) {
+	assert(state-1 == Editor.state, "Editor state can only incremented by 1")
+	Editor.state = state
+}
+
+func ResetTicker() {
+	if Editor.ticker == nil {
+		Editor.ticker = time.NewTicker(time.Second / time.Duration(Editor.options.targetTPS))
+	} else {
+		Editor.ticker.Reset(time.Second / time.Duration(Editor.options.targetTPS))
+	}
+}
+
+func MarkDraw() {
+	Editor.cDraw = true
+}
+
+func MarkForceDraw() {
+	Editor.cForceDraw = true
+}
+
+func MarkRender() {
+	Editor.cRender = true
+}
+
+func MainLoop() {
+	SetEditorState(EditorLoopStarted)
+	ResetTicker()
 	// For measuring total time of the program.
 	programBegin := time.Now()
-	// Ticker's interval
-	editor.time.interval = time.Second / time.Duration(editor.options.targetTPS)
-	// NOTE: Ticker is not working correctly on windows.
-	editor.time.ticker = time.NewTicker(editor.time.interval)
-	defer editor.time.ticker.Stop()
-	// For measuring delta time
+	// For measuring ticks per second, debugging purposes
 	upsTimer := 0.0
 	updates := 0
 	// For measuring elpased time
-	editor.time.lastTick = time.Now()
+	lastTick := time.Now()
 	// Mainloop
-	editor.mainLoopRunning = true
-	for editor.mainLoopRunning {
+	run := true
+	for run {
 		select {
-		case tick := <-editor.time.ticker.C:
+		case tick := <-Editor.ticker.C:
 			// Calculate delta time
-			elapsed := tick.Sub(editor.time.lastTick)
-			editor.time.lastTick = tick
-			editor.time.delta = elapsed.Seconds()
+			elapsed := tick.Sub(lastTick)
+			lastTick = tick
+			delta := elapsed.Seconds()
 			// Increment counters
-			upsTimer += editor.time.delta
+			upsTimer += delta
 			updates++
 			// Calculate updates per second
 			if upsTimer >= 1 {
-				editor.time.lastUPS = updates
+				// println("TPS:", updates)
 				updates = 0
 				upsTimer -= 1
 			}
-			// Update program
-			editor.update()
-			glfw.PollEvents()
-			// Check for window close
-			if editor.window.handle.ShouldClose() {
-				if editor.nvim.connectedViaTcp {
-					// Neoray is not responsible for closing neovim.
-					editor.nvim.disconnect()
-					editor.mainLoopRunning = false
-				} else {
-					// Send quit command to neovim and wait until neovim quits.
-					editor.window.handle.SetShouldClose(false)
-					go editor.nvim.execCommand("qa")
-					// Sleep for a while
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
-		case <-editor.quitRequested:
-			editor.mainLoopRunning = false
+			// Handle with inputs first
+			Editor.window.PollEvents()
+			// then update
+			UpdateHandler(float32(delta))
+		case <-Editor.quitChan:
+			run = false
 		}
 	}
-	logMessage(LEVEL_TRACE, TYPE_PERFORMANCE, "Program finished. Total execution time:", time.Since(programBegin))
+	SetEditorState(EditorLoopStopped)
+	logger.Log(logger.TRACE, "Program finished. Total execution time:", time.Since(programBegin))
 }
 
-func (editor *Editor) update() {
-	// Order is important!
-	handleRedrawEvents()
-	editor.window.update()
-	editor.cursor.update()
-	editor.renderer.update()
-	editor.nvim.update()
-	if editor.server != nil {
-		editor.server.update()
+func UpdateHandler(delta float32) {
+	// Update required stuff
+	Editor.nvim.Update()
+	Editor.gridManager.Update()
+	Editor.cursor.Update(delta)
+	if Editor.server != nil {
+		Editor.server.Update()
+	}
+	// Draw calls
+	if Editor.state >= EditorWindowShown {
+		if Editor.cDraw || Editor.cForceDraw {
+			Editor.gridManager.Draw(Editor.cForceDraw)
+			Editor.cursor.Draw(delta)
+			Editor.contextMenu.Draw()
+		}
+		// Render calls
+		if Editor.cDraw || Editor.cForceDraw || Editor.cRender {
+			Editor.window.GL().ClearScreen(Editor.gridManager.defaultBg)
+			Editor.gridManager.Render()
+			Editor.cursor.Render()
+			Editor.contextMenu.Render()
+			Editor.window.GL().Flush()
+		}
+		// Clear calls
+		Editor.cDraw = false
+		Editor.cForceDraw = false
+		Editor.cRender = false
 	}
 }
 
-func (editor *Editor) resetTicker() {
-	editor.time.interval = time.Second / time.Duration(editor.options.targetTPS)
-	editor.time.ticker.Reset(editor.time.interval)
-}
-
-// If this function called, the screen will be rendered in current loop.
-func (editor *Editor) render() {
-	editor.renderer.renderCall = true
-}
-
-// If this function called, the entire screen will be drawed in current loop.
-func (editor *Editor) fullDraw() {
-	editor.renderer.fullDrawCall = true
-}
-
-// If this function called, changed cells will be drawed in current loop.
-func (editor *Editor) draw() {
-	editor.renderer.drawCall = true
-}
-
-// This function prints cell at the pos.
-func (editor *Editor) debugPrintCell(pos Vector2[int]) {
-	id, x, y := editor.gridManager.getCellAt(pos)
-	if !singleton.parsedArgs.multiGrid {
-		id = 1
+func EventHandler(event window.WindowEvent) {
+	switch event.Type {
+	case window.WindowEventRefresh:
+		{
+			// Eg. When user resizing the window, glfw.PollEvents call is blocked.
+			// And no events receives except this one. We need to update Neoray
+			// additionally when refresh event received.
+			EventHandler(window.WindowEvent{
+				Type:   window.WindowEventResize,
+				Params: []any{Editor.window.Size().Width(), Editor.window.Size().Height()},
+			})
+			// Pass delta as zero because this is an additional update
+			UpdateHandler(0)
+		}
+	case window.WindowEventResize:
+		{
+			// Check grids sizes
+			width := event.Params[0].(int)
+			height := event.Params[1].(int)
+			// When window minimized, glfw sends a resize event with zero size
+			if width > 0 && height > 0 {
+				// Try to resize the neovim
+				defaultGrid := Editor.gridManager.Grid(1)
+				if defaultGrid != nil {
+					cellSize := defaultGrid.CellSize()
+					rows := height / cellSize.Height()
+					cols := width / cellSize.Width()
+					if rows != defaultGrid.rows || cols != defaultGrid.cols {
+						Editor.nvim.tryResizeUI(rows, cols)
+					}
+				}
+				// Update viewport
+				Editor.window.GL().SetViewport(Editor.window.Viewport())
+				// Render because viewport changed
+				MarkRender()
+			}
+		}
+	case window.WindowEventKeyInput:
+		{
+			key := event.Params[0].(glfw.Key)
+			scancode := event.Params[1].(int)
+			action := event.Params[2].(glfw.Action)
+			mods := event.Params[3].(glfw.ModifierKey)
+			KeyInputHandler(key, scancode, action, mods)
+		}
+	case window.WindowEventCharInput:
+		{
+			char := event.Params[0].(rune)
+			CharInputHandler(char)
+		}
+	case window.WindowEventMouseInput:
+		{
+			button := event.Params[0].(glfw.MouseButton)
+			action := event.Params[1].(glfw.Action)
+			mods := event.Params[2].(glfw.ModifierKey)
+			MouseInputHandler(button, action, mods)
+		}
+	case window.WindowEventMouseMove:
+		{
+			xpos := event.Params[0].(float64)
+			ypos := event.Params[1].(float64)
+			MouseMoveHandler(xpos, ypos)
+		}
+	case window.WindowEventScroll:
+		{
+			xoff := event.Params[0].(float64)
+			yoff := event.Params[1].(float64)
+			ScrollHandler(xoff, yoff)
+		}
+	case window.WindowEventDrop:
+		{
+			files := event.Params[0].([]string)
+			DropHandler(files)
+		}
+	case window.WindowEventScaleChanged:
+		{
+			Editor.gridManager.ResetFontSize()
+		}
+	case window.WindowEventClose:
+		{
+			if Editor.nvim.connectedViaTcp {
+				// Neoray is not responsible for closing neovim.
+				Editor.nvim.disconnect()
+				// Stop loop
+				Editor.quitChan <- true
+			} else {
+				// Send quit command to neovim and wait until neovim quits.
+				Editor.window.KeepAlive()
+				go Editor.nvim.execCommand("qa")
+			}
+		}
 	}
-	grid := editor.gridManager.grids[id]
-	cell := grid.getCell(x, y)
-	vertex := editor.renderer.debugGetCellData(grid.sRow+x, grid.sCol+y)
-	printf(
-		`Cell information:
-	grid: %s
-	pos: %d %d
-	char: %s %d %.4x
-	attrib_id: %d
-	needs_redraw: %t
-	data : %+v`,
-		grid, x, y, string(cell.char), cell.char, cell.char, cell.attribId, cell.needsDraw, vertex)
 }
 
-func (editor *Editor) Shutdown() {
-	if editor.server != nil {
-		editor.server.Close()
+func ShutdownEditor() {
+	Editor.ticker.Stop()
+	if Editor.server != nil {
+		Editor.server.Close()
 	}
-	editor.nvim.Close()
-	editor.renderer.Close()
-	editor.window.Close()
+	Editor.nvim.Close()
+	Editor.contextMenu.Destroy()
+	Editor.cursor.Destroy()
+	Editor.gridManager.Destroy()
+	Editor.window.Destroy()
 	glfw.Terminate()
-	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Glfw terminated.")
+	SetEditorState(EditorDestroyed) // This is actually unnecessary
+	logger.Log(logger.DEBUG, "Editor terminated")
 }

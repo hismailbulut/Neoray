@@ -1,5 +1,6 @@
 bin
-profile
-temp
-neoray_crash.log
-neoray_verbose.log
+boxdrawingchars.txt
+Neoray_crash.log
+Neoray_verbose.log
+Neoray_cpu_profile.prof
+Neoray_heap_profile.prof

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/hismailbulut/neoray/src/common"
 )
 
 func TestMain(m *testing.M) {
@@ -20,7 +21,7 @@ func TestMain(m *testing.M) {
 func Test_parseCharInput(t *testing.T) {
 	type args struct {
 		char rune
-		mods BitMask
+		mods common.BitMask
 	}
 	tests := []struct {
 		name string
@@ -73,7 +74,7 @@ func Test_parseKeyInput(t *testing.T) {
 	type args struct {
 		key      glfw.Key
 		scancode int
-		mods     BitMask
+		mods     common.BitMask
 	}
 	tests := []struct {
 		name string

@@ -28,7 +28,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: go build -ldflags -H=windowsgui -o bin/neoray-win64.exe ./src
+      run: go build -ldflags -H=windowsgui -o bin/Neoray-win64.exe ./src
 
     - name: Set up MinGW x86
       uses: egor-tensin/setup-mingw@v2
@@ -40,7 +40,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
-      run: go build -ldflags -H=windowsgui -o bin/neoray-win32.exe ./src
+      run: go build -ldflags -H=windowsgui -o bin/Neoray-win32.exe ./src
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -48,8 +48,8 @@ jobs:
       with:
         name: windows-binaries
         path: |
-          bin/neoray-win64.exe
-          bin/neoray-win32.exe
+          bin/Neoray-win64.exe
+          bin/Neoray-win32.exe
 
   build-macos:
     runs-on: macos-latest
@@ -66,7 +66,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: darwin
         GOARCH: amd64
-      run: go build -o bin/neoray-macos ./src
+      run: go build -o bin/Neoray-macos ./src
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -74,7 +74,7 @@ jobs:
       with:
         name: macos-binaries
         path: |
-          bin/neoray-macos
+          bin/Neoray-macos
 
   build-linux:
     runs-on: ubuntu-latest
@@ -96,7 +96,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: amd64
-      run: go build -o bin/neoray-linux64 ./src
+      run: go build -o bin/Neoray-linux64 ./src
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -104,7 +104,7 @@ jobs:
       with:
         name: linux-binaries
         path: |
-          bin/neoray-linux64
+          bin/Neoray-linux
 
   release:
     runs-on: ubuntu-latest
@@ -113,9 +113,6 @@ jobs:
     steps:
       - name: Download binaries
         uses: actions/download-artifact@v2
-
-      - name: Print files
-        run: ls -A -l -h --color=auto
 
       - name: Deploy latest release
         uses: "marvinpinto/action-automatic-releases@latest"
@@ -126,7 +123,7 @@ jobs:
           prerelease: false
           title: "${{ github.event.inputs.version }}"
           files: |
-            windows-binaries/neoray-win64.exe
-            windows-binaries/neoray-win32.exe
-            macos-binaries/neoray-macos
-            linux-binaries/neoray-linux64
+            windows-binaries/Neoray-win64.exe
+            windows-binaries/Neoray-win32.exe
+            macos-binaries/Neoray-macos
+            linux-binaries/Neoray-linux

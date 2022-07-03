@@ -2,10 +2,12 @@ package main
 
 import (
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/hismailbulut/neoray/src/common"
+	"github.com/hismailbulut/neoray/src/logger"
 )
 
 const (
-	ModControl BitMask = 1 << iota
+	ModControl common.BitMask = 1 << iota
 	ModShift
 	ModAlt
 	ModSuper
@@ -72,34 +74,24 @@ var (
 	}
 
 	// Global input variables
-	lastMousePos    Vector2[int]
-	lastDragPos     Vector2[int]
-	lastDragGrid    int
-	lastMouseButton string
-	lastMouseAction glfw.Action
-	lastSharedKey   glfw.Key
-	lastModifiers   BitMask
+	inputCache struct {
+		lastMousePos    common.Vector2[int]
+		lastDragPos     common.Vector2[int]
+		lastDragGrid    int
+		lastMouseButton string
+		lastMouseAction glfw.Action
+		lastSharedKey   glfw.Key
+		lastModifiers   common.BitMask
+	}
 )
-
-func initInputEvents() {
-	// Initialize callbacks
-	wh := singleton.window.handle
-	wh.SetCharCallback(charCallback)
-	wh.SetKeyCallback(keyCallback)
-	wh.SetMouseButtonCallback(mouseButtonCallback)
-	wh.SetCursorPosCallback(cursorPosCallback)
-	wh.SetScrollCallback(scrollCallback)
-	wh.SetDropCallback(dropCallback)
-	logMessage(LEVEL_DEBUG, TYPE_NEORAY, "Input callbacks are initialized.")
-}
 
 func sendKeyInput(keycode string) {
 	if !checkNeorayKeybindings(keycode) {
-		singleton.nvim.input(keycode)
+		Editor.nvim.input(keycode)
 	}
 }
 
-func sendMouseInput(button, action string, mods BitMask, grid, row, column int) {
+func sendMouseInput(button, action string, mods common.BitMask, grid, row, column int) {
 	// We need to create keycode from this parameters for
 	// checking the mouse keybindings
 	keycode := ""
@@ -131,7 +123,7 @@ func sendMouseInput(button, action string, mods BitMask, grid, row, column int) 
 	}
 	keycode = "<" + modsStr(mods) + keycode + ">"
 	if !checkNeorayKeybindings(keycode) {
-		singleton.nvim.inputMouse(button, action, modsStr(mods), grid, row, column)
+		Editor.nvim.inputMouse(button, action, modsStr(mods), grid, row, column)
 	}
 }
 
@@ -139,68 +131,79 @@ func sendMouseInput(button, action string, mods BitMask, grid, row, column int) 
 func checkNeorayKeybindings(keycode string) bool {
 	// Handle neoray keybindings
 	switch keycode {
-	case singleton.options.keyIncreaseFontSize:
-		singleton.renderer.increaseFontSize()
+	case Editor.options.keyIncreaseFontSize:
+		Editor.gridManager.AddGridFontSize(1, 0.5)
+		Editor.contextMenu.AddFontSize(0.5)
 		return true
-	case singleton.options.keyDecreaseFontSize:
-		singleton.renderer.decreaseFontSize()
+	case Editor.options.keyDecreaseFontSize:
+		Editor.gridManager.AddGridFontSize(1, -0.5)
+		Editor.contextMenu.AddFontSize(-0.5)
 		return true
-	case singleton.options.keyToggleFullscreen:
-		singleton.window.toggleFullscreen()
+	case Editor.options.keyToggleFullscreen:
+		Editor.window.ToggleFullscreen()
 		return true
 	case "<ESC>":
 		// Hide context menu if esc pressed.
-		if singleton.options.contextMenuEnabled && !singleton.contextMenu.hidden {
-			singleton.contextMenu.Hide()
+		if Editor.options.contextMenuEnabled && !Editor.contextMenu.hidden {
+			Editor.contextMenu.Hide()
 			return true
 		}
 	}
 	// Debugging only keybindings
-	if isDebugBuild() {
+	if BUILD_TYPE == logger.Debug {
 		switch keycode {
 		case "<C-F2>":
 			panic("Control+F2 manual panic")
 		case "<C-F3>":
-			logMessage(LEVEL_FATAL, TYPE_NEORAY, "Control+F3 manual fatal")
+			logger.Log(logger.FATAL, "Control+F3 manual fatal")
+		case "<C-F4>":
+			toggle_cpu_profile()
+			return true
+		case "<C-F5>":
+			dump_heap_profile()
+			return true
+		case "<MiddleMouse>":
+			Editor.gridManager.printCellInfoAt(inputCache.lastMousePos)
+			return true
 		}
 	}
 	return false
 }
 
-func charCallback(w *glfw.Window, char rune) {
-	keycode := parseCharInput(char, lastModifiers)
+func CharInputHandler(char rune) {
+	keycode := parseCharInput(char, inputCache.lastModifiers)
 	if keycode != "" {
 		sendKeyInput(keycode)
 		// Hide mouse if mousehide option set
-		if singleton.uiOptions.mousehide {
-			singleton.window.hideCursor()
+		if Editor.uiOptions.mousehide {
+			Editor.window.HideMouseCursor()
 		}
 	}
 }
 
-func parseCharInput(char rune, mods BitMask) string {
-	shared, ok := SharedKeys[lastSharedKey]
+func parseCharInput(char rune, mods common.BitMask) string {
+	shared, ok := SharedKeys[inputCache.lastSharedKey]
 	if ok && char == shared.r {
-		lastSharedKey = glfw.KeyUnknown
+		inputCache.lastSharedKey = glfw.KeyUnknown
 		return ""
 	}
 
-	if mods.has(ModControl) || mods.has(ModAlt) {
-		if !mods.has(ModAltGr) {
+	if mods.Has(ModControl) || mods.Has(ModAlt) {
+		if !mods.Has(ModAltGr) {
 			return ""
 		}
 	}
 
 	// Dont send S alone with any char
-	if mods.hasonly(ModShift) {
-		mods.disable(ModShift)
+	if mods.HasOnly(ModShift) {
+		mods.Disable(ModShift)
 	}
 
 	special, ok := SpecialChars[char]
 	if ok {
 		return "<" + modsStr(mods) + special + ">"
 	} else {
-		if mods == 0 || mods.hasonly(ModAltGr) {
+		if mods == 0 || mods.HasOnly(ModAltGr) {
 			return string(char)
 		} else {
 			return "<" + modsStr(mods) + string(char) + ">"
@@ -208,18 +211,18 @@ func parseCharInput(char rune, mods BitMask) string {
 	}
 }
 
-func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+func KeyInputHandler(key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 
 	// Toggle modifiers
 	switch key {
 	case glfw.KeyLeftAlt:
-		lastModifiers.enableif(ModAlt, action != glfw.Release)
+		inputCache.lastModifiers.EnableIf(ModAlt, action != glfw.Release)
 		return
 	case glfw.KeyRightAlt:
-		lastModifiers.enableif(ModAltGr, action != glfw.Release)
+		inputCache.lastModifiers.EnableIf(ModAltGr, action != glfw.Release)
 		return
 	case glfw.KeyLeftControl, glfw.KeyRightControl:
-		lastModifiers.enableif(ModControl, action != glfw.Release)
+		inputCache.lastModifiers.EnableIf(ModControl, action != glfw.Release)
 		return
 	}
 
@@ -231,33 +234,33 @@ func keyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 	// 	and this also can be a problem.
 	// 	Altgr is always a problem, why it's not a different mod?
 
-	lastModifiers.enableif(ModShift, action != glfw.Release && mods&glfw.ModShift != 0)
-	lastModifiers.enableif(ModSuper, action != glfw.Release && mods&glfw.ModSuper != 0)
+	inputCache.lastModifiers.EnableIf(ModShift, action != glfw.Release && mods&glfw.ModShift != 0)
+	inputCache.lastModifiers.EnableIf(ModSuper, action != glfw.Release && mods&glfw.ModSuper != 0)
 
 	// Check is the modifiers are correct
-	if (lastModifiers.has(ModAlt) != (mods&glfw.ModAlt != 0)) || (lastModifiers.has(ModControl) != (mods&glfw.ModControl != 0)) {
+	if (inputCache.lastModifiers.Has(ModAlt) != (mods&glfw.ModAlt != 0)) || (inputCache.lastModifiers.Has(ModControl) != (mods&glfw.ModControl != 0)) {
 		// Use mods when altgr is disabled
-		if !lastModifiers.has(ModAltGr) {
-			lastModifiers.enableif(ModAlt, action != glfw.Release && mods&glfw.ModAlt != 0)
-			lastModifiers.enableif(ModControl, action != glfw.Release && mods&glfw.ModControl != 0)
+		if !inputCache.lastModifiers.Has(ModAltGr) {
+			inputCache.lastModifiers.EnableIf(ModAlt, action != glfw.Release && mods&glfw.ModAlt != 0)
+			inputCache.lastModifiers.EnableIf(ModControl, action != glfw.Release && mods&glfw.ModControl != 0)
 		}
 	}
 
 	// Keys
 	if action != glfw.Release {
-		keycode := parseKeyInput(key, scancode, lastModifiers)
+		keycode := parseKeyInput(key, scancode, inputCache.lastModifiers)
 		if keycode != "" {
 			sendKeyInput(keycode)
 		}
 	}
 }
 
-func parseKeyInput(key glfw.Key, scancode int, mods BitMask) string {
+func parseKeyInput(key glfw.Key, scancode int, mods common.BitMask) string {
 	if name, ok := SpecialKeys[key]; ok {
 		// Send all combination with these keys because they dont produce a character.
 		// We need to also enable altgr key, which means if altgr is pressed then we act like Ctrl+Alt pressed
-		if mods.has(ModAltGr) {
-			mods.enable(ModControl | ModAlt)
+		if mods.Has(ModAltGr) {
+			mods.Enable(ModControl | ModAlt)
 		}
 		return "<" + modsStr(mods) + name + ">"
 	} else if pair, ok := SharedKeys[key]; ok {
@@ -265,13 +268,13 @@ func parseKeyInput(key glfw.Key, scancode int, mods BitMask) string {
 		// are characters. They must be sent with their
 		// special names for allowing more mappings. And
 		// corresponding character mustn't be sent.
-		lastSharedKey = key
+		inputCache.lastSharedKey = key
 		// Do same thing above
-		if mods.has(ModAltGr) {
-			mods.enable(ModControl | ModAlt)
+		if mods.Has(ModAltGr) {
+			mods.Enable(ModControl | ModAlt)
 		}
 		return "<" + modsStr(mods) + pair.s + ">"
-	} else if mods != 0 && !mods.has(ModAltGr) && !mods.hasonly(ModShift) {
+	} else if mods != 0 && !mods.Has(ModAltGr) && !mods.HasOnly(ModShift) {
 		// Only send if there is modifiers
 		// Dont send with altgr
 		// Dont send shift alone
@@ -293,17 +296,17 @@ func parseKeyInput(key glfw.Key, scancode int, mods BitMask) string {
 	return ""
 }
 
-func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
 	// Show mouse when mouse button pressed
-	if singleton.uiOptions.mousehide {
-		singleton.window.showCursor()
+	if Editor.uiOptions.mousehide {
+		Editor.window.ShowMouseCursor()
 	}
 
 	var buttonCode string
 	switch button {
 	case glfw.MouseButtonLeft:
-		if action == glfw.Press && singleton.options.contextMenuEnabled {
-			if singleton.contextMenu.mouseClick(false, lastMousePos) {
+		if action == glfw.Press && Editor.options.contextMenuEnabled {
+			if Editor.contextMenu.MouseClick(false, inputCache.lastMousePos) {
 				// Mouse clicked to context menu, dont send to neovim.
 				// TODO: We also need to dont send release action to neovim.
 				return
@@ -313,9 +316,9 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 		break
 	case glfw.MouseButtonRight:
 		// We don't send right button to neovim if popup menu enabled.
-		if singleton.options.contextMenuEnabled {
+		if Editor.options.contextMenuEnabled {
 			if action == glfw.Press {
-				singleton.contextMenu.mouseClick(true, lastMousePos)
+				Editor.contextMenu.MouseClick(true, inputCache.lastMousePos)
 			}
 			return
 		}
@@ -326,9 +329,9 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 		break
 	default:
 		// Other mouse buttons will print the cell info under the cursor in debug build.
-		if isDebugBuild() && action == glfw.Release {
-			singleton.debugPrintCell(lastMousePos)
-		}
+		// if isDebugBuild() && action == glfw.Release {
+		//     Editor.debugPrintCell(inputCache.lastMousePos)
+		// }
 		return
 	}
 
@@ -337,72 +340,72 @@ func mouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Ac
 		actionCode = "release"
 	}
 
-	grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
-	sendMouseInput(buttonCode, actionCode, lastModifiers, grid, row, col)
+	grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
+	sendMouseInput(buttonCode, actionCode, inputCache.lastModifiers, grid, row, col)
 
-	lastMouseButton = buttonCode
-	lastMouseAction = action
+	inputCache.lastMouseButton = buttonCode
+	inputCache.lastMouseAction = action
 }
 
-func cursorPosCallback(w *glfw.Window, xpos, ypos float64) {
+func MouseMoveHandler(xpos, ypos float64) {
 	// Show mouse when mouse moved
-	if singleton.uiOptions.mousehide {
-		singleton.window.showCursor()
+	if Editor.uiOptions.mousehide {
+		Editor.window.ShowMouseCursor()
 	}
 
-	lastMousePos.X = int(xpos)
-	lastMousePos.Y = int(ypos)
+	inputCache.lastMousePos.X = int(xpos)
+	inputCache.lastMousePos.Y = int(ypos)
 
-	if singleton.options.contextMenuEnabled {
-		singleton.contextMenu.mouseMove(lastMousePos)
+	if Editor.options.contextMenuEnabled {
+		Editor.contextMenu.MouseMove(inputCache.lastMousePos)
 	}
 
 	// If mouse moving when holding button, it's a drag event
-	if lastMouseAction == glfw.Press {
-		grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
+	if inputCache.lastMouseAction == glfw.Press {
+		grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
 		// NOTE: Drag event as some multigrid issues
 		// Sending drag event on same row and column causes whole word is selected
-		if grid != lastDragGrid || row != lastDragPos.X || col != lastDragPos.Y {
-			sendMouseInput(lastMouseButton, "drag", lastModifiers, grid, row, col)
-			lastDragGrid = grid
-			lastDragPos.X = row
-			lastDragPos.Y = col
+		if grid != inputCache.lastDragGrid || row != inputCache.lastDragPos.X || col != inputCache.lastDragPos.Y {
+			sendMouseInput(inputCache.lastMouseButton, "drag", inputCache.lastModifiers, grid, row, col)
+			inputCache.lastDragGrid = grid
+			inputCache.lastDragPos.X = row
+			inputCache.lastDragPos.Y = col
 		}
 	}
 }
 
-func scrollCallback(w *glfw.Window, xpos, ypos float64) {
-	if singleton.uiOptions.mousehide {
-		singleton.window.showCursor()
+func ScrollHandler(xoff, yoff float64) {
+	if Editor.uiOptions.mousehide {
+		Editor.window.ShowMouseCursor()
 	}
 
 	action := "up"
-	if ypos < 0 {
+	if yoff < 0 {
 		action = "down"
 	}
 
-	grid, row, col := singleton.gridManager.getCellAt(lastMousePos)
-	sendMouseInput("wheel", action, lastModifiers, grid, row, col)
+	grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
+	sendMouseInput("wheel", action, inputCache.lastModifiers, grid, row, col)
 }
 
-func dropCallback(w *glfw.Window, names []string) {
+func DropHandler(names []string) {
 	for _, name := range names {
-		singleton.nvim.openFile(name)
+		Editor.nvim.openFile(name)
 	}
 }
 
-func modsStr(mods BitMask) string {
+func modsStr(mods common.BitMask) string {
 	str := ""
-	if mods.has(ModAlt) {
+	if mods.Has(ModAlt) {
 		str += "M-"
 	}
-	if mods.has(ModControl) {
+	if mods.Has(ModControl) {
 		str += "C-"
 	}
-	if mods.has(ModShift) {
+	if mods.Has(ModShift) {
 		str += "S-"
 	}
-	if mods.has(ModSuper) {
+	if mods.Has(ModSuper) {
 		str += "D-"
 	}
 	return str
