@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/logger"
 	"github.com/neovim/go-client/nvim"
@@ -207,7 +208,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		Minor: VERSION_MINOR,
 		Patch: VERSION_PATCH,
 	}
-	if BUILD_TYPE == logger.Debug {
+	if bench.IsDebugBuild() {
 		version.Prerelease = "dev"
 	}
 	// Client type

@@ -16,9 +16,9 @@ type GridManager struct {
 	defaultSp   common.U8Color
 	sortedGrids []*Grid
 	// These are used for creating new grids
-	totalGridsCreated int
-	kit               *fontkit.FontKit
-	fontSize          float64
+	totalGridsCreated int              // total number of grids created (including deleted ones)
+	kit               *fontkit.FontKit // last globally set font kit
+	fontSize          float64          // last globally set font size
 }
 
 func NewGridManager() *GridManager {
@@ -249,20 +249,20 @@ func (manager *GridManager) GridPosition(sRow, sCol int) common.Vector2[int] {
 	return position
 }
 
-func (manager *GridManager) Grid(id int) *Grid {
-	grid, ok := manager.grids[id]
-	if ok {
-		return grid
-	}
-	return nil
-}
-
 func (manager *GridManager) SetGridPos(id, win, sRow, sCol, rows, cols int, typ GridType) {
 	grid, ok := manager.grids[id]
 	if ok {
 		position := manager.GridPosition(sRow, sCol)
 		grid.SetPos(win, sRow, sCol, rows, cols, typ, position)
 	}
+}
+
+func (manager *GridManager) Grid(id int) *Grid {
+	grid, ok := manager.grids[id]
+	if ok {
+		return grid
+	}
+	return nil
 }
 
 func (manager *GridManager) ResizeGrid(id int, rows, cols int) {
@@ -283,6 +283,13 @@ func (manager *GridManager) ResizeGrid(id int, rows, cols int) {
 		manager.grids[id] = grid
 	}
 	MarkForceDraw()
+}
+
+func (manager *GridManager) ScrollGrid(id, top, bot, rows, left, right int) {
+	grid, ok := manager.grids[id]
+	if ok {
+		grid.Scroll(top, bot, rows, left, right)
+	}
 }
 
 func (manager *GridManager) HideGrid(id int) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/logger"
 )
@@ -150,17 +151,23 @@ func checkNeorayKeybindings(keycode string) bool {
 		}
 	}
 	// Debugging only keybindings
-	if BUILD_TYPE == logger.Debug {
+	if bench.IsDebugBuild() {
 		switch keycode {
 		case "<C-F2>":
 			panic("Control+F2 manual panic")
 		case "<C-F3>":
 			logger.Log(logger.FATAL, "Control+F3 manual fatal")
 		case "<C-F4>":
-			toggle_cpu_profile()
+			err := bench.ToggleCpuProfile()
+			if err != nil {
+				logger.Log(logger.ERROR, err)
+			}
 			return true
 		case "<C-F5>":
-			dump_heap_profile()
+			err := bench.DumpHeapProfile()
+			if err != nil {
+				logger.Log(logger.ERROR, err)
+			}
 			return true
 		case "<MiddleMouse>":
 			Editor.gridManager.printCellInfoAt(inputCache.lastMousePos)
@@ -313,7 +320,6 @@ func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.Mo
 			}
 		}
 		buttonCode = "left"
-		break
 	case glfw.MouseButtonRight:
 		// We don't send right button to neovim if popup menu enabled.
 		if Editor.options.contextMenuEnabled {
@@ -323,16 +329,8 @@ func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.Mo
 			return
 		}
 		buttonCode = "right"
-		break
 	case glfw.MouseButtonMiddle:
 		buttonCode = "middle"
-		break
-	default:
-		// Other mouse buttons will print the cell info under the cursor in debug build.
-		// if isDebugBuild() && action == glfw.Release {
-		//     Editor.debugPrintCell(inputCache.lastMousePos)
-		// }
-		return
 	}
 
 	actionCode := "press"
@@ -363,7 +361,7 @@ func MouseMoveHandler(xpos, ypos float64) {
 	// If mouse moving when holding button, it's a drag event
 	if inputCache.lastMouseAction == glfw.Press {
 		grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
-		// NOTE: Drag event as some multigrid issues
+		// NOTE: Drag event has some multigrid issues
 		// Sending drag event on same row and column causes whole word is selected
 		if grid != inputCache.lastDragGrid || row != inputCache.lastDragPos.X || col != inputCache.lastDragPos.Y {
 			sendMouseInput(inputCache.lastMouseButton, "drag", inputCache.lastModifiers, grid, row, col)

@@ -5,12 +5,18 @@ import (
 	"math"
 )
 
+// Zero values for reducing allocations
+var (
+	ZeroRectangleF32 = Rectangle[float32]{}
+	ZeroRectangleINT = Rectangle[int]{}
+)
+
 type Rectangle[T SignedNumbers] struct {
 	X, Y, W, H T
 }
 
 func (rect Rectangle[T]) String() string {
-	return fmt.Sprint("(X: ", rect.X, ", Y: ", rect.Y, ", W: ", rect.W, ", H: ", rect.H, ")")
+	return fmt.Sprint("Rect(X: ", rect.X, ", Y: ", rect.Y, ", W: ", rect.W, ", H: ", rect.H, ")")
 }
 
 func Rect[T SignedNumbers](X, Y, W, H T) Rectangle[T] {

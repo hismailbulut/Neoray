@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/hismailbulut/neoray/src/assets"
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
 	"github.com/hismailbulut/neoray/src/logger"
@@ -93,7 +94,7 @@ func InitEditor() {
 	}
 	logger.Log(logger.TRACE, "GLFW3 Version:", glfw.GetVersionString())
 
-	Editor.window, err = window.New(NAME, 800, 600, BUILD_TYPE == logger.Debug)
+	Editor.window, err = window.New(NAME, 800, 600, bench.IsDebugBuild())
 	if err != nil {
 		logger.Log(logger.FATAL, err)
 	}
@@ -162,7 +163,12 @@ func LoadDefaultIcons() {
 
 // A helper function, if default grid is not set by neovim yet we use this for cell size
 func DefaultCellSize() common.Vector2[int] {
-	face, _ := fontkit.Default().DefaultFont().CreateFace(DEFAULT_FONT_SIZE, Editor.window.DPI(), false, false)
+	face, _ := fontkit.Default().DefaultFont().CreateFace(fontkit.FaceParams{
+		Size:            DEFAULT_FONT_SIZE,
+		DPI:             Editor.window.DPI(),
+		UseBoxDrawing:   false,
+		UseBlockDrawing: false,
+	})
 	return face.ImageSize()
 }
 
@@ -182,7 +188,7 @@ func ResizeWindowInCellFormat(rows, cols int) {
 
 // This is for making sure the state changing valid
 func SetEditorState(state EditorState) {
-	assert(state-1 == Editor.state, "Editor state can only incremented by 1")
+	// assert(state-1 == Editor.state, "Editor state can only incremented by 1")
 	Editor.state = state
 }
 
@@ -247,6 +253,7 @@ func MainLoop() {
 }
 
 func UpdateHandler(delta float32) {
+	EndBenchmark := bench.BeginBenchmark()
 	// Update required stuff
 	Editor.nvim.Update()
 	Editor.gridManager.Update()
@@ -254,20 +261,25 @@ func UpdateHandler(delta float32) {
 	if Editor.server != nil {
 		Editor.server.Update()
 	}
+	EndBenchmark("UpdateHandler.Update")
 	// Draw calls
 	if Editor.state >= EditorWindowShown {
 		if Editor.cDraw || Editor.cForceDraw {
+			EndBenchmark := bench.BeginBenchmark()
 			Editor.gridManager.Draw(Editor.cForceDraw)
 			Editor.cursor.Draw(delta)
 			Editor.contextMenu.Draw()
+			EndBenchmark("UpdateHandler.Draw")
 		}
 		// Render calls
 		if Editor.cDraw || Editor.cForceDraw || Editor.cRender {
+			EndBenchmark := bench.BeginBenchmark()
 			Editor.window.GL().ClearScreen(Editor.gridManager.defaultBg)
 			Editor.gridManager.Render()
 			Editor.cursor.Render()
 			Editor.contextMenu.Render()
 			Editor.window.GL().Flush()
+			EndBenchmark("UpdateHandler.Render")
 		}
 		// Clear calls
 		Editor.cDraw = false

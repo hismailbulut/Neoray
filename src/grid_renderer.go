@@ -8,7 +8,6 @@ import (
 )
 
 type GridRenderer struct {
-	grid     *Grid                // The grid where this renderer belongs to
 	atlas    *opengl.Atlas        // Font atlas of this renderer
 	buffer   *opengl.VertexBuffer // Vertex buffer of this renderer
 	position common.Vector2[int]
@@ -17,20 +16,23 @@ type GridRenderer struct {
 	cols     int
 }
 
-func NewGridRenderer(window *window.Window, grid *Grid, rows, cols int, kit *fontkit.FontKit, fontSize float64, position common.Vector2[int]) (*GridRenderer, error) {
+func NewGridRenderer(window *window.Window, rows, cols int, kit *fontkit.FontKit, fontSize float64, position common.Vector2[int]) (*GridRenderer, error) {
 	renderer := new(GridRenderer)
-	renderer.grid = grid
 	renderer.atlas = window.GL().NewAtlas(kit, fontSize, window.DPI(), Editor.options.boxDrawingEnabled, Editor.options.boxDrawingEnabled)
 	renderer.buffer = window.GL().CreateVertexBuffer(rows * cols)
 	renderer.rows = rows
 	renderer.cols = cols
 	renderer.position = position
-	face, err := renderer.atlas.FontKit().DefaultFont().CreateFace(fontSize, window.DPI(), false, false)
+	face, err := renderer.atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
+		Size:            fontSize,
+		DPI:             window.DPI(),
+		UseBoxDrawing:   false,
+		UseBlockDrawing: false,
+	})
 	if err != nil {
 		return nil, err
 	}
 	renderer.cellSize = face.ImageSize()
-	// renderer.UpdateViewport()
 	renderer.UpdatePositions()
 	return renderer, nil
 }
@@ -71,19 +73,6 @@ func (renderer *GridRenderer) Resize(rows, cols int) {
 	renderer.cols = cols
 	renderer.buffer.Resize(rows * cols)
 	renderer.UpdatePositions()
-}
-
-// Buffer must bound when updating viewport
-func (renderer *GridRenderer) UpdateProjection() {
-	viewport := common.Rectangle[int]{
-		X: 0,
-		Y: 0,
-		W: Editor.window.Size().Width(),
-		H: Editor.window.Size().Height(),
-	}
-	// This function sets projection matrix in shader and because of this we
-	// must update it for every buffer
-	renderer.buffer.SetProjection(viewport)
 }
 
 // NOTE: Neovim's coordinates and opengl coordinates we are using are
@@ -141,8 +130,6 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 	nextIndex := -1
 	if col+1 < renderer.cols {
 		nextIndex = renderer.cellIndex(row, col+1)
-		crow := nextIndex / renderer.cols
-		assert(crow == row, "row:", row, "crow:", crow, "next index wrapped")
 	}
 	// Draw background
 	renderer.buffer.SetIndexBg(index, bg.ToF32())
@@ -150,11 +137,11 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 		// This is an empty cell, clear foreground data (not color but texture)
 		// We will not clear foreground color because may be the previous cell is multiwidth character
 		// and it may set the foreground color of this cell.
-		renderer.buffer.SetIndexTex1(index, common.Rectangle[float32]{})
-		renderer.buffer.SetIndexSp(index, common.F32Color{})
+		renderer.buffer.SetIndexTex1(index, common.ZeroRectangleF32)
+		renderer.buffer.SetIndexSp(index, common.ZeroColorF32)
 		if nextIndex != -1 {
 			// Clear next cells second texture
-			renderer.buffer.SetIndexTex2(nextIndex, common.Rectangle[float32]{})
+			renderer.buffer.SetIndexTex2(nextIndex, common.ZeroRectangleF32)
 		}
 		return
 	}
@@ -175,7 +162,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 		// will always be drawed for every cell and multiplied by the special
 		// color. And setting special color to zero makes undercurl fully
 		// transparent. This is also true for other color layouts.
-		renderer.buffer.SetIndexSp(index, common.F32Color{})
+		renderer.buffer.SetIndexSp(index, common.ZeroColorF32)
 	}
 
 	// get character position in atlas texture
@@ -200,7 +187,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 			renderer.buffer.SetIndexFg(nextIndex, fg.ToF32())
 		} else {
 			// Clear second texture.
-			renderer.buffer.SetIndexTex2(nextIndex, common.Rectangle[float32]{})
+			renderer.buffer.SetIndexTex2(nextIndex, common.ZeroRectangleF32)
 		}
 	}
 	// draw
@@ -220,12 +207,11 @@ func (renderer *GridRenderer) Render() {
 	renderer.atlas.BindTexture()
 	renderer.buffer.Bind()
 	renderer.buffer.Update()
-	renderer.UpdateProjection()
+	renderer.buffer.SetProjection(Editor.window.Viewport())
 	renderer.buffer.Render()
 }
 
 func (renderer *GridRenderer) Destroy() {
-	renderer.grid = nil // Does nothing but I feel great when I do things like this
 	renderer.atlas.Destroy()
 	renderer.buffer.Destroy()
 }

@@ -6,7 +6,9 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
+	"github.com/hismailbulut/neoray/src/logger"
 )
 
 type Vertex struct {
@@ -38,34 +40,37 @@ func (vertex Vertex) String() string {
 const sizeof_Vertex = int32(unsafe.Sizeof(Vertex{})) // 96 bytes
 
 type VertexBuffer struct {
-	shader *ShaderProgram
-	vaoid  uint32
-	vboid  uint32
-	size   int      // Last buffer size updated to GPU
-	buffer []Vertex // Current buffer in memory
+	shader      *ShaderProgram
+	vaoid       uint32
+	vboid       uint32
+	updatedSize int      // Last buffer size updated to GPU
+	data        []Vertex // Current buffer in memory (len(data) gives capacity)
 }
 
 func (buffer *VertexBuffer) String() string {
 	return fmt.Sprintf("VertexBuffer(VAO: %d, VBO: %d, Size: %d, Updated Size: %d)",
 		buffer.vaoid,
 		buffer.vboid,
-		len(buffer.buffer),
-		buffer.size,
+		len(buffer.data),
+		buffer.updatedSize,
 	)
 }
 
 func (context *Context) CreateVertexBuffer(size int) *VertexBuffer {
-	vertexBuffer := new(VertexBuffer)
-	vertexBuffer.shader = &context.shader
+	if size <= 0 {
+		panic("vertex buffer size must bigger then zero")
+	}
+	buffer := new(VertexBuffer)
+	buffer.shader = &context.shader
 	// Initialize vao
 	CheckGLError(func() {
-		gl.GenVertexArrays(1, &vertexBuffer.vaoid)
-		gl.BindVertexArray(vertexBuffer.vaoid)
+		gl.GenVertexArrays(1, &buffer.vaoid)
+		gl.BindVertexArray(buffer.vaoid)
 	})
 	// Initialize vbo
 	CheckGLError(func() {
-		gl.GenBuffers(1, &vertexBuffer.vboid)
-		gl.BindBuffer(gl.ARRAY_BUFFER, vertexBuffer.vboid)
+		gl.GenBuffers(1, &buffer.vboid)
+		gl.BindBuffer(gl.ARRAY_BUFFER, buffer.vboid)
 	})
 	// Enable attributes
 	valueof_Vertex := reflect.ValueOf(Vertex{})
@@ -78,12 +83,74 @@ func (context *Context) CreateVertexBuffer(size int) *VertexBuffer {
 		})
 		offset += attr_size
 	}
-	// Resize buffer in memory
-	vertexBuffer.Resize(size)
-	return vertexBuffer
+	// Create buffer in memory
+	buffer.data = make([]Vertex, size)
+	logger.Log(logger.DEBUG, "Buffer created:", buffer)
+	return buffer
+}
+
+// Resize should clear the buffer
+func (buffer *VertexBuffer) Resize(size int) {
+	if size <= 0 {
+		panic("vertex buffer size must bigger then zero")
+	}
+	if size == len(buffer.data) {
+		return
+	}
+
+	EndBenchmark := bench.BeginBenchmark()
+	defer EndBenchmark("VertexBuffer.Resize")
+	// Clear current buffer
+	zVertex := Vertex{}
+	for i := range buffer.data {
+		buffer.data[i] = zVertex
+	}
+	// Resize
+	if cap(buffer.data) > size {
+		buffer.data = buffer.data[:size]
+	} else {
+		remaining := size - len(buffer.data)
+		buffer.data = append(buffer.data, make([]Vertex, remaining)...)
+	}
 }
 
 // OpenGL Specific functions
+
+func (buffer *VertexBuffer) Bind() {
+	CheckGLError(func() {
+		gl.BindVertexArray(buffer.vaoid)
+		gl.BindBuffer(gl.ARRAY_BUFFER, buffer.vboid)
+	})
+}
+
+// Updates current buffer to GPU
+// Caller responsible to bind buffer
+func (buffer *VertexBuffer) Update() {
+	if len(buffer.data) <= 0 {
+		panic("empty vertex buffer")
+	}
+	if buffer.updatedSize != len(buffer.data) {
+		CheckGLError(func() {
+			gl.BufferData(gl.ARRAY_BUFFER, len(buffer.data)*int(sizeof_Vertex), unsafe.Pointer(&buffer.data[0]), gl.DYNAMIC_DRAW)
+		})
+		buffer.updatedSize = len(buffer.data)
+	} else {
+		CheckGLError(func() {
+			gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(buffer.data)*int(sizeof_Vertex), unsafe.Pointer(&buffer.data[0]))
+		})
+	}
+}
+
+// Caller responsible to Bind
+// Caller responsible to Flush
+func (buffer *VertexBuffer) Render() {
+	if buffer.updatedSize <= 0 {
+		panic("buffer size is zero")
+	}
+	CheckGLError(func() {
+		gl.DrawArrays(gl.POINTS, 0, int32(buffer.updatedSize))
+	})
+}
 
 func orthoProjection(top, left, right, bottom, near, far float32) [16]float32 {
 	rml, tmb, fmn := (right - left), (top - bottom), (far - near)
@@ -109,95 +176,49 @@ func (buffer *VertexBuffer) SetUndercurlRect(rect common.Rectangle[float32]) {
 	gl.Uniform4f(loc, rect.X, rect.Y, rect.W, rect.H)
 }
 
-func (buffer *VertexBuffer) Bind() {
-	CheckGLError(func() {
-		gl.BindVertexArray(buffer.vaoid)
-		gl.BindBuffer(gl.ARRAY_BUFFER, buffer.vboid)
-	})
-}
-
-// Updates current buffer to GPU
-// Caller responsible to bind buffer
-func (buffer *VertexBuffer) Update() {
-	if len(buffer.buffer) <= 0 {
-		panic("empty vertex buffer")
-	}
-	if buffer.size != len(buffer.buffer) {
-		CheckGLError(func() {
-			gl.BufferData(gl.ARRAY_BUFFER, len(buffer.buffer)*int(sizeof_Vertex), unsafe.Pointer(&buffer.buffer[0]), gl.DYNAMIC_DRAW)
-		})
-		buffer.size = len(buffer.buffer)
-	} else {
-		CheckGLError(func() {
-			gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(buffer.buffer)*int(sizeof_Vertex), unsafe.Pointer(&buffer.buffer[0]))
-		})
-	}
-}
-
-// Caller responsible to bind buffer
-// Caller responsible to Flush
-func (buffer *VertexBuffer) Render() {
-	if buffer.size <= 0 {
-		panic("buffer size is zero")
-	}
-	CheckGLError(func() {
-		gl.DrawArrays(gl.POINTS, 0, int32(buffer.size))
-	})
-
-}
-
 func (buffer *VertexBuffer) Destroy() {
+	logger.Log(logger.DEBUG, "Buffer destroyed:", buffer)
+	buffer.shader = nil
 	gl.DeleteVertexArrays(1, &buffer.vaoid)
 	gl.DeleteBuffers(1, &buffer.vboid)
-	buffer.size = 0
-	buffer.buffer = nil
+	buffer.updatedSize = 0
+	buffer.data = nil
 }
 
 // Buffer functions
 
-// Resize should clear the buffer
-func (buffer *VertexBuffer) Resize(size int) {
-	if size <= 0 {
-		panic("vertex buffer size can not be 0")
-	}
-	if size == len(buffer.buffer) {
-		return
-	}
-	buffer.buffer = make([]Vertex, size)
-}
-
 func (buffer *VertexBuffer) SetIndexPos(index int, pos common.Rectangle[float32]) {
-	buffer.buffer[index].pos = pos
+	buffer.data[index].pos = pos
 }
 
 func (buffer *VertexBuffer) SetIndexTex1(index int, tex1 common.Rectangle[float32]) {
-	buffer.buffer[index].tex1 = tex1
+	buffer.data[index].tex1 = tex1
 }
 
 func (buffer *VertexBuffer) SetIndexTex2(index int, tex2 common.Rectangle[float32]) {
-	buffer.buffer[index].tex2 = tex2
+	buffer.data[index].tex2 = tex2
 }
 
 func (buffer *VertexBuffer) SetIndexFg(index int, fg common.F32Color) {
-	buffer.buffer[index].fg = fg
+	buffer.data[index].fg = fg
 }
 
 func (buffer *VertexBuffer) SetIndexBg(index int, bg common.F32Color) {
-	buffer.buffer[index].bg = bg
+	buffer.data[index].bg = bg
 }
 
 func (buffer *VertexBuffer) SetIndexSp(index int, sp common.F32Color) {
-	buffer.buffer[index].sp = sp
+	buffer.data[index].sp = sp
 }
 
 func (buffer *VertexBuffer) CopyButPos(dst, src int) {
-	buffer.buffer[dst].tex1 = buffer.buffer[src].tex1
-	buffer.buffer[dst].tex2 = buffer.buffer[src].tex2
-	buffer.buffer[dst].fg = buffer.buffer[src].fg
-	buffer.buffer[dst].bg = buffer.buffer[src].bg
-	buffer.buffer[dst].sp = buffer.buffer[src].sp
+	buffer.data[dst].tex1 = buffer.data[src].tex1
+	buffer.data[dst].tex2 = buffer.data[src].tex2
+	buffer.data[dst].fg = buffer.data[src].fg
+	buffer.data[dst].bg = buffer.data[src].bg
+	buffer.data[dst].sp = buffer.data[src].sp
 }
 
 func (buffer *VertexBuffer) VertexAt(index int) Vertex {
-	return buffer.buffer[index]
+	return buffer.data[index]
 }

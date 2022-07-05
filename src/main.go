@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/hismailbulut/neoray/src/assets"
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/logger"
 )
 
@@ -29,8 +30,10 @@ func init() {
 func main() {
 	startTime := time.Now()
 	// Init logger
-	logger.Init(NAME, logger.Version{Major: VERSION_MAJOR, Minor: VERSION_MINOR, Patch: VERSION_PATCH}, BUILD_TYPE, true)
+	logger.Init(NAME, logger.Version{Major: VERSION_MAJOR, Minor: VERSION_MINOR, Patch: VERSION_PATCH}, bench.BUILD_TYPE, true)
 	defer logger.Shutdown()
+	// Print benchmark results
+	defer bench.PrintResults()
 	// Parse args
 	Editor.parsedArgs = ParseArgs(os.Args[1:])
 	// If ProcessBefore returns true, neoray will not start.

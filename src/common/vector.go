@@ -5,6 +5,12 @@ import (
 	"math"
 )
 
+// Zero values for reducing allocations
+var (
+	ZeroVector2F32 = Vector2[float32]{}
+	ZeroVector2INT = Vector2[int]{}
+)
+
 // We will use generics for vectors
 
 type Vector2[T SignedNumbers] struct {
@@ -32,7 +38,7 @@ var (
 )
 
 func (v Vector2[T]) String() string {
-	return fmt.Sprintf("Vector2(X: %v, Y: %v)", v.X, v.Y)
+	return fmt.Sprintf("Vec2(X: %v, Y: %v)", v.X, v.Y)
 }
 
 func (v Vector2[T]) ToVec3(Z T) Vector3[T] {

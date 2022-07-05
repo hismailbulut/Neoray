@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/hismailbulut/neoray/src/common"
+	"github.com/hismailbulut/neoray/src/logger"
 )
 
 type Texture struct {
@@ -44,22 +45,26 @@ func (texture *Texture) Size() common.Vector2[int] {
 	return common.Vec2(texture.width, texture.height)
 }
 
+// Texture must bound before resizing
 func (texture *Texture) Resize(width, height int) {
 	CheckGLError(func() {
-		// NOTE: If data is nil, glTexImage2D function allocates required memory but does not initializes.
-		// If this happens in some point, we need to also clear the texture after this call.
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	})
+	prev := texture.width * texture.height
 	texture.width = width
 	texture.height = height
+	if prev == 0 {
+		logger.Log(logger.DEBUG, "Texture created:", texture)
+	} else {
+		logger.Log(logger.DEBUG, "Texture resized:", texture)
+	}
 }
 
 func (texture *Texture) Clear() {
 	CheckGLError(func() {
 		// Bind framebuffer
 		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, texture.fbo)
-		// init framebuffer with texture
-		// NOTE: Are we need to do this every time ?
+		// Init framebuffer with texture
 		gl.FramebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.id, 0)
 	})
 	// Check if the framebuffer is complete and ready for draw
@@ -84,13 +89,10 @@ func (texture *Texture) Bind() {
 	CheckGLError(func() {
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, texture.id)
-		// gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-		// gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-		// gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-		// gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	})
 }
 
+// Texture must bound before drawing
 func (texture *Texture) Draw(image *image.RGBA, dest common.Rectangle[int]) {
 	CheckGLError(func() {
 		gl.TexSubImage2D(gl.TEXTURE_2D, 0, int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
@@ -108,5 +110,10 @@ func (texture *Texture) Normalize(pos common.Rectangle[int]) common.Rectangle[fl
 }
 
 func (texture *Texture) Delete() {
+	logger.Log(logger.DEBUG, "Texture deleted:", texture)
 	gl.DeleteTextures(1, &texture.id)
+	texture.id = 0
+	texture.width = 0
+	texture.height = 0
+	texture.fbo = 0
 }

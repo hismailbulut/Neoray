@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/logger"
 	"github.com/hismailbulut/neoray/src/opengl"
@@ -162,7 +163,7 @@ func (cursor *Cursor) modeRectangle(info ModeInfo, position, cellSize common.Vec
 			H: float32(cellSize.Height()),
 		}, false
 	default:
-		return common.Rectangle[float32]{}, false
+		return common.ZeroRectangleF32, false
 	}
 }
 
@@ -170,6 +171,8 @@ func (cursor *Cursor) Draw(delta float32) {
 	if cursor.hidden || cursor.bHidden {
 		return
 	}
+	EndBenchmark := bench.BeginBenchmark()
+	defer EndBenchmark("Cursor.Draw")
 	// Draw
 	modeInfo := cursor.mode.Current()
 	cursorAttrib, found := Editor.gridManager.Attribute(modeInfo.attr_id)
@@ -202,9 +205,9 @@ func (cursor *Cursor) Draw(delta float32) {
 			cursor.buffer.SetIndexFg(0, cursorAttrib.foreground.ToF32())
 		} else {
 			// No cell drawing needed. Clear foreground.
-			cursor.buffer.SetIndexTex1(0, common.Rectangle[float32]{})
-			cursor.buffer.SetIndexFg(0, common.F32Color{})
-			cursor.buffer.SetIndexSp(0, common.F32Color{})
+			cursor.buffer.SetIndexTex1(0, common.ZeroRectangleF32)
+			cursor.buffer.SetIndexFg(0, common.ZeroColorF32)
+			cursor.buffer.SetIndexSp(0, common.ZeroColorF32)
 		}
 		// Background and position is always required
 		cursor.buffer.SetIndexBg(0, cursorAttrib.background.ToF32())

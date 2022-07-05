@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/logger"
 	"github.com/sqweek/dialog"
 )
@@ -63,6 +64,7 @@ func ParseArgs(args []string) ParsedArgs {
 		singleInst: false,
 		execPath:   "nvim",
 		address:    "",
+		multiGrid:  false,
 		others:     []string{},
 	}
 	var err error
@@ -72,25 +74,20 @@ func ParseArgs(args []string) ParsedArgs {
 			assert(len(args) > i+1, "specify filename after --file")
 			options.file = args[i+1]
 			i++
-			break
 		case "--line":
 			assert(len(args) > i+1, "specify line number after --line")
 			options.line, err = strconv.Atoi(args[i+1])
 			assert(err == nil, "invalid number after --line")
 			i++
-			break
 		case "--column":
 			assert(len(args) > i+1, "specify column number after --column")
 			options.column, err = strconv.Atoi(args[i+1])
 			assert(err == nil, "invalid number after --column")
 			i++
-			break
 		case "--singleinstance", "-si":
 			options.singleInst = true
-			break
 		case "--verbose":
 			logger.InitFile("Neoray_verbose.log")
-			break
 		case "--nvim":
 			assert(len(args) > i+1, "specify path after --nvim")
 			absolute, err := filepath.Abs(args[i+1])
@@ -98,12 +95,10 @@ func ParseArgs(args []string) ParsedArgs {
 				options.execPath = absolute
 			}
 			i++
-			break
 		case "--server":
 			assert(len(args) > i+1, "specify address after --server")
 			options.address = args[i+1]
 			i++
-			break
 		case "--multigrid":
 			options.multiGrid = true
 		case "--version", "-v":
@@ -112,10 +107,8 @@ func ParseArgs(args []string) ParsedArgs {
 		case "--help", "-h":
 			PrintHelp()
 			os.Exit(0)
-			break
 		default:
 			options.others = append(options.others, args[i])
-			break
 		}
 	}
 	return options
@@ -136,7 +129,7 @@ func PrintHelp() {
 	// About
 	msg := fmt.Sprintf(usageTemplate,
 		VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
-		BUILD_TYPE, LICENSE, WEBPAGE)
+		bench.BUILD_TYPE, LICENSE, WEBPAGE)
 	dialog.Message(msg).Title("Help").Info()
 	if runtime.GOOS != "windows" {
 		// Also print help to stdout for linux and darwin

@@ -315,10 +315,7 @@ func (manager *GridManager) grid_scroll(args []interface{}) {
 		right := refToInt(v.Index(4))
 		rows := refToInt(v.Index(5))
 		// cols := refToInt(v.Index(6))
-		grid, ok := manager.grids[grid_id]
-		if ok {
-			grid.Scroll(top, bot, rows, left, right)
-		}
+		manager.ScrollGrid(grid_id, top, bot, rows, left, right)
 	}
 }
 

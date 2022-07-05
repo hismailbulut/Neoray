@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
+	"github.com/hismailbulut/neoray/src/logger"
 	"github.com/hismailbulut/neoray/src/window"
 )
 
@@ -58,11 +60,12 @@ type Grid struct {
 
 // For debugging purposes.
 func (grid *Grid) String() string {
-	return fmt.Sprintf("Grid(ID: %d, Number: %d, Type: %s, Pos: %d %d, Size: %d %d, WinID: %d, Hidden: %t)",
+	return fmt.Sprintf("Grid(ID: %d, Number: %d, Type: %s, Pos: %d %d, PixelPos: %v, Size: %d %d, WinID: %d, Hidden: %t)",
 		grid.id,
 		grid.number,
 		grid.typ,
 		grid.sRow, grid.sCol,
+		grid.renderer.position,
 		grid.rows, grid.cols,
 		grid.window,
 		grid.hidden,
@@ -82,10 +85,11 @@ func NewGrid(window *window.Window, id, number int, rows, cols int, kit *fontkit
 	}
 	// Create renderer
 	var err error
-	grid.renderer, err = NewGridRenderer(window, grid, rows, cols, kit, fontSize, position)
+	grid.renderer, err = NewGridRenderer(window, rows, cols, kit, fontSize, position)
 	if err != nil {
 		return nil, err
 	}
+	logger.Log(logger.DEBUG, "Grid created:", grid)
 	return grid, nil
 }
 
@@ -142,9 +146,7 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 	copyRow := func(dst, src, left, right int) {
 		copy(grid.cells[dst][left:right], grid.cells[src][left:right])
 		grid.renderer.CopyRow(dst, src, left, right)
-		// singleton.renderer.copyRowData(dst+grid.sRow, src+grid.sRow, left+grid.sCol, right+grid.sCol)
 	}
-
 	if rows > 0 { // Scroll down, move up
 		for y := top + rows; y < bot; y++ {
 			copyRow(y-rows, y, left, right)
@@ -154,22 +156,6 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 			copyRow(y-rows, y, left, right)
 		}
 	}
-
-	// Animate cursor when scrolling
-	if Editor.cursor.IsInArea(grid.id, top, left, bot-top, right-left) {
-		// This is for cursor animation when scrolling. Simply we are moving cursor
-		// with scroll area immediately, and returning back to its position smoothly.
-		targetRow := Editor.cursor.row - rows
-		cursorGrid := Editor.cursor.Grid()
-		if cursorGrid != nil {
-			if targetRow >= 0 && targetRow < cursorGrid.rows {
-				currentRow := Editor.cursor.row
-				Editor.cursor.SetPosition(Editor.cursor.grid, targetRow, Editor.cursor.col, true)
-				Editor.cursor.SetPosition(Editor.cursor.grid, currentRow, Editor.cursor.col, false)
-			}
-		}
-	}
-
 	MarkRender()
 }
 
@@ -179,8 +165,9 @@ func (grid *Grid) Resize(rows, cols int) {
 	if rows == grid.rows && cols == grid.cols {
 		return
 	}
-	// TODO: make cells 1 dimension
-	// Resizing should not clear the cells
+	// TODO: We can reduce allocations by making cells 1 dimensional array
+	// NOTE: Resizing should not clear the cells
+	EndBenchmark := bench.BeginBenchmark()
 	// Resize rows
 	if cap(grid.cells) > rows {
 		grid.cells = grid.cells[:rows]
@@ -188,7 +175,6 @@ func (grid *Grid) Resize(rows, cols int) {
 		remaining := rows - len(grid.cells)
 		grid.cells = append(grid.cells, make([][]Cell, remaining)...)
 	}
-	assert(len(grid.cells) == rows)
 	// Resize cols
 	for i := 0; i < rows; i++ {
 		if cap(grid.cells[i]) > cols {
@@ -197,12 +183,13 @@ func (grid *Grid) Resize(rows, cols int) {
 			remaining := cols - len(grid.cells[i])
 			grid.cells[i] = append(grid.cells[i], make([]Cell, remaining)...)
 		}
-		assert(len(grid.cells[i]) == cols)
 	}
+	EndBenchmark("Grid.ResizeCells")
 	// Resize renderer
 	grid.renderer.Resize(rows, cols)
 	grid.rows = rows
 	grid.cols = cols
+	// Resizing renderer also clears it's buffer, because of this we must redraw every cell
 	MarkForceDraw()
 }
 
@@ -210,13 +197,12 @@ func (grid *Grid) SetPos(win, sRow, sCol int, rows, cols int, typ GridType, posi
 	grid.window = win
 	grid.typ = typ
 	grid.hidden = false
-
 	grid.sRow = sRow
 	grid.sCol = sCol
+	// NOTE: I don't know if this is required
 	// grid.Resize(rows, cols)
-
 	grid.renderer.SetPos(position)
-
+	logger.Log(logger.DEBUG, "Grid moved:", grid)
 	MarkForceDraw()
 }
 
@@ -224,6 +210,7 @@ func (grid *Grid) Draw(force bool) {
 	if grid.hidden {
 		return
 	}
+	EndBenchmark := bench.BeginBenchmark()
 	for row := 0; row < grid.rows; row++ {
 		for col := 0; col < grid.cols; col++ {
 			cell := grid.CellAt(row, col)
@@ -232,6 +219,11 @@ func (grid *Grid) Draw(force bool) {
 				cell.needsDraw = false
 			}
 		}
+	}
+	if force {
+		EndBenchmark("Grid.ForceDraw")
+	} else {
+		EndBenchmark("Grid.Draw")
 	}
 }
 
@@ -243,5 +235,6 @@ func (grid *Grid) Render() {
 }
 
 func (grid *Grid) Destroy() {
+	logger.Log(logger.DEBUG, "Grid destroyed:", grid)
 	grid.renderer.Destroy()
 }

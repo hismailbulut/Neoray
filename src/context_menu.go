@@ -72,7 +72,7 @@ func NewContextMenu() *ContextMenu {
 	menu.createCells()
 	menu.hlRow = -1
 	var err error
-	menu.renderer, err = NewGridRenderer(Editor.window, nil, menu.rows, menu.cols, nil, DEFAULT_FONT_SIZE, menu.pos)
+	menu.renderer, err = NewGridRenderer(Editor.window, menu.rows, menu.cols, nil, DEFAULT_FONT_SIZE, menu.pos)
 	if err != nil {
 		logger.Log(logger.ERROR, "Failed to create context menu renderer")
 	}

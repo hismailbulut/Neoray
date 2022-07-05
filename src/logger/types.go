@@ -8,17 +8,17 @@ type BuildType uint8
 
 func (buildType BuildType) String() string {
 	switch buildType {
-	case Debug:
+	case DebugBuild:
 		return "Debug"
-	case Release:
+	case ReleaseBuild:
 		return "Release"
 	}
 	return UNKNOWN
 }
 
 const (
-	Debug BuildType = iota
-	Release
+	DebugBuild BuildType = iota
+	ReleaseBuild
 )
 
 type Version struct {

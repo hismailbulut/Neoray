@@ -10,9 +10,10 @@ import (
 
 // FontKit is a struct that holds different styles of same font family
 type Font struct {
-	handle   *sfnt.Font
-	buffer   sfnt.Buffer
-	filePath string
+	handle    *sfnt.Font
+	buffer    sfnt.Buffer
+	filePath  string
+	faceCache map[FaceParams]*Face
 }
 
 func CreateFontFromFile(pathToFile string) (*Font, error) {
@@ -35,6 +36,7 @@ func CreateFontFromMem(data []byte) (*Font, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse font data: %s\n", err)
 	}
+	font.faceCache = make(map[FaceParams]*Face)
 	return font, nil
 }
 

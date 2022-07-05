@@ -4,8 +4,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync/atomic"
-	"time"
+	"sync"
 	"unicode"
 
 	"github.com/adrg/sysfont"
@@ -37,7 +36,7 @@ type fontSearchInfo struct {
 var (
 	// List of installed system fonts.
 	systemFontList      []*sysfont.Font
-	systemFontListReady int32
+	systemFontListGuard sync.Mutex
 
 	// Add more if you know any other filename used in
 	// font names. All characters must be lowercase.
@@ -54,20 +53,18 @@ func init() {
 	// And Find() will wait for this to be done only for first time.
 
 	go func() {
-		if systemFontList == nil {
-			finder := sysfont.NewFinder(&sysfont.FinderOpts{
-				Extensions: []string{".ttf", ".otf"},
-			})
-			systemFontList = finder.List()
-		}
-		atomic.StoreInt32(&systemFontListReady, 1)
+		systemFontListGuard.Lock()
+		defer systemFontListGuard.Unlock()
+		finder := sysfont.NewFinder(&sysfont.FinderOpts{
+			Extensions: []string{".ttf", ".otf"},
+		})
+		systemFontList = finder.List()
 	}()
 }
 
 func Find(name string) FontPathInfo {
-	for atomic.LoadInt32(&systemFontListReady) != 1 {
-		time.Sleep(time.Microsecond)
-	}
+	systemFontListGuard.Lock()
+	defer systemFontListGuard.Unlock()
 	return find(name)
 }
 

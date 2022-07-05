@@ -97,7 +97,7 @@ func Log(logLevel LogLevel, message ...any) {
 	buildtype := cache.buildtype
 	guard.Unlock()
 
-	if buildtype == Release && logLevel < TRACE {
+	if buildtype == ReleaseBuild && logLevel < TRACE {
 		return
 	}
 

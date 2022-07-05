@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
 )
@@ -14,7 +15,7 @@ const (
 )
 
 type Atlas struct {
-	fontkit         *fontkit.FontKit
+	kit             *fontkit.FontKit
 	fontSize, dpi   float64
 	useBoxDrawing   bool
 	useBlockDrawing bool
@@ -33,7 +34,7 @@ func (atlas *Atlas) String() string {
 
 func (context *Context) NewAtlas(kit *fontkit.FontKit, size, dpi float64, useBoxDrawing, useBlockDrawing bool) *Atlas {
 	atlas := new(Atlas)
-	atlas.fontkit = kit
+	atlas.kit = kit
 	atlas.fontSize = size
 	atlas.dpi = dpi
 	atlas.useBoxDrawing = useBoxDrawing
@@ -49,14 +50,14 @@ func (context *Context) NewAtlas(kit *fontkit.FontKit, size, dpi float64, useBox
 }
 
 func (atlas *Atlas) FontKit() *fontkit.FontKit {
-	if atlas.fontkit != nil {
-		return atlas.fontkit
+	if atlas.kit != nil {
+		return atlas.kit
 	}
 	return fontkit.Default()
 }
 
 func (atlas *Atlas) SetFontKit(kit *fontkit.FontKit) {
-	atlas.fontkit = kit
+	atlas.kit = kit
 	atlas.Reset()
 }
 
@@ -85,7 +86,12 @@ func (atlas *Atlas) Reset() {
 }
 
 func (atlas *Atlas) ImageSize() common.Vector2[int] {
-	face, err := atlas.FontKit().DefaultFont().CreateFace(atlas.fontSize, atlas.dpi, atlas.useBoxDrawing, atlas.useBlockDrawing)
+	face, err := atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
+		Size:            atlas.fontSize,
+		DPI:             atlas.dpi,
+		UseBoxDrawing:   atlas.useBoxDrawing,
+		UseBlockDrawing: atlas.useBlockDrawing,
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -138,6 +144,8 @@ func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
 }
 
 func (atlas *Atlas) drawChar(face *fontkit.Face, id uint64, char rune, underline, strikethrough bool, imgSize common.Vector2[int]) common.Rectangle[int] {
+	EndBenchmark := bench.BeginBenchmark()
+	defer EndBenchmark("Atlas.drawChar")
 	img := face.RenderChar(char, underline, strikethrough, imgSize)
 	pos := atlas.drawImage(img)
 	atlas.cache[id] = pos
@@ -169,7 +177,12 @@ func (atlas *Atlas) Undercurl(imgSize common.Vector2[int]) (common.Rectangle[int
 		return pos, false
 	}
 	// Draw and cache
-	face, err := atlas.FontKit().DefaultFont().CreateFace(atlas.fontSize, atlas.dpi, atlas.useBoxDrawing, atlas.useBlockDrawing)
+	face, err := atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
+		Size:            atlas.fontSize,
+		DPI:             atlas.dpi,
+		UseBoxDrawing:   atlas.useBoxDrawing,
+		UseBlockDrawing: atlas.useBlockDrawing,
+	})
 	if err != nil {
 		panic(fmt.Errorf("face creation failed: %s", err))
 	}
@@ -185,7 +198,12 @@ func (atlas *Atlas) unsupported(face *fontkit.Face, char rune, imgSize common.Ve
 		return pos
 	}
 	// Draw and cache
-	face, err := atlas.FontKit().DefaultFont().CreateFace(atlas.fontSize, atlas.dpi, atlas.useBoxDrawing, atlas.useBlockDrawing)
+	face, err := atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
+		Size:            atlas.fontSize,
+		DPI:             atlas.dpi,
+		UseBoxDrawing:   atlas.useBoxDrawing,
+		UseBlockDrawing: atlas.useBlockDrawing,
+	})
 	if err != nil {
 		panic(fmt.Errorf("face creation failed: %s", err))
 	}
@@ -201,7 +219,12 @@ func (atlas *Atlas) GetCharPos(char rune, bold, italic, underline, strikethrough
 		return pos
 	}
 	font, contains := atlas.suitableFont(char, bold, italic)
-	face, err := font.CreateFace(atlas.fontSize, atlas.dpi, atlas.useBoxDrawing, atlas.useBlockDrawing)
+	face, err := font.CreateFace(fontkit.FaceParams{
+		Size:            atlas.fontSize,
+		DPI:             atlas.dpi,
+		UseBoxDrawing:   atlas.useBoxDrawing,
+		UseBlockDrawing: atlas.useBlockDrawing,
+	})
 	if err != nil {
 		panic(fmt.Errorf("face creation failed: %s", err))
 	}

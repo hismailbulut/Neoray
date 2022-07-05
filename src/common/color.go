@@ -2,6 +2,12 @@ package common
 
 import "fmt"
 
+// Zero values for reducing allocations
+var (
+	ZeroColorF32 = F32Color{}
+	ZeroColorU8  = U8Color{}
+)
+
 // We can't use generics for color types
 
 type F32Color struct {
@@ -17,7 +23,7 @@ type U8Color struct {
 }
 
 func (c U8Color) String() string {
-	return fmt.Sprintf("F32Color(R: %d, G: %d, B: %d, A: %d)", c.R, c.G, c.B, c.A)
+	return fmt.Sprintf("U8Color(R: %d, G: %d, B: %d, A: %d)", c.R, c.G, c.B, c.A)
 }
 
 func (color U8Color) Pack() uint32 {

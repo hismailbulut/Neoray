@@ -26,10 +26,10 @@ release: precommands
 	go build $(RELEASEFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
 
 test:
-	go test -race $(SOURCEFOLDER)
+	go test -race $(SOURCEFOLDER)/...
 
 bench:
-	go test -run=XXX -bench=. -race $(SOURCEFOLDER)
+	go test -run=XXX -bench=. -benchmem -race $(SOURCEFOLDER)/...
 
 debug:
 	dlv debug $(SOURCEFOLDER)
