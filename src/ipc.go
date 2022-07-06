@@ -254,38 +254,40 @@ func (server *IpcServer) appendNewCall(call IpcFuncCall) {
 }
 
 func (server *IpcServer) Update() {
-	if server.callsAvailable.Get() {
-		server.callsMutex.Lock()
-		defer server.callsMutex.Unlock()
-		for _, call := range server.calls {
-			// bool, for JSON booleans
-			// float64, for JSON numbers
-			// string, for JSON strings
-			// []interface{}, for JSON arrays
-			// map[string]interface{}, for JSON objects
-			// nil for JSON null
-			switch call.MsgType {
-			case IPC_MSG_TYPE_OPEN_FILE:
-				path := call.Args[0].(string)
-				Editor.nvim.openFile(path)
-				break
-			case IPC_MSG_TYPE_GOTO_LINE:
-				line := int(call.Args[0].(float64))
-				Editor.nvim.gotoLine(line)
-				break
-			case IPC_MSG_TYPE_GOTO_COLUMN:
-				column := int(call.Args[0].(float64))
-				Editor.nvim.gotoColumn(column)
-				break
-			default:
-				logger.Log(logger.WARN, "Server received invalid signal:", call)
-				break
-			}
-		}
-		server.calls = server.calls[0:0]
-		server.callsAvailable.Set(false)
-		Editor.window.Raise()
+	if !server.callsAvailable.Get() {
+		return
 	}
+	server.callsMutex.Lock()
+	defer server.callsMutex.Unlock()
+	for _, call := range server.calls {
+		// bool, for JSON booleans
+		// float64, for JSON numbers
+		// string, for JSON strings
+		// []interface{}, for JSON arrays
+		// map[string]interface{}, for JSON objects
+		// nil for JSON null
+		switch call.MsgType {
+		case IPC_MSG_TYPE_OPEN_FILE:
+			path := call.Args[0].(string)
+			Editor.nvim.openFile(path)
+			break
+		case IPC_MSG_TYPE_GOTO_LINE:
+			line := int(call.Args[0].(float64))
+			Editor.nvim.gotoLine(line)
+			break
+		case IPC_MSG_TYPE_GOTO_COLUMN:
+			column := int(call.Args[0].(float64))
+			Editor.nvim.gotoColumn(column)
+			break
+		default:
+			logger.Log(logger.WARN, "Server received invalid signal:", call)
+			break
+		}
+	}
+	server.calls = server.calls[0:0]
+	server.callsAvailable.Set(false)
+	// On windows 11 this won't work
+	Editor.window.Raise()
 }
 
 func (server *IpcServer) Close() {

@@ -215,7 +215,10 @@ func (grid *Grid) Draw(force bool) {
 		for col := 0; col < grid.cols; col++ {
 			cell := grid.CellAt(row, col)
 			if force || cell.needsDraw {
-				grid.renderer.DrawCell(row, col, cell)
+				attrib, _ := Editor.gridManager.Attribute(cell.attribID)
+				// Override background alpha
+				attrib.background.A = uint8(Editor.options.transparency * 255)
+				grid.renderer.DrawCell(row, col, cell.char, attrib)
 				cell.needsDraw = false
 			}
 		}

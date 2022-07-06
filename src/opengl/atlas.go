@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
 )
@@ -144,8 +143,6 @@ func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
 }
 
 func (atlas *Atlas) drawChar(face *fontkit.Face, id uint64, char rune, underline, strikethrough bool, imgSize common.Vector2[int]) common.Rectangle[int] {
-	EndBenchmark := bench.BeginBenchmark()
-	defer EndBenchmark("Atlas.drawChar")
 	img := face.RenderChar(char, underline, strikethrough, imgSize)
 	pos := atlas.drawImage(img)
 	atlas.cache[id] = pos

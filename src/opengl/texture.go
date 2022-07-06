@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/hismailbulut/neoray/src/common"
-	"github.com/hismailbulut/neoray/src/logger"
 )
 
 type Texture struct {
@@ -50,14 +49,8 @@ func (texture *Texture) Resize(width, height int) {
 	CheckGLError(func() {
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	})
-	prev := texture.width * texture.height
 	texture.width = width
 	texture.height = height
-	if prev == 0 {
-		logger.Log(logger.DEBUG, "Texture created:", texture)
-	} else {
-		logger.Log(logger.DEBUG, "Texture resized:", texture)
-	}
 }
 
 func (texture *Texture) Clear() {
@@ -110,7 +103,6 @@ func (texture *Texture) Normalize(pos common.Rectangle[int]) common.Rectangle[fl
 }
 
 func (texture *Texture) Delete() {
-	logger.Log(logger.DEBUG, "Texture deleted:", texture)
 	gl.DeleteTextures(1, &texture.id)
 	texture.id = 0
 	texture.width = 0

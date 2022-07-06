@@ -40,9 +40,9 @@ if you want to use this NeoraySet commands and customize it then you need Neovim
 version 0.5.0
 
 The cursor is moving smoothly in Neoray and you can specify how long it's move
-takes. Default is 0.06 (1.0 is one second) You can disable it by setting to 0.
+takes. Default is 0.1 (1.0 is one second) You can disable it by setting to 0.
 ```vim
-NeoraySet CursorAnimTime 0.06
+NeoraySet CursorAnimTime 0.1
 ```
 
 Transparency of the window background. Default is 1 means no transparency, and

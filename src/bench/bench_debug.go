@@ -89,13 +89,13 @@ func (bytes byteFormat) String() string {
 type function_measure struct {
 	calls int
 	// CPU
-	time time.Duration
-	max  time.Duration
+	totalTime time.Duration
+	maxTime   time.Duration
 	// MEMORY
-	totalAlloc    byteFormat
-	maxTotalAlloc byteFormat
-	mallocs       int
-	maxMallocs    int
+	totalAlloc  byteFormat
+	maxAlloc    byteFormat
+	totalMalloc int
+	maxMalloc   int
 }
 
 var (
@@ -129,29 +129,29 @@ func BeginBenchmark() (EndBenchmark func(name string)) {
 		if ok {
 			val.calls++
 			// CPU
-			val.time += elapsed
-			if elapsed > val.max {
-				val.max = elapsed
+			val.totalTime += elapsed
+			if elapsed > val.maxTime {
+				val.maxTime = elapsed
 			}
 			// MEMORY
 			totalAlloc := byteFormat(m2.TotalAlloc - m1.TotalAlloc)
 			val.totalAlloc += totalAlloc
-			if totalAlloc > val.maxTotalAlloc {
-				val.maxTotalAlloc = totalAlloc
+			if totalAlloc > val.maxAlloc {
+				val.maxAlloc = totalAlloc
 			}
 			mallocs := int(m2.Mallocs - m1.Mallocs)
-			val.mallocs += mallocs
-			if mallocs > val.maxMallocs {
-				val.maxMallocs = mallocs
+			val.totalMalloc += mallocs
+			if mallocs > val.maxMalloc {
+				val.maxMalloc = mallocs
 			}
 			averages[name] = val
 		} else {
 			averages[name] = function_measure{
-				calls:      1,
-				time:       elapsed,
-				max:        elapsed,
-				totalAlloc: byteFormat(m2.TotalAlloc - m1.TotalAlloc),
-				mallocs:    int(m2.Mallocs - m1.Mallocs),
+				calls:       1,
+				totalTime:   elapsed,
+				maxTime:     elapsed,
+				totalAlloc:  byteFormat(m2.TotalAlloc - m1.TotalAlloc),
+				totalMalloc: int(m2.Mallocs - m1.Mallocs),
 			}
 		}
 	}
@@ -193,18 +193,18 @@ func PrintResults() {
 		sum.name = strings.Replace(key, "main.", "", 1)
 		sum.calls = val.calls
 		// CPU
-		sum.time = val.time
-		sum.average = val.time / time.Duration(val.calls)
-		sum.max = val.max
+		sum.time = val.totalTime
+		sum.average = val.totalTime / time.Duration(val.calls)
+		sum.max = val.maxTime
 		sum.percent = sum.time.Seconds() / elapsedSeconds
 		// MEMORY
 		sum.totalAlloc = val.totalAlloc
 		sum.avgTotalAlloc = val.totalAlloc / byteFormat(val.calls)
-		sum.maxTotalAlloc = val.maxTotalAlloc
+		sum.maxTotalAlloc = val.maxAlloc
 
-		sum.mallocs = val.mallocs
-		sum.avgMallocs = float64(val.mallocs) / float64(val.calls)
-		sum.maxMallocs = val.maxMallocs
+		sum.mallocs = val.totalMalloc
+		sum.avgMallocs = float64(val.totalMalloc) / float64(val.calls)
+		sum.maxMallocs = val.maxMalloc
 
 		sorted = append(sorted, sum)
 	}

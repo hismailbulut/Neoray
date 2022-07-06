@@ -3,6 +3,7 @@ package main
 import (
 	"sort"
 
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
 	"github.com/hismailbulut/neoray/src/logger"
@@ -349,7 +350,9 @@ func (manager *GridManager) SetCell(id, x int, y *int, char rune, attribId, repe
 }
 
 func (manager *GridManager) Update() {
+	EndBenchmark := bench.BeginBenchmark()
 	manager.HandleEvents()
+	EndBenchmark("GridManager.Update")
 }
 
 // Rendering specific

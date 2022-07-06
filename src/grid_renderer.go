@@ -124,7 +124,7 @@ func (renderer *GridRenderer) CopyRow(dst, src, left, right int) {
 	}
 }
 
-func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp common.U8Color, italic, bold, underline, undercurl, strikethrough bool) {
+func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib HighlightAttribute) {
 	// Calculate indices
 	index := renderer.cellIndex(row, col)
 	nextIndex := -1
@@ -132,7 +132,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 		nextIndex = renderer.cellIndex(row, col+1)
 	}
 	// Draw background
-	renderer.buffer.SetIndexBg(index, bg.ToF32())
+	renderer.buffer.SetIndexBg(index, attrib.background.ToF32())
 	if char == 0 {
 		// This is an empty cell, clear foreground data (not color but texture)
 		// We will not clear foreground color because may be the previous cell is multiwidth character
@@ -146,7 +146,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 		return
 	}
 
-	if undercurl {
+	if attrib.undercurl {
 		undercurlRect, firstDraw := renderer.atlas.Undercurl(renderer.cellSize)
 		if firstDraw {
 			// This is the first time we draw undercurl, because of this we must update
@@ -156,7 +156,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 			renderer.buffer.Bind()
 			renderer.buffer.SetUndercurlRect(normalized)
 		}
-		renderer.buffer.SetIndexSp(index, sp.ToF32())
+		renderer.buffer.SetIndexSp(index, attrib.special.ToF32())
 	} else {
 		// Setting special color to zero means clear the undercurl. Undercurl
 		// will always be drawed for every cell and multiplied by the special
@@ -166,7 +166,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 	}
 
 	// get character position in atlas texture
-	atlasPos := renderer.atlas.GetCharPos(char, bold, italic, underline, strikethrough, renderer.cellSize)
+	atlasPos := renderer.atlas.GetCharPos(char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, renderer.cellSize)
 	// Check if there is a require for second texture in next cell
 	if nextIndex != -1 {
 		if atlasPos.W > renderer.cellSize.Width() {
@@ -184,7 +184,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 			}
 			normalized := renderer.atlas.Normalize(secAtlasPos)
 			renderer.buffer.SetIndexTex2(nextIndex, normalized)
-			renderer.buffer.SetIndexFg(nextIndex, fg.ToF32())
+			renderer.buffer.SetIndexFg(nextIndex, attrib.foreground.ToF32())
 		} else {
 			// Clear second texture.
 			renderer.buffer.SetIndexTex2(nextIndex, common.ZeroRectangleF32)
@@ -193,14 +193,7 @@ func (renderer *GridRenderer) DrawCellCustom(row, col int, char rune, fg, bg, sp
 	// draw
 	normalized := renderer.atlas.Normalize(atlasPos)
 	renderer.buffer.SetIndexTex1(index, normalized)
-	renderer.buffer.SetIndexFg(index, fg.ToF32())
-}
-
-func (renderer *GridRenderer) DrawCell(row, col int, cell Cell) {
-	attrib, _ := Editor.gridManager.Attribute(cell.attribID)
-	// Override background alpha
-	attrib.background.A = uint8(Editor.options.transparency * 255)
-	renderer.DrawCellCustom(row, col, cell.char, attrib.foreground, attrib.background, attrib.special, attrib.italic, attrib.bold, attrib.underline, attrib.undercurl, attrib.strikethrough)
+	renderer.buffer.SetIndexFg(index, attrib.foreground.ToF32())
 }
 
 func (renderer *GridRenderer) Render() {

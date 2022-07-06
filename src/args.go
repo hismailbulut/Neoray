@@ -13,7 +13,7 @@ import (
 )
 
 var usageTemplate = `
-Neoray is an ui client for neovim.
+Neoray is a simple and lightweight GUI client for Neovim
 Version %d.%d.%d %s
 License %s
 Webpage %s
@@ -21,27 +21,27 @@ Webpage %s
 Options:
 
 --file <name>
-	Filename to open.
+	Filename to open
 --line <number>
-	Cursor goes to line <number>.
+	Cursor goes to line <number>
 --column <number>
-	Cursor goes to column <number>.
+	Cursor goes to column <number>
 --singleinstance, -si
-	Only accepts one instance of neoray and sends all flags to it.
+	Only accepts one instance of neoray and sends all flags to it
 --verbose
-	Prints verbose debug output to a file.
+	Prints verbose debug output to a file
 --nvim <path>
-	Path to nvim executable. May be relative or absolute.
+	Relative or absolute path to nvim executable
 --server <address>
-	Connect to existing neovim instance.
+	Connect to existing neovim instance
 --multigrid
-	Enables multigrid support.
+	Enables multigrid support (experimental)
 --version, -v
-	Prints only the version and quits.
+	Prints only the version and quits
 --help, -h
-	Prints this message and quits.
+	Prints this message and quits
 
-All other flags will send to neovim.
+All other flags will send to neovim
 `
 
 type ParsedArgs struct {

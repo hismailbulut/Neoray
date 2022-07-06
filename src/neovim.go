@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
@@ -64,7 +65,7 @@ type NvimProcess struct {
 	handle        *nvim.Nvim
 	eventReceived common.AtomicBool
 	eventMutex    *sync.Mutex
-	eventStack    [][][]interface{}
+	eventStack    [][]interface{}
 	optionChanged common.AtomicBool
 	optionMutex   *sync.Mutex
 	optionStack   [][]string
@@ -77,7 +78,7 @@ type NvimProcess struct {
 func CreateNvimProcess() *NvimProcess {
 	proc := &NvimProcess{
 		eventMutex:  &sync.Mutex{},
-		eventStack:  make([][][]interface{}, 0),
+		eventStack:  make([][]interface{}, 0),
 		optionMutex: &sync.Mutex{},
 		optionStack: make([][]string, 0),
 	}
@@ -171,7 +172,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 	err := proc.handle.RegisterHandler("redraw", func(updates ...[]interface{}) {
 		proc.eventMutex.Lock()
 		defer proc.eventMutex.Unlock()
-		proc.eventStack = append(proc.eventStack, updates)
+		proc.eventStack = append(proc.eventStack, updates...)
 		proc.eventReceived.Set(true)
 	})
 	if err != nil {
@@ -251,7 +252,7 @@ func (proc *NvimProcess) Update() {
 		if Editor.state < EditorWindowShown {
 			Editor.window.Show()
 			SetEditorState(EditorWindowShown)
-			logger.Log(logger.TRACE, "Window is visible now")
+			logger.Log(logger.TRACE, "Window is visible now in", time.Since(StartTime))
 		}
 	}
 }

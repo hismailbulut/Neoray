@@ -29,7 +29,7 @@ type Options struct {
 
 func DefaultOptions() Options {
 	return Options{
-		cursorAnimTime:      0.06,
+		cursorAnimTime:      0.1,
 		transparency:        1,
 		targetTPS:           60,
 		contextMenuEnabled:  true,
@@ -253,7 +253,6 @@ func MainLoop() {
 }
 
 func UpdateHandler(delta float32) {
-	EndBenchmark := bench.BeginBenchmark()
 	// Update required stuff
 	Editor.nvim.Update()
 	Editor.gridManager.Update()
@@ -261,7 +260,6 @@ func UpdateHandler(delta float32) {
 	if Editor.server != nil {
 		Editor.server.Update()
 	}
-	EndBenchmark("UpdateHandler.Update")
 	// Draw calls
 	if Editor.state >= EditorWindowShown {
 		if Editor.cDraw || Editor.cForceDraw {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
 	"github.com/hismailbulut/neoray/src/logger"
@@ -133,19 +134,22 @@ func (menu *ContextMenu) Draw() {
 	if menu.hidden {
 		return
 	}
+	EndBenchmark := bench.BeginBenchmark()
 	for row := 0; row < menu.rows; row++ {
 		for col := 0; col < menu.cols; col++ {
 			char := menu.cells[row][col]
-			fg := Editor.gridManager.defaultFg
-			bg := Editor.gridManager.defaultBg
-			sp := Editor.gridManager.defaultSp
+			attrib, _ := Editor.gridManager.Attribute(0)
+			attrib.bold = true
 			if menu.hlRow == row && col > 0 && col < menu.cols-1 {
-				menu.renderer.DrawCellCustom(row, col, char, fg, bg, sp, false, true, false, false, false)
+				menu.renderer.DrawCell(row, col, char, attrib)
 			} else {
-				menu.renderer.DrawCellCustom(row, col, char, bg, fg, sp, false, true, false, false, false)
+				// Normally we swap menu colors
+				attrib.foreground, attrib.background = attrib.background, attrib.foreground
+				menu.renderer.DrawCell(row, col, char, attrib)
 			}
 		}
 	}
+	EndBenchmark("ContextMenu.Draw")
 }
 
 func (menu *ContextMenu) Render() {

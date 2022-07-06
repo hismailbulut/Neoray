@@ -21,6 +21,9 @@ const (
 	LICENSE       = "MIT"
 )
 
+// Start time of the program
+var StartTime time.Time
+
 func init() {
 	runtime.LockOSThread()
 	// Enabling this helps us to catch and print segfaults (Does it?)
@@ -28,7 +31,7 @@ func init() {
 }
 
 func main() {
-	startTime := time.Now()
+	StartTime = time.Now()
 	// Init logger
 	logger.Init(NAME, logger.Version{Major: VERSION_MAJOR, Minor: VERSION_MINOR, Patch: VERSION_PATCH}, bench.BUILD_TYPE, true)
 	defer logger.Shutdown()
@@ -49,7 +52,7 @@ func main() {
 	// Some arguments must be processed after initialization
 	Editor.parsedArgs.ProcessAfter()
 	// Start time information
-	logger.Log(logger.TRACE, "Start time:", time.Since(startTime))
+	logger.Log(logger.TRACE, "Start time:", time.Since(StartTime))
 	// MainLoop is main loop of the neoray.
 	MainLoop()
 }

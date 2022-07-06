@@ -8,7 +8,6 @@ import (
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/hismailbulut/neoray/src/bench"
 	"github.com/hismailbulut/neoray/src/common"
-	"github.com/hismailbulut/neoray/src/logger"
 )
 
 type Vertex struct {
@@ -85,7 +84,6 @@ func (context *Context) CreateVertexBuffer(size int) *VertexBuffer {
 	}
 	// Create buffer in memory
 	buffer.data = make([]Vertex, size)
-	logger.Log(logger.DEBUG, "Buffer created:", buffer)
 	return buffer
 }
 
@@ -177,7 +175,6 @@ func (buffer *VertexBuffer) SetUndercurlRect(rect common.Rectangle[float32]) {
 }
 
 func (buffer *VertexBuffer) Destroy() {
-	logger.Log(logger.DEBUG, "Buffer destroyed:", buffer)
 	buffer.shader = nil
 	gl.DeleteVertexArrays(1, &buffer.vaoid)
 	gl.DeleteBuffers(1, &buffer.vboid)
