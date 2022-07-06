@@ -96,7 +96,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: amd64
-      run: go build -o bin/Neoray-linux64 ./src
+      run: go build -o bin/Neoray-linux ./src
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
