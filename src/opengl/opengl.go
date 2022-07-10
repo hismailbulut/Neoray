@@ -62,8 +62,7 @@ func (context *Context) SetViewport(rect common.Rectangle[int]) {
 	})
 }
 
-func (context *Context) ClearScreen(color common.U8Color) {
-	c := color.ToF32()
+func (context *Context) ClearScreen(c common.Color[float32]) {
 	CheckGLError(func() {
 		gl.ClearColor(c.R, c.G, c.B, c.A)
 		gl.Clear(gl.COLOR_BUFFER_BIT)

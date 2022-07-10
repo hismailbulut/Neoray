@@ -18,11 +18,11 @@ type Vertex struct {
 	// second texture position used for multiwidth characters
 	tex2 common.Rectangle[float32] // layout 2
 	// foreground color
-	fg common.F32Color // layout 3
+	fg common.Color[float32] // layout 3
 	// background color
-	bg common.F32Color // layout 4
+	bg common.Color[float32] // layout 4
 	// special color
-	sp common.F32Color // layout 5
+	sp common.Color[float32] // layout 5
 }
 
 func (vertex Vertex) String() string {
@@ -196,15 +196,15 @@ func (buffer *VertexBuffer) SetIndexTex2(index int, tex2 common.Rectangle[float3
 	buffer.data[index].tex2 = tex2
 }
 
-func (buffer *VertexBuffer) SetIndexFg(index int, fg common.F32Color) {
+func (buffer *VertexBuffer) SetIndexFg(index int, fg common.Color[float32]) {
 	buffer.data[index].fg = fg
 }
 
-func (buffer *VertexBuffer) SetIndexBg(index int, bg common.F32Color) {
+func (buffer *VertexBuffer) SetIndexBg(index int, bg common.Color[float32]) {
 	buffer.data[index].bg = bg
 }
 
-func (buffer *VertexBuffer) SetIndexSp(index int, sp common.F32Color) {
+func (buffer *VertexBuffer) SetIndexSp(index int, sp common.Color[float32]) {
 	buffer.data[index].sp = sp
 }
 

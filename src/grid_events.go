@@ -190,9 +190,9 @@ func (manager *GridManager) default_colors_set(args []interface{}) {
 		fg := v.Index(0).Elem().Convert(t_uint).Uint()
 		bg := v.Index(1).Elem().Convert(t_uint).Uint()
 		sp := v.Index(2).Elem().Convert(t_uint).Uint()
-		manager.defaultFg = common.ColorFromUint(uint32(fg))
-		manager.defaultBg = common.ColorFromUint(uint32(bg))
-		manager.defaultSp = common.ColorFromUint(uint32(sp))
+		manager.foreground = common.ColorFromUint(uint32(fg))
+		manager.background = common.ColorFromUint(uint32(bg))
+		manager.special = common.ColorFromUint(uint32(sp))
 		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
@@ -234,10 +234,16 @@ func (manager *GridManager) hl_attr_define(args []interface{}) {
 				hl_attr.strikethrough = true
 			case "underline":
 				hl_attr.underline = true
+			case "underlineline":
+				// hl_attr.underlineline = true
 			case "undercurl":
 				hl_attr.undercurl = true
+			case "underdot":
+				// hl_attr.underdot = true
+			case "underdash":
+				// hl_attr.underdash = true
 			case "blend":
-				hl_attr.blend = int(val.Convert(t_uint).Uint())
+				// hl_attr.blend = int(val.Convert(t_uint).Uint())
 			}
 		}
 		manager.attributes[id] = hl_attr
@@ -263,7 +269,7 @@ func (manager *GridManager) grid_line(args []interface{}) {
 			if len(str) > 0 {
 				char = []rune(str)[0]
 				// If this is a space, we set it to zero
-				// because otherwise we draw every space
+				// because otherwise we try to draw every space
 				if char == ' ' {
 					char = 0
 				}

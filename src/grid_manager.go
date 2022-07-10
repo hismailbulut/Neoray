@@ -11,15 +11,16 @@ import (
 
 type GridManager struct {
 	grids       map[int]*Grid
-	attributes  map[int]HighlightAttribute
-	defaultFg   common.U8Color
-	defaultBg   common.U8Color
-	defaultSp   common.U8Color
 	sortedGrids []*Grid
 	// These are used for creating new grids
 	totalGridsCreated int              // total number of grids created (including deleted ones)
 	kit               *fontkit.FontKit // last globally set font kit
 	fontSize          float64          // last globally set font size
+	// style information
+	attributes map[int]HighlightAttribute
+	foreground common.Color[uint8] // Default foreground color
+	background common.Color[uint8] // Default background color
+	special    common.Color[uint8] // Default special color
 }
 
 func NewGridManager() *GridManager {
@@ -30,28 +31,36 @@ func NewGridManager() *GridManager {
 	return grid
 }
 
-// Returns false if attribute not found
-func (manager *GridManager) Attribute(id int) (HighlightAttribute, bool) {
-	attrib, ok := manager.attributes[id]
-	if !ok {
+// Attribute itself reverses the color if required, so you dont have to swap them
+// for rendering grids
+func (manager *GridManager) Attribute(id int) (attrib HighlightAttribute) {
+	var ok bool
+	if id == 0 {
 		// Default attribute
-		attrib.foreground = manager.defaultFg
-		attrib.background = manager.defaultBg
-		attrib.special = manager.defaultSp
+		attrib.foreground = manager.foreground
+		attrib.background = manager.background
+		attrib.special = manager.special
+	} else {
+		attrib, ok = manager.attributes[id]
+		if !ok {
+			logger.LogF(logger.ERROR, "Attribute id %d not found!", id)
+		}
+		// Zero alpha means color is not set yet and we use default color
+		if attrib.foreground.A == 0 {
+			attrib.foreground = manager.foreground
+		}
+		if attrib.background.A == 0 {
+			attrib.background = manager.background
+		}
+		if attrib.special.A == 0 {
+			attrib.special = manager.special
+		}
+		// Reverse foreground an background colors if reverse attribute set
+		if attrib.reverse {
+			attrib.foreground, attrib.background = attrib.background, attrib.foreground
+		}
 	}
-	if attrib.foreground.A == 0 {
-		attrib.foreground = manager.defaultFg
-	}
-	if attrib.background.A == 0 {
-		attrib.background = manager.defaultBg
-	}
-	if attrib.special.A == 0 {
-		attrib.special = manager.defaultSp
-	}
-	if attrib.reverse {
-		attrib.foreground, attrib.background = attrib.background, attrib.foreground
-	}
-	return attrib, ok
+	return attrib
 }
 
 // Font related
@@ -78,7 +87,6 @@ func (manager *GridManager) ResetFontSize() {
 	for _, grid := range manager.grids {
 		grid.SetFontSize(grid.renderer.FontSize(), Editor.window.DPI())
 	}
-	// manager.fontSize = fontSize
 	manager.CheckDefaultGridSize()
 }
 

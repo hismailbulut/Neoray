@@ -14,7 +14,7 @@ type Animation struct {
 // delta time and lifetime. For lifeTime parameter, 1.0 value is 1 seconds
 func NewAnimation(from, to Vector2[float32], lifeTime float32) Animation {
 	if lifeTime <= 0 {
-		panic("animation must has non zero lifetime")
+		panic("animation lifetime must bigger than zero")
 	}
 	return Animation{
 		from:     from,
@@ -50,27 +50,27 @@ func (atomicBool *AtomicBool) Get() bool {
 	return val != 0
 }
 
-type AtomicInt int64
-
-func (atomicInt *AtomicInt) Set(value int64) {
-	atomic.StoreInt64((*int64)(atomicInt), value)
-}
-
-func (atomicInt *AtomicInt) Get() int64 {
-	return atomic.LoadInt64((*int64)(atomicInt))
-}
-
-func (atomicInt *AtomicInt) Increment() {
-	atomicInt.Set(atomicInt.Get() + 1)
-}
+// type AtomicInt int64
+//
+// func (atomicInt *AtomicInt) Set(value int64) {
+//     atomic.StoreInt64((*int64)(atomicInt), value)
+// }
+//
+// func (atomicInt *AtomicInt) Get() int64 {
+//     return atomic.LoadInt64((*int64)(atomicInt))
+// }
+//
+// func (atomicInt *AtomicInt) Increment() {
+//     atomicInt.Set(atomicInt.Get() + 1)
+// }
 
 // This is just for making code more readable
-// Can hold up to 16 enums
-type BitMask uint16
+// Can hold up to 32 enums
+type BitMask uint32
 
 func (mask BitMask) String() string {
 	str := ""
-	for i := 15; i >= 0; i-- {
+	for i := 31; i >= 0; i-- {
 		if mask.Has(1 << i) {
 			str += "1"
 		} else {

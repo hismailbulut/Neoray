@@ -11,15 +11,15 @@ var (
 	ZeroRectangleINT = Rectangle[int]{}
 )
 
-type Rectangle[T SignedNumbers] struct {
+type Rectangle[T Numbers] struct {
 	X, Y, W, H T
 }
 
 func (rect Rectangle[T]) String() string {
-	return fmt.Sprint("Rect(X: ", rect.X, ", Y: ", rect.Y, ", W: ", rect.W, ", H: ", rect.H, ")")
+	return fmt.Sprintf("%T(X: %v, Y: %v, W: %v, H: %v)", rect, rect.X, rect.Y, rect.W, rect.H)
 }
 
-func Rect[T SignedNumbers](X, Y, W, H T) Rectangle[T] {
+func Rect[T Numbers](X, Y, W, H T) Rectangle[T] {
 	return Rectangle[T]{X: X, Y: Y, W: W, H: H}
 }
 

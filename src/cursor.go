@@ -167,6 +167,24 @@ func (cursor *Cursor) modeRectangle(info ModeInfo, position, cellSize common.Vec
 	}
 }
 
+func (cursor *Cursor) AttributeColors(id int) (common.Color[uint8], common.Color[uint8]) {
+	// When attr_id is 0 we are using cursor foreground for default background and background for default foreground
+	fg := Editor.gridManager.background
+	bg := Editor.gridManager.foreground
+	if id != 0 {
+		attrib, ok := Editor.gridManager.attributes[id]
+		if ok {
+			if attrib.foreground.A > 0 {
+				fg = attrib.foreground
+			}
+			if attrib.background.A > 0 {
+				bg = attrib.background
+			}
+		}
+	}
+	return fg, bg
+}
+
 func (cursor *Cursor) Draw(delta float32) {
 	if cursor.hidden || cursor.bHidden {
 		return
@@ -175,12 +193,8 @@ func (cursor *Cursor) Draw(delta float32) {
 	defer EndBenchmark("Cursor.Draw")
 	// Draw
 	modeInfo := cursor.mode.Current()
-	cursorAttrib, found := Editor.gridManager.Attribute(modeInfo.attr_id)
-	// Reverse colors if attribute not found
-	if !found {
-		cursorAttrib.foreground, cursorAttrib.background = cursorAttrib.background, cursorAttrib.foreground
-	}
-	// Current grid where cursor is
+	cursorFg, cursorBg := cursor.AttributeColors(modeInfo.attr_id)
+	// Current grid where the cursor is
 	grid := cursor.Grid()
 	if grid != nil {
 		pos := cursor.anim.Step(delta).ToInt()
@@ -190,19 +204,18 @@ func (cursor *Cursor) Draw(delta float32) {
 		// has a printable character and cursor shape is block
 		if cursor.anim.IsFinished() && cell.char != 0 && blockShaped {
 			// We need to draw cell character to the cursor foreground
-			cellAttrib, _ := Editor.gridManager.Attribute(cell.attribID)
+			cellAttrib := Editor.gridManager.Attribute(cell.attribID)
 			// Draw undercurl to cursor if cell has
 			if cellAttrib.undercurl {
-				cursor.buffer.SetIndexSp(0, cursorAttrib.foreground.ToF32())
+				cursor.buffer.SetIndexSp(0, cursorFg.ToF32())
 			}
 			// Draw this cell to the cursor
 			charPos := grid.renderer.atlas.GetCharPos(cell.char, cellAttrib.bold, cellAttrib.italic, cellAttrib.underline, cellAttrib.strikethrough, grid.CellSize())
 			if charPos.W > grid.CellSize().Width() {
 				charPos.W /= 2
 			}
-			normalized := grid.renderer.atlas.Normalize(charPos)
-			cursor.buffer.SetIndexTex1(0, normalized)
-			cursor.buffer.SetIndexFg(0, cursorAttrib.foreground.ToF32())
+			cursor.buffer.SetIndexTex1(0, grid.renderer.atlas.Normalize(charPos))
+			cursor.buffer.SetIndexFg(0, cursorFg.ToF32())
 		} else {
 			// No cell drawing needed. Clear foreground.
 			cursor.buffer.SetIndexTex1(0, common.ZeroRectangleF32)
@@ -210,7 +223,7 @@ func (cursor *Cursor) Draw(delta float32) {
 			cursor.buffer.SetIndexSp(0, common.ZeroColorF32)
 		}
 		// Background and position is always required
-		cursor.buffer.SetIndexBg(0, cursorAttrib.background.ToF32())
+		cursor.buffer.SetIndexBg(0, cursorBg.ToF32())
 		cursor.buffer.SetIndexPos(0, rect)
 	}
 }

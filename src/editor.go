@@ -272,7 +272,7 @@ func UpdateHandler(delta float32) {
 		// Render calls
 		if Editor.cDraw || Editor.cForceDraw || Editor.cRender {
 			EndBenchmark := bench.BeginBenchmark()
-			Editor.window.GL().ClearScreen(Editor.gridManager.defaultBg)
+			Editor.window.GL().ClearScreen(Editor.gridManager.background.ToF32())
 			Editor.gridManager.Render()
 			Editor.cursor.Render()
 			Editor.contextMenu.Render()

@@ -13,12 +13,16 @@ var (
 
 // We will use generics for vectors
 
-type Vector2[T SignedNumbers] struct {
+type Vector2[T Numbers] struct {
 	X, Y T
 }
 
+func (v Vector2[T]) String() string {
+	return fmt.Sprintf("%T(X: %v, Y: %v)", v, v.X, v.Y)
+}
+
 // just a shortcut
-func Vec2[T SignedNumbers](X, Y T) Vector2[T] {
+func Vec2[T Numbers](X, Y T) Vector2[T] {
 	return Vector2[T]{X: X, Y: Y}
 }
 
@@ -28,17 +32,6 @@ func (v Vector2[T]) Width() T {
 
 func (v Vector2[T]) Height() T {
 	return v.Y
-}
-
-var (
-	Vec2Up    = Vector2[float32]{X: 0, Y: -1}
-	Vec2Down  = Vector2[float32]{X: 0, Y: 1}
-	Vec2Left  = Vector2[float32]{X: -1, Y: 0}
-	Vec2Right = Vector2[float32]{X: 1, Y: 0}
-)
-
-func (v Vector2[T]) String() string {
-	return fmt.Sprintf("Vec2(X: %v, Y: %v)", v.X, v.Y)
 }
 
 func (v Vector2[T]) ToVec3(Z T) Vector3[T] {
@@ -80,17 +73,17 @@ func (v Vector2[T]) Length() float32 {
 	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
 }
 
-func (v Vector2[T]) LengthSquare() float32 {
-	return float32(v.X*v.X + v.Y*v.Y)
-}
+// func (v Vector2[T]) LengthSquare() float32 {
+//     return float32(v.X*v.X + v.Y*v.Y)
+// }
 
-func (v Vector2[T]) Distance(v2 Vector2[T]) float32 {
-	return v2.Minus(v).Length()
-}
+// func (v Vector2[T]) Distance(v2 Vector2[T]) float32 {
+//     return v2.Minus(v).Length()
+// }
 
-func (v Vector2[T]) DistanceSquare(v2 Vector2[T]) float32 {
-	return v2.Minus(v).LengthSquare()
-}
+// func (v Vector2[T]) DistanceSquare(v2 Vector2[T]) float32 {
+//     return v2.Minus(v).LengthSquare()
+// }
 
 func (v Vector2[T]) Normalized() Vector2[T] {
 	return v.DivideScalar(T(v.Length()))
@@ -108,11 +101,16 @@ func (v Vector2[T]) IsInRect(rect Rectangle[T]) bool {
 	return v.X >= rect.X && v.Y >= rect.Y && v.X < rect.X+rect.W && v.Y < rect.Y+rect.H
 }
 
-type Vector3[T SignedNumbers] struct {
+type Vector3[T Numbers] struct {
 	X, Y, Z T
 }
 
-func Vec3[T SignedNumbers](X, Y, Z T) Vector3[T] {
+func (v Vector3[T]) String() string {
+	return fmt.Sprintf("%T(X: %v, Y: %v, Z: %v)", v, v.X, v.Y, v.Z)
+}
+
+// just a shortcut
+func Vec3[T Numbers](X, Y, Z T) Vector3[T] {
 	return Vector3[T]{X: X, Y: Y, Z: Z}
 }
 

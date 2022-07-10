@@ -13,16 +13,8 @@ type Floats interface {
 	float32 | float64
 }
 
-func Lerp[T Floats](a, b, f T) T {
-	return (a * (1.0 - f)) + (b * f)
-}
-
-type SignedNumbers interface {
-	Integers | Floats
-}
-
 type Numbers interface {
-	SignedNumbers | UnsignedIntegers
+	Integers | UnsignedIntegers | Floats
 }
 
 func Min[T Numbers](v1, v2 T) T {

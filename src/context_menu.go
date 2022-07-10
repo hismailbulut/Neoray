@@ -138,14 +138,20 @@ func (menu *ContextMenu) Draw() {
 	for row := 0; row < menu.rows; row++ {
 		for col := 0; col < menu.cols; col++ {
 			char := menu.cells[row][col]
-			attrib, _ := Editor.gridManager.Attribute(0)
-			attrib.bold = true
 			if menu.hlRow == row && col > 0 && col < menu.cols-1 {
-				menu.renderer.DrawCell(row, col, char, attrib)
+				// This is the highlighted cell
+				menu.renderer.DrawCell(row, col, char, HighlightAttribute{
+					foreground: Editor.gridManager.foreground,
+					background: Editor.gridManager.background,
+					bold:       true,
+				})
 			} else {
 				// Normally we swap menu colors
-				attrib.foreground, attrib.background = attrib.background, attrib.foreground
-				menu.renderer.DrawCell(row, col, char, attrib)
+				menu.renderer.DrawCell(row, col, char, HighlightAttribute{
+					foreground: Editor.gridManager.background,
+					background: Editor.gridManager.foreground,
+					bold:       true,
+				})
 			}
 		}
 	}

@@ -31,7 +31,7 @@ func (gridType GridType) String() string {
 }
 
 // Because of the struct packing, this order of elements is important
-// Current size of the Cell is 16 bytes
+// Current size of the Cell is 16 bytes in 64 bit systems
 type Cell struct {
 	needsDraw bool
 	char      rune
@@ -60,7 +60,7 @@ type Grid struct {
 
 // For debugging purposes.
 func (grid *Grid) String() string {
-	return fmt.Sprintf("Grid(ID: %d, Number: %d, Type: %s, Pos: %d %d, PixelPos: %v, Size: %d %d, WinID: %d, Hidden: %t)",
+	return fmt.Sprintf("Grid(ID: %d, Number: %d, Type: %s, Pos: %d %d, PixelPos: %v, Size: %d %d, Window: %d, Hidden: %t)",
 		grid.id,
 		grid.number,
 		grid.typ,
@@ -215,8 +215,9 @@ func (grid *Grid) Draw(force bool) {
 		for col := 0; col < grid.cols; col++ {
 			cell := grid.CellAt(row, col)
 			if force || cell.needsDraw {
-				attrib, _ := Editor.gridManager.Attribute(cell.attribID)
+				attrib := Editor.gridManager.Attribute(cell.attribID)
 				// Override background alpha
+				// TODO We must check whether it is default background or not
 				attrib.background.A = uint8(Editor.options.transparency * 255)
 				grid.renderer.DrawCell(row, col, cell.char, attrib)
 				cell.needsDraw = false
