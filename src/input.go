@@ -76,13 +76,14 @@ var (
 
 	// Global input variables
 	inputCache struct {
-		lastMousePos    common.Vector2[int]
-		lastDragPos     common.Vector2[int]
-		lastDragGrid    int
-		lastMouseButton string
-		lastMouseAction glfw.Action
-		lastSharedKey   glfw.Key
-		lastModifiers   common.BitMask
+		sharedKey   glfw.Key
+		modifiers   common.BitMask
+		mousePos    common.Vector2[int]
+		mouseButton string
+		mouseAction glfw.Action
+		dragGrid    int
+		dragRow     int
+		dragCol     int
 	}
 )
 
@@ -170,7 +171,7 @@ func checkNeorayKeybindings(keycode string) bool {
 			}
 			return true
 		case "<MiddleMouse>":
-			Editor.gridManager.printCellInfoAt(inputCache.lastMousePos)
+			Editor.gridManager.printCellInfoAt(inputCache.mousePos)
 			return true
 		}
 	}
@@ -178,7 +179,7 @@ func checkNeorayKeybindings(keycode string) bool {
 }
 
 func CharInputHandler(char rune) {
-	keycode := parseCharInput(char, inputCache.lastModifiers)
+	keycode := parseCharInput(char, inputCache.modifiers)
 	if keycode != "" {
 		sendKeyInput(keycode)
 		// Hide mouse if mousehide option set
@@ -189,9 +190,9 @@ func CharInputHandler(char rune) {
 }
 
 func parseCharInput(char rune, mods common.BitMask) string {
-	shared, ok := SharedKeys[inputCache.lastSharedKey]
+	shared, ok := SharedKeys[inputCache.sharedKey]
 	if ok && char == shared.r {
-		inputCache.lastSharedKey = glfw.KeyUnknown
+		inputCache.sharedKey = glfw.KeyUnknown
 		return ""
 	}
 
@@ -223,13 +224,13 @@ func KeyInputHandler(key glfw.Key, scancode int, action glfw.Action, mods glfw.M
 	// Toggle modifiers
 	switch key {
 	case glfw.KeyLeftAlt:
-		inputCache.lastModifiers.EnableIf(ModAlt, action != glfw.Release)
+		inputCache.modifiers.EnableIf(ModAlt, action != glfw.Release)
 		return
 	case glfw.KeyRightAlt:
-		inputCache.lastModifiers.EnableIf(ModAltGr, action != glfw.Release)
+		inputCache.modifiers.EnableIf(ModAltGr, action != glfw.Release)
 		return
 	case glfw.KeyLeftControl, glfw.KeyRightControl:
-		inputCache.lastModifiers.EnableIf(ModControl, action != glfw.Release)
+		inputCache.modifiers.EnableIf(ModControl, action != glfw.Release)
 		return
 	}
 
@@ -241,21 +242,21 @@ func KeyInputHandler(key glfw.Key, scancode int, action glfw.Action, mods glfw.M
 	// 	and this also can be a problem.
 	// 	Altgr is always a problem, why it's not a different mod?
 
-	inputCache.lastModifiers.EnableIf(ModShift, action != glfw.Release && mods&glfw.ModShift != 0)
-	inputCache.lastModifiers.EnableIf(ModSuper, action != glfw.Release && mods&glfw.ModSuper != 0)
+	inputCache.modifiers.EnableIf(ModShift, action != glfw.Release && mods&glfw.ModShift != 0)
+	inputCache.modifiers.EnableIf(ModSuper, action != glfw.Release && mods&glfw.ModSuper != 0)
 
 	// Check is the modifiers are correct
-	if (inputCache.lastModifiers.Has(ModAlt) != (mods&glfw.ModAlt != 0)) || (inputCache.lastModifiers.Has(ModControl) != (mods&glfw.ModControl != 0)) {
+	if (inputCache.modifiers.Has(ModAlt) != (mods&glfw.ModAlt != 0)) || (inputCache.modifiers.Has(ModControl) != (mods&glfw.ModControl != 0)) {
 		// Use mods when altgr is disabled
-		if !inputCache.lastModifiers.Has(ModAltGr) {
-			inputCache.lastModifiers.EnableIf(ModAlt, action != glfw.Release && mods&glfw.ModAlt != 0)
-			inputCache.lastModifiers.EnableIf(ModControl, action != glfw.Release && mods&glfw.ModControl != 0)
+		if !inputCache.modifiers.Has(ModAltGr) {
+			inputCache.modifiers.EnableIf(ModAlt, action != glfw.Release && mods&glfw.ModAlt != 0)
+			inputCache.modifiers.EnableIf(ModControl, action != glfw.Release && mods&glfw.ModControl != 0)
 		}
 	}
 
 	// Keys
 	if action != glfw.Release {
-		keycode := parseKeyInput(key, scancode, inputCache.lastModifiers)
+		keycode := parseKeyInput(key, scancode, inputCache.modifiers)
 		if keycode != "" {
 			sendKeyInput(keycode)
 		}
@@ -275,7 +276,7 @@ func parseKeyInput(key glfw.Key, scancode int, mods common.BitMask) string {
 		// are characters. They must be sent with their
 		// special names for allowing more mappings. And
 		// corresponding character mustn't be sent.
-		inputCache.lastSharedKey = key
+		inputCache.sharedKey = key
 		// Do same thing above
 		if mods.Has(ModAltGr) {
 			mods.Enable(ModControl | ModAlt)
@@ -313,7 +314,7 @@ func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.Mo
 	switch button {
 	case glfw.MouseButtonLeft:
 		if action == glfw.Press && Editor.options.contextMenuEnabled {
-			if Editor.contextMenu.MouseClick(false, inputCache.lastMousePos) {
+			if Editor.contextMenu.MouseClick(false, inputCache.mousePos) {
 				// Mouse clicked to context menu, dont send to neovim.
 				// TODO: We also need to dont send release action to neovim.
 				return
@@ -324,7 +325,7 @@ func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.Mo
 		// We don't send right button to neovim if popup menu enabled.
 		if Editor.options.contextMenuEnabled {
 			if action == glfw.Press {
-				Editor.contextMenu.MouseClick(true, inputCache.lastMousePos)
+				Editor.contextMenu.MouseClick(true, inputCache.mousePos)
 			}
 			return
 		}
@@ -338,11 +339,16 @@ func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.Mo
 		actionCode = "release"
 	}
 
-	grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
-	sendMouseInput(buttonCode, actionCode, inputCache.lastModifiers, grid, row, col)
+	grid, row, col := Editor.gridManager.CellAt(inputCache.mousePos)
+	// We never send drag event to where we send a buton event
+	inputCache.dragGrid = grid
+	inputCache.dragRow = row
+	inputCache.dragCol = col
+	logger.Log(logger.DEBUG, "Mouse action:", actionCode, grid, row, col)
+	sendMouseInput(buttonCode, actionCode, inputCache.modifiers, grid, row, col)
 
-	inputCache.lastMouseButton = buttonCode
-	inputCache.lastMouseAction = action
+	inputCache.mouseButton = buttonCode
+	inputCache.mouseAction = action
 }
 
 func MouseMoveHandler(xpos, ypos float64) {
@@ -351,23 +357,24 @@ func MouseMoveHandler(xpos, ypos float64) {
 		Editor.window.ShowMouseCursor()
 	}
 
-	inputCache.lastMousePos.X = int(xpos)
-	inputCache.lastMousePos.Y = int(ypos)
+	inputCache.mousePos.X = int(xpos)
+	inputCache.mousePos.Y = int(ypos)
 
 	if Editor.options.contextMenuEnabled {
-		Editor.contextMenu.MouseMove(inputCache.lastMousePos)
+		Editor.contextMenu.MouseMove(inputCache.mousePos)
 	}
 
 	// If mouse moving when holding button, it's a drag event
-	if inputCache.lastMouseAction == glfw.Press {
-		grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
+	if inputCache.mouseAction == glfw.Press {
+		grid, row, col := Editor.gridManager.CellAt(inputCache.mousePos)
 		// NOTE: Drag event has some multigrid issues
 		// Sending drag event on same row and column causes whole word is selected
-		if grid != inputCache.lastDragGrid || row != inputCache.lastDragPos.X || col != inputCache.lastDragPos.Y {
-			sendMouseInput(inputCache.lastMouseButton, "drag", inputCache.lastModifiers, grid, row, col)
-			inputCache.lastDragGrid = grid
-			inputCache.lastDragPos.X = row
-			inputCache.lastDragPos.Y = col
+		if grid != inputCache.dragGrid || row != inputCache.dragRow || col != inputCache.dragCol {
+			logger.Log(logger.DEBUG, "Mouse drag:", grid, row, col)
+			sendMouseInput(inputCache.mouseButton, "drag", inputCache.modifiers, grid, row, col)
+			inputCache.dragGrid = grid
+			inputCache.dragRow = row
+			inputCache.dragCol = col
 		}
 	}
 }
@@ -382,8 +389,8 @@ func ScrollHandler(xoff, yoff float64) {
 		action = "down"
 	}
 
-	grid, row, col := Editor.gridManager.CellAt(inputCache.lastMousePos)
-	sendMouseInput("wheel", action, inputCache.lastModifiers, grid, row, col)
+	grid, row, col := Editor.gridManager.CellAt(inputCache.mousePos)
+	sendMouseInput("wheel", action, inputCache.modifiers, grid, row, col)
 }
 
 func DropHandler(names []string) {
