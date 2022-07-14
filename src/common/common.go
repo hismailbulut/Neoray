@@ -13,9 +13,6 @@ type Animation struct {
 // Lifetime is the life of the animation. Animation speed is depends of the
 // delta time and lifetime. For lifeTime parameter, 1.0 value is 1 seconds
 func NewAnimation(from, to Vector2[float32], lifeTime float32) Animation {
-	if lifeTime <= 0 {
-		panic("animation lifetime must bigger than zero")
-	}
 	return Animation{
 		from:     from,
 		to:       to,
@@ -26,6 +23,9 @@ func NewAnimation(from, to Vector2[float32], lifeTime float32) Animation {
 
 // Returns current position of animation
 func (anim *Animation) Step(delta float32) Vector2[float32] {
+	if anim.lifeTime <= 0 {
+		return anim.to
+	}
 	anim.time += delta
 	return anim.from.Plus(anim.to.Minus(anim.from).DivideScalar(anim.lifeTime).MultiplyScalar(Min(anim.time, anim.lifeTime)))
 }
