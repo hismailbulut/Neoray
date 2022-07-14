@@ -314,7 +314,7 @@ func EventHandler(event window.WindowEvent) {
 					rows := height / cellSize.Height()
 					cols := width / cellSize.Width()
 					if rows != defaultGrid.rows || cols != defaultGrid.cols {
-						Editor.nvim.tryResizeUI(rows, cols)
+						go Editor.nvim.tryResizeUI(rows, cols)
 					}
 				}
 				// Update viewport
