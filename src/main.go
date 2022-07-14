@@ -52,7 +52,7 @@ func main() {
 	// Some arguments must be processed after initialization
 	Editor.parsedArgs.ProcessAfter()
 	// Start time information
-	logger.Log(logger.TRACE, "Start time:", time.Since(StartTime))
+	logger.Log(logger.TRACE, "Initialization time:", time.Since(StartTime))
 	// MainLoop is main loop of the neoray.
 	MainLoop()
 }
