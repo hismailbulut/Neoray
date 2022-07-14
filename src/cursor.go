@@ -31,9 +31,9 @@ func NewCursor(window *window.Window) *Cursor {
 func (cursor *Cursor) Update(delta float32) {
 	cursor.time += delta
 	if cursor.anim.IsFinished() {
-		// Do not blink while animating
+		// Blink if animation finished (cursor is not moving)
 		cursor.updateBlinking()
-	} else {
+	} else if !cursor.hidden {
 		// Additional draw call to cursor for animation
 		// TODO We don't need to draw whole screen, just cursor enough
 		MarkDraw()
