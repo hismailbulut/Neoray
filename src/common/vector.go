@@ -34,10 +34,6 @@ func (v Vector2[T]) Height() T {
 	return v.Y
 }
 
-func (v Vector2[T]) ToVec3(Z T) Vector3[T] {
-	return Vector3[T]{X: v.X, Y: v.Y, Z: Z}
-}
-
 func (v Vector2[T]) ToInt() Vector2[int] {
 	return Vector2[int]{
 		X: int(math.Floor(float64(v.X))),
@@ -45,75 +41,127 @@ func (v Vector2[T]) ToInt() Vector2[int] {
 	}
 }
 
-func (v Vector2[T]) Plus(v1 Vector2[T]) Vector2[T] {
-	return Vector2[T]{X: v.X + v1.X, Y: v.Y + v1.Y}
+// Add two vectors
+func (v Vector2[T]) Add(v1 Vector2[T]) Vector2[T] {
+	v.X += v1.X
+	v.Y += v1.Y
+	return v
 }
 
-func (v Vector2[T]) Minus(v1 Vector2[T]) Vector2[T] {
-	return Vector2[T]{X: v.X - v1.X, Y: v.Y - v1.Y}
+func (v Vector2[T]) AddX(X T) Vector2[T] {
+	v.X += X
+	return v
 }
 
-func (v Vector2[T]) Multiply(v1 Vector2[T]) Vector2[T] {
-	return Vector2[T]{X: v.X * v1.X, Y: v.Y * v1.Y}
+func (v Vector2[T]) AddY(Y T) Vector2[T] {
+	v.Y += Y
+	return v
 }
 
-func (v Vector2[T]) Equals(v1 Vector2[T]) bool {
-	return v.X == v1.X && v.Y == v1.Y
+// Subtract v1 from v
+func (v Vector2[T]) Sub(v1 Vector2[T]) Vector2[T] {
+	v.X -= v1.X
+	v.Y -= v1.Y
+	return v
 }
 
-func (v Vector2[T]) DivideScalar(S T) Vector2[T] {
-	return Vector2[T]{X: v.X / S, Y: v.Y / S}
+func (v Vector2[T]) SubX(X T) Vector2[T] {
+	v.X -= X
+	return v
 }
 
-func (v Vector2[T]) MultiplyScalar(S T) Vector2[T] {
-	return Vector2[T]{X: v.X * S, Y: v.Y * S}
+func (v Vector2[T]) SubY(Y T) Vector2[T] {
+	v.Y -= Y
+	return v
+}
+
+// Dot product of two vectors
+func (v Vector2[T]) Mul(v1 Vector2[T]) Vector2[T] {
+	v.X *= v1.X
+	v.Y *= v1.Y
+	return v
+}
+
+// Multiplies the vector by a scalar
+func (v Vector2[T]) MulS(S T) Vector2[T] {
+	v.X *= S
+	v.Y *= S
+	return v
+}
+
+func (v Vector2[T]) MulX(X T) Vector2[T] {
+	v.X *= X
+	return v
+}
+
+func (v Vector2[T]) MulY(Y T) Vector2[T] {
+	v.Y *= Y
+	return v
+}
+
+// Divides v by v1
+func (v Vector2[T]) Div(v1 Vector2[T]) Vector2[T] {
+	v.X /= v1.X
+	v.Y /= v1.Y
+	return v
+}
+
+// Divides the vector by a scalar
+func (v Vector2[T]) DivS(S T) Vector2[T] {
+	v.X /= S
+	v.Y /= S
+	return v
+}
+
+func (v Vector2[T]) DivX(X T) Vector2[T] {
+	v.X /= X
+	return v
+}
+
+func (v Vector2[T]) DivY(Y T) Vector2[T] {
+	v.Y /= Y
+	return v
 }
 
 func (v Vector2[T]) Length() float32 {
 	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
 }
 
-// func (v Vector2[T]) LengthSquare() float32 {
-//     return float32(v.X*v.X + v.Y*v.Y)
-// }
+// Does not applies sqrt, faster
+func (v Vector2[T]) LengthSquared() float32 {
+	return float32(v.X*v.X + v.Y*v.Y)
+}
 
-// func (v Vector2[T]) Distance(v2 Vector2[T]) float32 {
-//     return v2.Minus(v).Length()
-// }
+func (v Vector2[T]) Distance(v2 Vector2[T]) float32 {
+	return v2.Sub(v).Length()
+}
 
-// func (v Vector2[T]) DistanceSquare(v2 Vector2[T]) float32 {
-//     return v2.Minus(v).LengthSquare()
-// }
+// Does not applies sqrt, faster
+func (v Vector2[T]) DistanceSquared(v2 Vector2[T]) float32 {
+	return v2.Sub(v).LengthSquared()
+}
 
 func (v Vector2[T]) Normalized() Vector2[T] {
-	return v.DivideScalar(T(v.Length()))
+	return v.DivS(T(v.Length()))
 }
 
-func (v Vector2[T]) Perp() Vector2[T] {
-	return Vector2[T]{X: v.Y, Y: -v.X}
+// Returns the perpenicular vector of v
+func (v Vector2[T]) Perpendicular() Vector2[T] {
+	v.X, v.Y = v.Y, -v.X
+	return v
 }
 
+// Returns true if the vectors are equal
+func (v Vector2[T]) Equals(v1 Vector2[T]) bool {
+	return v.X == v1.X && v.Y == v1.Y
+}
+
+// Returns true if the vector is horizontal
 func (v Vector2[T]) IsHorizontal() bool {
-	return math.Abs(float64(v.X)) >= math.Abs(float64(v.Y))
+	return Abs(v.X) >= Abs(v.Y)
 }
 
+// Returns true if the vector is in given rectangle
 func (v Vector2[T]) IsInRect(rect Rectangle[T]) bool {
 	return v.X >= rect.X && v.Y >= rect.Y && v.X < rect.X+rect.W && v.Y < rect.Y+rect.H
-}
-
-type Vector3[T Numbers] struct {
-	X, Y, Z T
-}
-
-func (v Vector3[T]) String() string {
-	return fmt.Sprintf("%T(X: %v, Y: %v, Z: %v)", v, v.X, v.Y, v.Z)
-}
-
-// just a shortcut
-func Vec3[T Numbers](X, Y, Z T) Vector3[T] {
-	return Vector3[T]{X: X, Y: Y, Z: Z}
-}
-
-func (v Vector3[T]) ToVec2() Vector2[T] {
-	return Vector2[T]{X: v.X, Y: v.Y}
 }

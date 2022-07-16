@@ -2,6 +2,48 @@ package common
 
 import "sync/atomic"
 
+// Constraints
+type Integers interface {
+	int | int8 | int16 | int32 | int64
+}
+
+type UnsignedIntegers interface {
+	uint | uint8 | uint16 | uint32 | uint64
+}
+
+type Floats interface {
+	float32 | float64
+}
+
+type Numbers interface {
+	Integers | UnsignedIntegers | Floats
+}
+
+func Min[T Numbers](v1, v2 T) T {
+	if v1 < v2 {
+		return v1
+	}
+	return v2
+}
+
+func Max[T Numbers](v1, v2 T) T {
+	if v1 > v2 {
+		return v1
+	}
+	return v2
+}
+
+func Clamp[T Numbers](v, minv, maxv T) T {
+	return Min(maxv, Max(minv, v))
+}
+
+func Abs[T Numbers](v T) T {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 // Animation used for calculating positions of animated objects (points)
 type Animation struct {
 	from     Vector2[float32]
@@ -27,7 +69,7 @@ func (anim *Animation) Step(delta float32) Vector2[float32] {
 		return anim.to
 	}
 	anim.time += delta
-	return anim.from.Plus(anim.to.Minus(anim.from).DivideScalar(anim.lifeTime).MultiplyScalar(Min(anim.time, anim.lifeTime)))
+	return anim.from.Add(anim.to.Sub(anim.from).DivS(anim.lifeTime).MulS(Min(anim.time, anim.lifeTime)))
 }
 
 func (anim *Animation) IsFinished() bool {
@@ -49,20 +91,6 @@ func (atomicBool *AtomicBool) Get() bool {
 	val := atomic.LoadInt32((*int32)(atomicBool))
 	return val != 0
 }
-
-// type AtomicInt int64
-//
-// func (atomicInt *AtomicInt) Set(value int64) {
-//     atomic.StoreInt64((*int64)(atomicInt), value)
-// }
-//
-// func (atomicInt *AtomicInt) Get() int64 {
-//     return atomic.LoadInt64((*int64)(atomicInt))
-// }
-//
-// func (atomicInt *AtomicInt) Increment() {
-//     atomicInt.Set(atomicInt.Get() + 1)
-// }
 
 // This is just for making code more readable
 // Can hold up to 32 enums

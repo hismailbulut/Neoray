@@ -98,7 +98,9 @@ func (face *Face) RenderUndercurl(imgSize common.Vector2[int]) *image.RGBA {
 		common.Vec2(w, y),
 		common.Vec2(w/4*3, y-h/8),
 	)
-	return rastDraw(r)
+	img := face.cachedImage(imgSize)
+	r.Draw(img, img.Rect, image.White, image.Point{})
+	return img
 }
 
 // This function reduces image allocations by reusing existing sized images
@@ -162,14 +164,18 @@ func (face *Face) RenderChar(char rune, underline, strikethrough bool, imgSize c
 		return nil
 	}
 	// Draw underline or strikethrough to glyph
-	w := float32(img.Rect.Dx())
-	if underline {
-		y := float32(imgSize.Height()-face.descent) + 1
-		drawLine(img, common.Vec2(0, y), common.Vec2(w, y))
-	}
-	if strikethrough {
-		y := float32(imgSize.Height()) / 2
-		drawLine(img, common.Vec2(0, y), common.Vec2(w, y))
+	if underline || strikethrough {
+		w := float32(img.Rect.Dx())
+		r := vector.NewRasterizer(img.Rect.Dx(), img.Rect.Dy())
+		if underline {
+			y := float32(imgSize.Height()-face.descent) + 1
+			rastLine(r, common.Vec2(0, y), common.Vec2(w, y), face.thickness)
+		}
+		if strikethrough {
+			y := float32(imgSize.Height()) / 2
+			rastLine(r, common.Vec2(0, y), common.Vec2(w, y), face.thickness)
+		}
+		r.Draw(img, img.Rect, image.White, image.Point{})
 	}
 	return img
 }
