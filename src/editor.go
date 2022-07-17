@@ -52,6 +52,26 @@ const (
 	EditorDestroyed
 )
 
+func (state EditorState) String() string {
+	switch state {
+	case EditorNotInitialized:
+		return "EditorNotInitialized"
+	case EditorInitialized:
+		return "EditorInitialized"
+	case EditorLoopStarted:
+		return "EditorLoopStarted"
+	case EditorFirstFlush:
+		return "EditorFirstFlush"
+	case EditorWindowShown:
+		return "EditorWindowShown"
+	case EditorLoopStopped:
+		return "EditorLoopStopped"
+	case EditorDestroyed:
+		return "EditorDestroyed"
+	}
+	panic("unknown editor state")
+}
+
 var Editor struct {
 	state EditorState
 	// Parsed startup arguments
@@ -190,6 +210,7 @@ func ResizeWindowInCellFormat(rows, cols int) {
 func SetEditorState(state EditorState) {
 	// assert(state-1 == Editor.state, "Editor state can only incremented by 1")
 	Editor.state = state
+	logger.Log(logger.DEBUG, "Editor state changed to", state)
 }
 
 func ResetTicker() {
