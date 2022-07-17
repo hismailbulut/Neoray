@@ -344,7 +344,6 @@ func MouseInputHandler(button glfw.MouseButton, action glfw.Action, mods glfw.Mo
 	inputCache.dragGrid = grid
 	inputCache.dragRow = row
 	inputCache.dragCol = col
-	logger.Log(logger.DEBUG, "Mouse action:", actionCode, grid, row, col)
 	sendMouseInput(buttonCode, actionCode, inputCache.modifiers, grid, row, col)
 
 	inputCache.mouseButton = buttonCode
@@ -370,7 +369,6 @@ func MouseMoveHandler(xpos, ypos float64) {
 		// NOTE: Drag event has some multigrid issues
 		// Sending drag event on same row and column causes whole word is selected
 		if grid != inputCache.dragGrid || row != inputCache.dragRow || col != inputCache.dragCol {
-			logger.Log(logger.DEBUG, "Mouse drag:", grid, row, col)
 			sendMouseInput(inputCache.mouseButton, "drag", inputCache.modifiers, grid, row, col)
 			inputCache.dragGrid = grid
 			inputCache.dragRow = row
