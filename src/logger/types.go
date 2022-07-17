@@ -27,7 +27,7 @@ type Version struct {
 	Patch int
 }
 
-func (version *Version) String() string {
+func (version Version) String() string {
 	return fmt.Sprintf("v%d.%d.%d", version.Major, version.Minor, version.Patch)
 }
 
