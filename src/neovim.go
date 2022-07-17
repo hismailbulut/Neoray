@@ -135,6 +135,8 @@ func CreateNvimProcess() *NvimProcess {
 
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
+
+	// Prepare and Register NeorayOptionSet
 	// Replace channel ids in the template
 	source := strings.ReplaceAll(NeorayOptionSet_Source, "CHANID", strconv.Itoa(proc.handle.ChannelID()))
 	// Create option list string
@@ -153,7 +155,7 @@ func CreateNvimProcess() *NvimProcess {
 	// Execute script
 	_, err = proc.handle.Exec(source, false)
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to execute NeorayOptionSet_Source:", err)
+		logger.Log(logger.ERROR, "Failed to register NeorayOptionSet:", err)
 	} else {
 		// Register handler
 		proc.handle.RegisterHandler("NeorayOptionSet", func(args ...string) {
@@ -162,6 +164,17 @@ func CreateNvimProcess() *NvimProcess {
 			defer proc.optionMutex.Unlock()
 			proc.optionStack = append(proc.optionStack, args)
 			proc.optionChanged.Set(true)
+		})
+	}
+
+	// Register VimEnter autocmd
+	// NOTE: We are not using this for now but I added for we may need in future
+	_, err = proc.handle.Exec("autocmd VimEnter * call rpcrequest(1, 'VimEnter')", false)
+	if err != nil {
+		logger.Log(logger.ERROR, "Failed to register VimEnter:", err)
+	} else {
+		proc.handle.RegisterHandler("VimEnter", func() {
+			logger.Log(logger.DEBUG, "VimEnter")
 		})
 	}
 
@@ -198,7 +211,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		if err != nil {
 			logger.Log(logger.ERROR, "Neovim child process closed with errors:", err)
 		} else if !proc.connectedViaTcp {
-			logger.Log(logger.TRACE, "Neovim child process closed.")
+			logger.Log(logger.TRACE, "Neovim child process closed")
 		}
 		Editor.quitChan <- true
 	}()
@@ -226,6 +239,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		// enter but because we blocked here, we will not be able to create
 		// window and no user event can be handled Also we can not render the
 		// error screen. See issue #33
+		// NOTE: Not only this one but most api calls gets blocking
 		err = proc.handle.SetClientInfo(NAME, version, typ, methods, attributes)
 		if err != nil {
 			logger.Log(logger.FATAL, "Failed to set client information:", err)
@@ -239,6 +253,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 func (proc *NvimProcess) disconnect() {
 	proc.handle.Unsubscribe("redraw")
 	proc.handle.Unsubscribe("NeorayOptionSet")
+	proc.handle.Unsubscribe("VimEnter")
 	proc.handle.DetachUI()
 }
 
@@ -425,12 +440,12 @@ func (proc *NvimProcess) currentMode() string {
 
 func (proc *NvimProcess) echoMsg(format string, args ...interface{}) {
 	formatted := fmt.Sprintf(format, args...)
-	proc.execCommand("echomsg '%s'", formatted)
+	go proc.execCommand("echomsg '%s'", formatted)
 }
 
 func (proc *NvimProcess) echoErr(format string, args ...interface{}) {
 	formatted := fmt.Sprintf(format, args...)
-	proc.handle.WritelnErr(formatted)
+	go proc.handle.WritelnErr(formatted)
 	// Also log this as an error
 	logger.LogF(logger.ERROR, format, args...)
 }
@@ -470,10 +485,12 @@ func (proc *NvimProcess) copySelected() string {
 
 // Pastes text at cursor.
 func (proc *NvimProcess) paste(str string) {
-	err := proc.handle.Call("nvim_paste", nil, str, true, -1)
-	if err != nil {
-		logger.Log(logger.ERROR, "Api call nvim_paste() failed:", err)
-	}
+	go func() {
+		err := proc.handle.Call("nvim_paste", nil, str, true, -1)
+		if err != nil {
+			logger.Log(logger.ERROR, "Api call nvim_paste() failed:", err)
+		}
+	}()
 }
 
 // TODO: We need to check if this buffer is normal buffer.
@@ -490,17 +507,18 @@ func (proc *NvimProcess) selectAll() {
 }
 
 func (proc *NvimProcess) openFile(file string) {
-	proc.execCommand("edit %s", file)
+	logger.Log(logger.DEBUG, "Open file", file)
+	go proc.execCommand("edit %s", file)
 }
 
 func (proc *NvimProcess) gotoLine(line int) {
-	logger.Log(logger.DEBUG, "Goto Line:", line)
-	proc.handle.Call("cursor", nil, line, 0)
+	logger.Log(logger.DEBUG, "Goto line", line)
+	go proc.handle.Call("cursor", nil, line, 0)
 }
 
 func (proc *NvimProcess) gotoColumn(col int) {
-	logger.Log(logger.DEBUG, "Goto Column:", col)
-	proc.handle.Call("cursor", nil, 0, col)
+	logger.Log(logger.DEBUG, "Goto column", col)
+	go proc.handle.Call("cursor", nil, 0, col)
 }
 
 func (proc *NvimProcess) feedKeys(keys string) {
@@ -533,23 +551,29 @@ func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, 
 }
 
 func (proc *NvimProcess) tryResizeUI(rows, cols int) {
-	if rows > 0 && cols > 0 {
+	if rows <= 0 || cols <= 0 {
+		return
+	}
+	go func() {
 		err := proc.handle.TryResizeUI(cols, rows)
 		if err != nil {
 			logger.Log(logger.ERROR, "Failed to send resize request:", err)
 			return
 		}
-	}
+	}()
 }
 
 func (proc *NvimProcess) tryResizeGrid(id, rows, cols int) {
-	if rows > 0 && cols > 0 {
+	if rows <= 0 || cols <= 0 {
+		return
+	}
+	go func() {
 		err := proc.handle.TryResizeUIGrid(id, cols, rows)
 		if err != nil {
 			logger.Log(logger.ERROR, "Failed to send resize request:", err)
 			return
 		}
-	}
+	}()
 }
 
 func (proc *NvimProcess) Close() {

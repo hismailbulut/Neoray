@@ -151,7 +151,7 @@ func InitEditor() {
 	logger.Log(logger.DEBUG, "Calculated startup size of the neovim is", rows, cols)
 	Editor.nvim.StartUI(rows, cols)
 
-	Editor.quitChan = make(chan bool, 1)
+	Editor.quitChan = make(chan bool, 8) // 8 is just a random number
 
 	SetEditorState(EditorInitialized)
 }
@@ -314,12 +314,19 @@ func EventHandler(event window.WindowEvent) {
 			// Eg. When user resizing the window, glfw.PollEvents call is blocked.
 			// And no events receives except this one. We need to update Neoray
 			// additionally when refresh event received.
+			// Only send if it not received already
+			size := Editor.window.Size()
 			EventHandler(window.WindowEvent{
 				Type:   window.WindowEventResize,
-				Params: []any{Editor.window.Size().Width(), Editor.window.Size().Height()},
+				Params: []any{size.Width(), size.Height()},
 			})
-			// Pass delta as zero because this is an additional update
-			UpdateHandler(0)
+			// Only update if tick received
+			select {
+			case <-Editor.ticker.C:
+				// TODO: calculate delta
+				UpdateHandler(0)
+			default:
+			}
 		}
 	case window.WindowEventResize:
 		{
@@ -327,22 +334,26 @@ func EventHandler(event window.WindowEvent) {
 			width := event.Params[0].(int)
 			height := event.Params[1].(int)
 			// When window minimized, glfw sends a resize event with zero size
-			if width > 0 && height > 0 {
-				// Try to resize the neovim
-				defaultGrid := Editor.gridManager.Grid(1)
-				if defaultGrid != nil {
-					cellSize := defaultGrid.CellSize()
-					rows := height / cellSize.Height()
-					cols := width / cellSize.Width()
-					if rows != defaultGrid.rows || cols != defaultGrid.cols {
-						go Editor.nvim.tryResizeUI(rows, cols)
-					}
-				}
-				// Update viewport
-				Editor.window.GL().SetViewport(Editor.window.Viewport())
-				// Render because viewport changed
-				MarkRender()
+			if width <= 0 || height <= 0 {
+				break
 			}
+			// Update viewport
+			Editor.window.GL().SetViewport(Editor.window.Viewport())
+			// Mark render because viewport changed
+			MarkRender()
+			// Update grid size
+			defaultGrid := Editor.gridManager.Grid(1)
+			if defaultGrid == nil {
+				break
+			}
+			cellSize := defaultGrid.CellSize()
+			rows := height / cellSize.Height()
+			cols := width / cellSize.Width()
+			if rows == defaultGrid.rows && cols == defaultGrid.cols {
+				break
+			}
+			// Try to resize the neovim
+			Editor.nvim.tryResizeUI(rows, cols)
 		}
 	case window.WindowEventKeyInput:
 		{
