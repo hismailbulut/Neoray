@@ -19,6 +19,7 @@ func (rect Rectangle[T]) String() string {
 	return fmt.Sprintf("%T(X: %v, Y: %v, W: %v, H: %v)", rect, rect.X, rect.Y, rect.W, rect.H)
 }
 
+// Shortcut for creating a new rectangle
 func Rect[T Numbers](X, Y, W, H T) Rectangle[T] {
 	return Rectangle[T]{X: X, Y: Y, W: W, H: H}
 }
