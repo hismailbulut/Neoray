@@ -6,6 +6,7 @@ import (
 
 	"github.com/hismailbulut/neoray/src/common"
 	"github.com/hismailbulut/neoray/src/fontkit"
+	"github.com/hismailbulut/neoray/src/logger"
 )
 
 const (
@@ -38,8 +39,8 @@ func (context *Context) NewAtlas(kit *fontkit.FontKit, size, dpi float64, useBox
 	atlas.dpi = dpi
 	atlas.useBoxDrawing = useBoxDrawing
 	atlas.useBlockDrawing = useBlockDrawing
-	// 4096 * 512 = 2Mib
-	const width = 4096
+	// 512 * 512 = 256kib, 0.25 mib
+	const width = 512
 	const height = 512
 	// In most cases these size of texture is highly enough
 	// But we also grow it if needed
@@ -125,7 +126,8 @@ func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
 	// Check Y
 	if atlas.pen.Y+img.Rect.Dy() > textureSize.Height() {
 		// We must grow the texture
-		atlas.texture.Resize(textureSize.Width(), textureSize.Height()*2)
+		atlas.texture.Resize(textureSize.Width()*2, textureSize.Height()*2)
+		logger.Log(logger.DEBUG, "Atlas", atlas.texture.id, "texture resized to %v", atlas.texture.Size())
 		// Resizing texture also clears it, so we should also clear the cache
 		for k := range atlas.cache {
 			delete(atlas.cache, k)
