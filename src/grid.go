@@ -39,7 +39,8 @@ type Cell struct {
 }
 
 func (cell Cell) String() string {
-	return fmt.Sprintf("Cell(Char: %d %s, AttribID: %d)",
+	return fmt.Sprintf("Cell(Char: %d %x %s, AttribID: %d)",
+		cell.char,
 		cell.char,
 		string(cell.char),
 		cell.attribID,
