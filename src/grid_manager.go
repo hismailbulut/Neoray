@@ -197,6 +197,7 @@ func (manager *GridManager) SortGrids() {
 
 // Returns grid id and cell position at the given global position.
 // The returned values are grid id, cell row, cell column
+// Returned grid is always 1 if multigrid is off
 func (manager *GridManager) CellAt(pos common.Vector2[int]) (int, int, int) {
 	id, row, col := -1, -1, -1
 	// The input_mouse api call wants 0 for grid when multigrid is not enabled

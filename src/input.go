@@ -125,6 +125,11 @@ func sendMouseInput(button, action string, mods common.BitMask, grid, row, colum
 	}
 	keycode = "<" + modsStr(mods) + keycode + ">"
 	if !checkNeorayKeybindings(keycode) {
+		if !Editor.parsedArgs.multiGrid {
+			// We can assert that grid is one
+			// :h nvim_input_mouse() says send 0 for grid if multigrid is off
+			grid = 0
+		}
 		Editor.nvim.inputMouse(button, action, modsStr(mods), grid, row, column)
 	}
 }
