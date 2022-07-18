@@ -46,12 +46,10 @@ var (
 )
 
 func init() {
-
 	// On some systems (Windows 10) which has many fonts, this function takes so long.
 	// Because of this we are doing this in initilization and in another
 	// goroutine. Updates systemFontListReady value to true when finished.
 	// And Find() will wait for this to be done only for first time.
-
 	go func() {
 		systemFontListGuard.Lock()
 		defer systemFontListGuard.Unlock()
@@ -60,6 +58,12 @@ func init() {
 		})
 		systemFontList = finder.List()
 	}()
+}
+
+func List() []*sysfont.Font {
+	systemFontListGuard.Lock()
+	defer systemFontListGuard.Unlock()
+	return systemFontList
 }
 
 func Find(name string) FontPathInfo {

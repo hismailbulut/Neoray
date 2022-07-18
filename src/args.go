@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,7 +9,9 @@ import (
 	"strconv"
 
 	"github.com/hismailbulut/neoray/src/bench"
+	"github.com/hismailbulut/neoray/src/fontfinder"
 	"github.com/hismailbulut/neoray/src/logger"
+	"github.com/olekukonko/tablewriter"
 	"github.com/sqweek/dialog"
 )
 
@@ -36,6 +39,8 @@ Options:
 	Connect to existing neovim instance
 --multigrid
 	Enables multigrid support (experimental)
+--list-fonts <file>
+	Lists all fonts and writes them to <file>
 --version, -v
 	Prints only the version and quits
 --help, -h
@@ -55,7 +60,8 @@ type ParsedArgs struct {
 	others     []string
 }
 
-func ParseArgs(args []string) ParsedArgs {
+// Last boolean value specifies if we should quit after parsing
+func ParseArgs(args []string) (ParsedArgs, error, bool) {
 	// Init defaults
 	options := ParsedArgs{
 		file:       "",
@@ -71,47 +77,68 @@ func ParseArgs(args []string) ParsedArgs {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--file":
-			assert(len(args) > i+1, "specify filename after --file")
+			if i+1 >= len(args) {
+				return options, errors.New("specify filename after --file"), false
+			}
 			options.file = args[i+1]
 			i++
 		case "--line":
-			assert(len(args) > i+1, "specify line number after --line")
+			if i+1 >= len(args) {
+				return options, errors.New("specify line number after --line"), false
+			}
 			options.line, err = strconv.Atoi(args[i+1])
-			assert(err == nil, "invalid number after --line")
+			if err != nil {
+				return options, errors.New("invalid line number"), false
+			}
 			i++
 		case "--column":
-			assert(len(args) > i+1, "specify column number after --column")
+			if i+1 >= len(args) {
+				return options, errors.New("specify column number after --column"), false
+			}
 			options.column, err = strconv.Atoi(args[i+1])
-			assert(err == nil, "invalid number after --column")
+			if err != nil {
+				return options, errors.New("invalid column number"), false
+			}
 			i++
 		case "--singleinstance", "-si":
 			options.singleInst = true
 		case "--verbose":
 			logger.InitFile("Neoray_verbose.log")
 		case "--nvim":
-			assert(len(args) > i+1, "specify path after --nvim")
-			absolute, err := filepath.Abs(args[i+1])
+			if i+1 >= len(args) {
+				return options, errors.New("specify nvim executable after --nvim"), false
+			}
+			nvimPath, err := filepath.Abs(args[i+1])
 			if err == nil {
-				options.execPath = absolute
+				options.execPath = nvimPath
 			}
 			i++
 		case "--server":
-			assert(len(args) > i+1, "specify address after --server")
+			if i+1 >= len(args) {
+				return options, errors.New("specify server address after --server"), false
+			}
 			options.address = args[i+1]
 			i++
 		case "--multigrid":
 			options.multiGrid = true
+		case "--list-fonts":
+			if i+1 >= len(args) {
+				return options, errors.New("specify file name after --list-fonts"), false
+			}
+			fileName := args[i+1]
+			ListFonts(fileName)
+			return options, nil, true
 		case "--version", "-v":
 			PrintVersion()
-			os.Exit(0)
+			return options, nil, true
 		case "--help", "-h":
 			PrintHelp()
-			os.Exit(0)
+			return options, nil, true
 		default:
 			options.others = append(options.others, args[i])
 		}
 	}
-	return options
+	return options, nil, false
 }
 
 func PrintVersion() {
@@ -135,6 +162,24 @@ func PrintHelp() {
 		// Also print help to stdout for linux and darwin
 		fmt.Println(msg)
 	}
+}
+
+func ListFonts(fileName string) {
+	fontList := fontfinder.List()
+	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		logger.Log(logger.FATAL, "Could not open", fileName, "for writing")
+	}
+	defer file.Close()
+	table := tablewriter.NewWriter(file)
+	table.SetAutoWrapText(false)
+	table.SetHeader([]string{"ID", "Family", "Filename", "Name"})
+	for i, font := range fontList {
+		id := strconv.Itoa(i + 1)
+		table.Append([]string{id, font.Family, font.Filename, font.Name})
+	}
+	table.Render()
+	logger.Log(logger.TRACE, "Font list written to", fileName)
 }
 
 // Call this before starting neovim.

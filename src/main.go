@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -38,11 +37,20 @@ func main() {
 	// Print benchmark results
 	defer bench.PrintResults()
 	// Parse args
-	Editor.parsedArgs = ParseArgs(os.Args[1:])
+	var err error
+	var quit bool
+	Editor.parsedArgs, err, quit = ParseArgs(os.Args[1:])
+	if err != nil {
+		logger.Log(logger.FATAL, err)
+	}
+	if quit {
+		return
+	}
 	// If ProcessBefore returns true, neoray will not start.
 	// Initializes logfile if required argument passed
 	// And also initializes server if required argument passed
-	if Editor.parsedArgs.ProcessBefore() {
+	quit = Editor.parsedArgs.ProcessBefore()
+	if quit {
 		return
 	}
 	// Initializing editor will initialize everything
@@ -55,18 +63,4 @@ func main() {
 	logger.Log(logger.TRACE, "Initialization time:", time.Since(StartTime))
 	// MainLoop is main loop of the neoray.
 	MainLoop()
-}
-
-// This assert logs fatal when cond is false.
-func assert(cond bool, message ...any) {
-	if cond == false {
-		logger.Log(logger.FATAL, "Assertion Failed:", fmt.Sprint(message...))
-	}
-}
-
-// This assert logs error when cond is false.
-func assert_error(cond bool, message ...any) {
-	if cond == false {
-		logger.Log(logger.ERROR, "Assertion Failed:", fmt.Sprint(message...))
-	}
 }
