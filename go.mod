@@ -1,4 +1,4 @@
-module github.com/hismailbulut/neoray
+module github.com/hismailbulut/Neoray
 
 go 1.18
 

@@ -1,4 +1,4 @@
-SOURCEFOLDER=./src
+SOURCEFOLDER=./cmd/neoray
 DEBUGEXE=bin/neoray_debug
 RELEASEEXE=bin/neoray
 DELETECOMMAND=rm

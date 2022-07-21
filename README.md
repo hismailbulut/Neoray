@@ -10,7 +10,7 @@ leaves no footprints on your computer.
 ## Installation
 
 ### Binaries
-You can download prebuilt binaries from [releases page](https://github.com/hismailbulut/neoray/releases).
+You can download prebuilt binaries from [releases page](https://github.com/hismailbulut/Neoray/releases).
 If you are using Linux you will need x11 and gtk3 runtime libraries to run the Neoray.
 Windows and MacOS binaries doesn't have any dependencies except Neovim.
 
@@ -18,7 +18,7 @@ Windows and MacOS binaries doesn't have any dependencies except Neovim.
 You can install Neoray with `go install` command:
 
 ```
-go install github.com/hismailbulut/neoray/src@latest
+go install github.com/hismailbulut/Neoray/cmd/neoray@latest
 ```
 
 NOTE: To successfully build it on Linux with go you will need to have some
@@ -115,7 +115,7 @@ find your font, try with different names and also with file name. Giving full
 shared name except the style and weight names will give best result. You can
 change the font without having to restart Neoray. Underscores are treated as
 spaces. If you think you tried every possibility but Neoray still can't find
-the font, please [report to me](https://github.com/hismailbulut/neoray/issues/new/choose).
+the font, please [report to me](https://github.com/hismailbulut/Neoray/issues/new/choose).
 
 ```vim
 set guifont=Consolas:h11
