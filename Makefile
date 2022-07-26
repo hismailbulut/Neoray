@@ -33,7 +33,7 @@ run: build
 	$(EXECPATHDEBUG) $(ARGS)
 
 generate:
-	$(if $(isWindows), cd cmd\neoray\assets && go-winres make)
+	$(if $(isWindows), cd cmd/neoray/assets && go-winres make)
 	glow generate -out=./pkg/opengl/gl -api=gl -version=3.3 -profile=core -restrict=$(GLOWDIR)/glfunclist.json -tmpl=$(GLOWDIR)/tmpl -xml=$(GLOWDIR)/xml
 
 release:
