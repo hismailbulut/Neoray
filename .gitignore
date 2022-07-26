@@ -1,7 +1,8 @@
 bin
-boxdrawingchars.txt
 Neoray_crash.log
 Neoray_verbose.log
 Neoray_cpu_profile.prof
 Neoray_heap_profile.prof
+.vscode
+boxdrawingchars.txt
 fontlist.txt

@@ -18,17 +18,20 @@ jobs:
       with:
         go-version: 1.18
 
-    - name: Install and run go-winres
+    - name: Install tools
       run: |
         go install github.com/tc-hib/go-winres@latest
-        cd src\assets && go-winres make && cd ..\..
+        go install github.com/go-gl/glow@latest
+
+    - name: Generate
+      run: make generate
 
     - name: Build amd64
       env:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: go build -ldflags -H=windowsgui -o bin/Neoray-win64.exe ./src
+      run: make release EXECNAME=neoray-win64
 
     - name: Set up MinGW x86
       uses: egor-tensin/setup-mingw@v2
@@ -40,7 +43,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
-      run: go build -ldflags -H=windowsgui -o bin/Neoray-win32.exe ./src
+      run: make release EXECNAME=neoray-win32
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -48,8 +51,8 @@ jobs:
       with:
         name: windows-binaries
         path: |
-          bin/Neoray-win64.exe
-          bin/Neoray-win32.exe
+          bin/neoray-win64.exe
+          bin/neoray-win32.exe
 
   build-macos:
     runs-on: macos-latest
@@ -61,12 +64,18 @@ jobs:
       with:
         go-version: 1.18
 
+    - name: Install tools
+      run: go install github.com/go-gl/glow@latest
+
+    - name: Generate
+      run: make generate
+
     - name: Build amd64
       env:
         CGO_ENABLED: 1
         GOOS: darwin
         GOARCH: amd64
-      run: go build -o bin/Neoray-macos ./src
+      run: make release EXECNAME=neoray-macos
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -74,7 +83,7 @@ jobs:
       with:
         name: macos-binaries
         path: |
-          bin/Neoray-macos
+          bin/neoray-macos
 
   build-linux:
     runs-on: ubuntu-latest
@@ -91,12 +100,18 @@ jobs:
         sudo apt update && sudo apt upgrade
         sudo apt install libx11-dev libgtk-3-dev libgl1-mesa-dev xorg-dev
 
+    - name: Install tools
+      run: go install github.com/go-gl/glow@latest
+
+    - name: Generate
+      run: make generate
+
     - name: Build amd64
       env:
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: amd64
-      run: go build -o bin/Neoray-linux ./src
+      run: make release EXECNAME=neoray-linux
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -104,7 +119,7 @@ jobs:
       with:
         name: linux-binaries
         path: |
-          bin/Neoray-linux
+          bin/neoray-linux
 
   release:
     runs-on: ubuntu-latest
@@ -123,7 +138,7 @@ jobs:
           prerelease: false
           title: "${{ github.event.inputs.version }}"
           files: |
-            windows-binaries/Neoray-win64.exe
-            windows-binaries/Neoray-win32.exe
-            macos-binaries/Neoray-macos
-            linux-binaries/Neoray-linux
+            windows-binaries/neoray-win64.exe
+            windows-binaries/neoray-win32.exe
+            macos-binaries/neoray-macos
+            linux-binaries/neoray-linux

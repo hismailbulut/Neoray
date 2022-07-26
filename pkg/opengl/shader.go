@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-gl/gl/v3.3-core/gl"
+	"github.com/hismailbulut/Neoray/pkg/opengl/gl"
 )
 
 //go:embed shader.glsl

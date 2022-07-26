@@ -13,7 +13,7 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/hismailbulut/Neoray/pkg/window"
 
-	"github.com/hismailbulut/Neoray/cmd/neoray/internal/assets"
+	"github.com/hismailbulut/Neoray/cmd/neoray/assets"
 )
 
 type Options struct {

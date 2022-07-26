@@ -30,6 +30,7 @@ func New(title string, width, height int, debugContext bool) (*Window, error) {
 	window := new(Window)
 
 	// Set opengl library version
+	// TODO: make it 2.1 (needs some research)
 	glfw.WindowHint(glfw.ContextVersionMajor, 3)
 	glfw.WindowHint(glfw.ContextVersionMinor, 3)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
@@ -63,7 +64,7 @@ func New(title string, width, height int, debugContext bool) (*Window, error) {
 	glfw.SwapInterval(0)
 
 	// Load opengl context
-	window.context, err = opengl.New()
+	window.context, err = opengl.New(glfw.GetProcAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -232,10 +233,6 @@ func (window *Window) DPI() float64 {
 	_, y := window.handle.GetContentScale()
 	return float64(96 * y)
 }
-
-// func (window *Window) State() WindowState {
-//     return window.state
-// }
 
 func (window *Window) Destroy() {
 	window.handle.Destroy()

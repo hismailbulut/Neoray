@@ -5,8 +5,8 @@ import (
 	"image"
 	"unsafe"
 
-	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/hismailbulut/Neoray/pkg/common"
+	"github.com/hismailbulut/Neoray/pkg/opengl/gl"
 )
 
 type Texture struct {

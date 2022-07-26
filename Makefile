@@ -1,35 +1,43 @@
 
+isWindows :=$(filter Windows_NT, $(OS))
+
+ifeq ($(EXECNAME),)
+	EXECNAME=neoray
+endif
+
+ifeq ($(OUTDIR),)
+	OUTDIR=bin
+endif
+
+SOURCEFOLDER=./cmd/neoray
+SOURCETESTFOLDER=./cmd/neoray/...
+PACKAGETESTFOLDER=./pkg/...
+GLOWDIR=./pkg/opengl/glow
+
 ifeq ($(OS),Windows_NT)
-	SOURCEFOLDER=.\cmd\neoray
-	SOURCETESTFOLDER=.\cmd\neoray\...
-	PACKAGETESTFOLDER=.\pkg\...
-	DEBUGEXE=.\bin\neoray_debug.exe
-	RELEASEEXE=.\bin\neoray.exe
-	DELETECOMMAND=del
+	EXECPATHDEBUG=.\$(OUTDIR)\$(EXECNAME)_debug.exe
+	EXECPATHRELEASE=.\$(OUTDIR)\$(EXECNAME).exe
 	RELEASEFLAGS=-ldflags -H=windowsgui
-	PRECOMMANDS=cd cmd\neoray\internal\assets && go-winres make && cd ..\..\..\..
+	DELETECOMMAND=del
 else
-	SOURCEFOLDER=./cmd/neoray
-	SOURCETESTFOLDER=./cmd/neoray/...
-	PACKAGETESTFOLDER=./pkg/...
-	DEBUGEXE=./bin/neoray_debug
-	RELEASEEXE=./bin/neoray
-	DELETECOMMAND=rm
+	EXECPATHDEBUG=./$(OUTDIR)/$(EXECNAME)_debug
+	EXECPATHRELEASE=./$(OUTDIR)/$(EXECNAME)
 	RELEASEFLAGS=
-	PRECOMMANDS=
+	DELETECOMMAND=rm
 endif
 
 build:
-	go build -tags debug -race -o $(DEBUGEXE) $(SOURCEFOLDER)
+	go build -tags debug -race -o $(EXECPATHDEBUG) $(SOURCEFOLDER)
 
 run: build
-	$(DEBUGEXE) $(ARGS)
+	$(EXECPATHDEBUG) $(ARGS)
 
-precommands:
-	$(PRECOMMANDS)
+generate:
+	$(if $(isWindows), cd cmd\neoray\assets && go-winres make)
+	glow generate -out=./pkg/opengl/gl -api=gl -version=3.3 -profile=core -restrict=$(GLOWDIR)/glfunclist.json -tmpl=$(GLOWDIR)/tmpl -xml=$(GLOWDIR)/xml
 
-release: precommands
-	go build $(RELEASEFLAGS) -o $(RELEASEEXE) $(SOURCEFOLDER)
+release:
+	go build $(RELEASEFLAGS) -o $(EXECPATHRELEASE) $(SOURCEFOLDER)
 
 test:
 	go test -race $(SOURCETESTFOLDER)
@@ -43,5 +51,5 @@ debug:
 	dlv debug $(SOURCEFOLDER)
 
 clean:
-	$(DELETECOMMAND) $(DEBUGEXE)
-	$(DELETECOMMAND) $(RELEASEEXE)
+	$(DELETECOMMAND) $(EXECPATHDEBUG)
+	$(DELETECOMMAND) $(EXECPATHRELEASE)

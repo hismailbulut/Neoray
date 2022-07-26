@@ -4,9 +4,10 @@ import (
 	_ "embed"
 	"fmt"
 	"runtime"
+	"unsafe"
 
-	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/hismailbulut/Neoray/pkg/common"
+	"github.com/hismailbulut/Neoray/pkg/opengl/gl"
 )
 
 type ContextInfo struct {
@@ -23,9 +24,9 @@ type Context struct {
 }
 
 // Call per window
-func New() (*Context, error) {
+func New(getProcAddress func(name string) unsafe.Pointer) (*Context, error) {
 	// Initialize opengl
-	err := gl.Init()
+	err := gl.InitWithProcAddrFunc(getProcAddress)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to initialize opengl: %s", err)
 	}
