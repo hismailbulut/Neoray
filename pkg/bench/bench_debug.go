@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/hismailbulut/Neoray/pkg/logger"
-	tw "github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter"
 )
 
 const BUILD_TYPE = logger.DebugBuild
@@ -213,9 +213,9 @@ func PrintResults() {
 		return sorted[i].time > sorted[j].time
 	})
 
-	table := tw.NewWriter(os.Stdout)
+	table := tablewriter.NewWriter(os.Stdout)
 	table.SetAutoWrapText(false)
-	table.SetAlignment(tw.ALIGN_CENTER)
+	table.SetAlignment(tablewriter.ALIGN_CENTER)
 	table.SetHeader([]string{
 		"NAME", "CALLS", "PERCENT",
 		"CPU(TOTAL - AVG - MAX)",
