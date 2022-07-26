@@ -31,19 +31,7 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: make release EXECNAME=neoray-win64
-
-    - name: Set up MinGW x86
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x86
-
-    - name: Build 386
-      env:
-        CGO_ENABLED: 1
-        GOOS: windows
-        GOARCH: 386
-      run: make release EXECNAME=neoray-win32
+      run: make release EXECNAME=neoray-windows
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -51,8 +39,7 @@ jobs:
       with:
         name: windows-binaries
         path: |
-          bin/neoray-win64.exe
-          bin/neoray-win32.exe
+          bin/neoray-windows.exe
 
   build-macos:
     runs-on: macos-latest
@@ -138,7 +125,6 @@ jobs:
           prerelease: false
           title: "${{ github.event.inputs.version }}"
           files: |
-            windows-binaries/neoray-win64.exe
-            windows-binaries/neoray-win32.exe
+            windows-binaries/neoray-windows.exe
             macos-binaries/neoray-macos
             linux-binaries/neoray-linux
