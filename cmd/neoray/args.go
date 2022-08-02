@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/hismailbulut/Neoray/pkg/bench"
 	"github.com/hismailbulut/Neoray/pkg/fontfinder"
@@ -40,6 +43,8 @@ Options:
 	Enables multigrid support (experimental)
 --list-fonts <file>
 	Lists all fonts and writes them to <file>
+--nofork
+	Do not detach process from terminal
 --version, -v
 	Prints only the version and quits
 --help, -h
@@ -47,6 +52,15 @@ Options:
 
 All other flags will send to neovim
 `
+
+var ALLOWEDOS = func() bool {
+	_, ok := map[string]struct{}{
+		"linux":  {},
+		"darwin": {},
+	}[runtime.GOOS]
+
+	return ok
+}()
 
 type ParsedArgs struct {
 	file       string
@@ -56,6 +70,7 @@ type ParsedArgs struct {
 	execPath   string
 	address    string
 	multiGrid  bool
+	nofork     bool
 	others     []string
 }
 
@@ -70,6 +85,7 @@ func ParseArgs(args []string) (ParsedArgs, error, bool) {
 		execPath:   "nvim",
 		address:    "",
 		multiGrid:  false,
+		nofork:     false,
 		others:     []string{},
 	}
 	var err error
@@ -127,6 +143,8 @@ func ParseArgs(args []string) (ParsedArgs, error, bool) {
 			fileName := args[i+1]
 			ListFonts(fileName)
 			return options, nil, true
+		case "--nofork":
+			options.nofork = true
 		case "--version", "-v":
 			PrintVersion()
 			return options, nil, true
@@ -137,7 +155,7 @@ func ParseArgs(args []string) (ParsedArgs, error, bool) {
 			options.others = append(options.others, args[i])
 		}
 	}
-	return options, nil, false
+	return options, nil, options.Fork()
 }
 
 // NOTE: For version and help, first we print to stdout and then we show a dialog
@@ -174,6 +192,29 @@ func ListFonts(fileName string) {
 	}
 	table.Render()
 	logger.Log(logger.TRACE, "Font list written to", fileName)
+}
+
+// detach from terminal.
+func (options ParsedArgs) Fork() bool {
+	name := strings.ToUpper(NAME) + "_" + "NOFORK"
+	// Support for fork or nofork via env decision,
+	// e.g. `export NEORAY_NOFROK=true`.
+	ok, _ := strconv.ParseBool(os.Getenv(name))
+
+	if !options.nofork && ALLOWEDOS && !ok {
+		env := os.Environ()
+		env = append(env, fmt.Sprintf("%s=%v", name, !options.nofork))
+		cmd := exec.Command(os.Args[0], os.Args[1:]...)
+		cmd.Env = env
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+		return true
+	}
+	return false
 }
 
 // Call this before starting neovim.
