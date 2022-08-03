@@ -58,7 +58,7 @@ func New(title string, width, height int, debugContext bool) (*Window, error) {
 	}
 
 	// This is important
-	window.SetCurrent()
+	window.handle.MakeContextCurrent()
 
 	// Disable v-sync, already disabled by default but make sure.
 	glfw.SwapInterval(0)
@@ -161,15 +161,12 @@ func (window *Window) Viewport() common.Rectangle[int] {
 	return common.Rectangle[int]{X: 0, Y: 0, W: window.Size().Width(), H: window.Size().Height()}
 }
 
-func (window *Window) SetCurrent() {
-	window.handle.MakeContextCurrent()
-}
-
 func (window *Window) SetIcon(icons [3]image.Image) {
 	// Set icons, images must png
 	window.handle.SetIcon(icons[:])
 }
 
+// Not working on win11
 func (window *Window) Raise() {
 	if window.IsMinimized() {
 		window.handle.Restore()
@@ -235,8 +232,8 @@ func (window *Window) DPI() float64 {
 }
 
 func (window *Window) Destroy() {
-	window.handle.Destroy()
 	window.context.Destroy()
+	window.handle.Destroy()
 }
 
 // Returns the monitor where the window currently is.
