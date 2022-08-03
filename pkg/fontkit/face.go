@@ -37,7 +37,7 @@ type Face struct {
 // This funtion may return a face previously created and used because it caches
 // every face in the font and it also caches every image size. Caching and reusing
 // makes this library incredibly fast and memory friendly. But creating so many
-// faces and drawing multiple size of images every time causes big memory usage.
+// faces and drawing multiple size of images every time increases memory usage.
 // And this memory never be freed until the font has freed. (This is not leak)
 func (f *Font) CreateFace(params FaceParams) (*Face, error) {
 	face, ok := f.faceCache[params]
@@ -72,7 +72,6 @@ func (f *Font) CreateFace(params FaceParams) (*Face, error) {
 		face.imgCache = make(map[common.Vector2[int]]*image.RGBA)
 
 		f.faceCache[params] = face
-
 		return face, nil
 	}
 }
