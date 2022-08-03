@@ -390,7 +390,7 @@ func (face *Face) DrawUnicodeBoxGlyph(char rune, imgSize common.Vector2[int]) *i
 }
 
 func (face *Face) DrawUnicodeBlockGlyph(char rune, imgSize common.Vector2[int]) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, imgSize.Width(), imgSize.Height()))
+	img := face.cachedImage(imgSize)
 	w := float32(imgSize.Width())
 	h := float32(imgSize.Height())
 
