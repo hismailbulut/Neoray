@@ -18,7 +18,7 @@ type Vector2[T Numbers] struct {
 }
 
 func (v Vector2[T]) String() string {
-	return fmt.Sprintf("%T(X: %v, Y: %v)", v, v.X, v.Y)
+	return fmt.Sprintf("Vector2(X: %v, Y: %v)", v.X, v.Y)
 }
 
 // just a shortcut
@@ -48,30 +48,10 @@ func (v Vector2[T]) Add(v1 Vector2[T]) Vector2[T] {
 	return v
 }
 
-func (v Vector2[T]) AddX(X T) Vector2[T] {
-	v.X += X
-	return v
-}
-
-func (v Vector2[T]) AddY(Y T) Vector2[T] {
-	v.Y += Y
-	return v
-}
-
 // Subtract v1 from v
 func (v Vector2[T]) Sub(v1 Vector2[T]) Vector2[T] {
 	v.X -= v1.X
 	v.Y -= v1.Y
-	return v
-}
-
-func (v Vector2[T]) SubX(X T) Vector2[T] {
-	v.X -= X
-	return v
-}
-
-func (v Vector2[T]) SubY(Y T) Vector2[T] {
-	v.Y -= Y
 	return v
 }
 
@@ -89,16 +69,6 @@ func (v Vector2[T]) MulS(S T) Vector2[T] {
 	return v
 }
 
-func (v Vector2[T]) MulX(X T) Vector2[T] {
-	v.X *= X
-	return v
-}
-
-func (v Vector2[T]) MulY(Y T) Vector2[T] {
-	v.Y *= Y
-	return v
-}
-
 // Divides v by v1
 func (v Vector2[T]) Div(v1 Vector2[T]) Vector2[T] {
 	v.X /= v1.X
@@ -110,16 +80,6 @@ func (v Vector2[T]) Div(v1 Vector2[T]) Vector2[T] {
 func (v Vector2[T]) DivS(S T) Vector2[T] {
 	v.X /= S
 	v.Y /= S
-	return v
-}
-
-func (v Vector2[T]) DivX(X T) Vector2[T] {
-	v.X /= X
-	return v
-}
-
-func (v Vector2[T]) DivY(Y T) Vector2[T] {
-	v.Y /= Y
 	return v
 }
 
