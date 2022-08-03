@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"unicode"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
 )
@@ -187,12 +188,12 @@ func (manager *GridManager) grid_resize(args []interface{}) {
 func (manager *GridManager) default_colors_set(args []interface{}) {
 	for _, arg := range args {
 		v := reflect.ValueOf(arg)
-		fg := v.Index(0).Elem().Convert(t_uint).Uint()
-		bg := v.Index(1).Elem().Convert(t_uint).Uint()
-		sp := v.Index(2).Elem().Convert(t_uint).Uint()
-		manager.foreground = common.ColorFromUint(uint32(fg))
-		manager.background = common.ColorFromUint(uint32(bg))
-		manager.special = common.ColorFromUint(uint32(sp))
+		fg := uint32(v.Index(0).Elem().Convert(t_uint).Uint())
+		bg := uint32(v.Index(1).Elem().Convert(t_uint).Uint())
+		sp := uint32(v.Index(2).Elem().Convert(t_uint).Uint())
+		manager.foreground = common.ColorFromUint(fg)
+		manager.background = common.ColorFromUint(bg)
+		manager.special = common.ColorFromUint(sp)
 		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
@@ -270,7 +271,7 @@ func (manager *GridManager) grid_line(args []interface{}) {
 				char = []rune(str)[0]
 				// If this is a space, we set it to zero
 				// because otherwise we try to draw every space
-				if char == ' ' {
+				if unicode.IsSpace(char) {
 					char = 0
 				}
 			}
