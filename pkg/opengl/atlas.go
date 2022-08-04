@@ -39,14 +39,27 @@ func (context *Context) NewAtlas(kit *fontkit.FontKit, size, dpi float64, useBox
 	atlas.dpi = dpi
 	atlas.useBoxDrawing = useBoxDrawing
 	atlas.useBlockDrawing = useBlockDrawing
-	// 512 * 512 = 256kib, 0.25 mib
+	// 512 * 512 * RGBA8 = 1mib
 	const width = 512
 	const height = 512
 	// In most cases these size of texture is highly enough
 	// But we also grow it if needed
 	atlas.texture = context.CreateTexture(width, height)
 	atlas.cache = make(map[uint64]common.Rectangle[int])
+	atlas.issueHack()
 	return atlas
+}
+
+func (atlas *Atlas) issueHack() {
+	// HACK
+	// I dont know why but if the renderer first draws a character
+	// between 0x2588 and 0x258F (unicode block characters) strange things
+	// happens. This is not happening before Neoray version 0.2
+	// To prevent this we just drawing 'a' first
+	// But this is not a real fix. TODO: We should address this
+	// We are doing this every time atlas recreated
+	// Try change 'a' to one of characters in range [0x2588, 0x258F] and see the result
+	atlas.GetCharPos('a', false, false, false, false, atlas.ImageSize())
 }
 
 func (atlas *Atlas) FontKit() *fontkit.FontKit {
@@ -79,10 +92,9 @@ func (atlas *Atlas) SetBoxDrawing(useBoxDrawing, useBlockDrawing bool) {
 
 func (atlas *Atlas) Reset() {
 	atlas.texture.Clear()
-	for k := range atlas.cache {
-		delete(atlas.cache, k)
-	}
+	atlas.cache = make(map[uint64]common.Rectangle[int])
 	atlas.pen = common.Vector2[int]{}
+	atlas.issueHack()
 }
 
 func (atlas *Atlas) ImageSize() common.Vector2[int] {
@@ -129,10 +141,9 @@ func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
 		atlas.texture.Resize(textureSize.Width()*2, textureSize.Height()*2)
 		logger.Log(logger.DEBUG, "Atlas", atlas.texture.id, "texture resized to %v", atlas.texture.Size())
 		// Resizing texture also clears it, so we should also clear the cache
-		for k := range atlas.cache {
-			delete(atlas.cache, k)
-		}
+		atlas.cache = make(map[uint64]common.Rectangle[int])
 		atlas.pen = common.Vector2[int]{}
+		atlas.issueHack()
 	}
 	// draw image to current pen
 	dest := common.Rect(atlas.pen.X, atlas.pen.Y, img.Rect.Dx(), img.Rect.Dy())
