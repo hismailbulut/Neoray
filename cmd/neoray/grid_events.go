@@ -311,7 +311,7 @@ func (manager *GridManager) grid_cursor_goto(args []interface{}) {
 		grid := refToInt(v.Index(0))
 		row := refToInt(v.Index(1))
 		col := refToInt(v.Index(2))
-		Editor.cursor.SetPosition(grid, row, col, false)
+		Editor.cursor.SetPosition(grid, row, col)
 	}
 }
 

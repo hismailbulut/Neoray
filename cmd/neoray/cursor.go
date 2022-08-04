@@ -104,29 +104,28 @@ func (cursor *Cursor) blinkHide() {
 	}
 }
 
-func (cursor *Cursor) SetPosition(id, row, col int, immediately bool) {
-	if !immediately {
-		func() {
-			// find global row and column of the cursor for both current and target
-			currentGrid := cursor.Grid()
-			if currentGrid == nil {
-				return
-			}
-			current := common.Vector2[float32]{
-				X: float32(currentGrid.PixelPos().X + (cursor.col * currentGrid.CellSize().Width())),
-				Y: float32(currentGrid.PixelPos().Y + (cursor.row * currentGrid.CellSize().Height())),
-			}
-			targetGrid := Editor.gridManager.Grid(id)
-			if targetGrid == nil {
-				return
-			}
-			target := common.Vector2[float32]{
-				X: float32(targetGrid.PixelPos().X + (col * targetGrid.CellSize().Width())),
-				Y: float32(targetGrid.PixelPos().Y + (row * targetGrid.CellSize().Height())),
-			}
-			cursor.anim = common.NewAnimation(current, target, Editor.options.cursorAnimTime)
-		}()
-	}
+func (cursor *Cursor) SetPosition(id, row, col int) {
+	// For animation
+	func() {
+		// Find global row and column of the cursor for both current and target
+		currentGrid := cursor.Grid()
+		if currentGrid == nil {
+			return
+		}
+		current := common.Vector2[float32]{
+			X: float32(currentGrid.PixelPos().X + (cursor.col * currentGrid.CellSize().Width())),
+			Y: float32(currentGrid.PixelPos().Y + (cursor.row * currentGrid.CellSize().Height())),
+		}
+		targetGrid := Editor.gridManager.Grid(id)
+		if targetGrid == nil {
+			return
+		}
+		target := common.Vector2[float32]{
+			X: float32(targetGrid.PixelPos().X + (col * targetGrid.CellSize().Width())),
+			Y: float32(targetGrid.PixelPos().Y + (row * targetGrid.CellSize().Height())),
+		}
+		cursor.anim = common.NewAnimation(current, target, Editor.options.cursorAnimTime)
+	}()
 	cursor.grid = id
 	cursor.row = row
 	cursor.col = col
