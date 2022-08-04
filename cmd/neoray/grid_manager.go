@@ -208,10 +208,51 @@ func (manager *GridManager) printCellInfoAt(pos common.Vector2[int]) {
 	grid := manager.Grid(gridID)
 	if grid != nil {
 		cell := grid.CellAt(row, col)
+		attrib, ok := Editor.gridManager.attributes[cell.attribID]
+		if !ok {
+			attrib = HighlightAttribute{}
+		}
 		vertex := grid.renderer.CellVertexData(row, col)
-		logger.LogF(logger.DEBUG, "CellInfo (%d, %d, %d): %v, %v, %v",
+		logger.LogF(logger.DEBUG,
+			`Cell Info (Grid: %d Row: %d Col: %d)
+	%v
+	%v
+	Position in atlas: %v
+	Attrib:
+		Fg:   %v
+		Bg:   %v
+		Sp:   %v
+		Bold:          %v
+		Italic:        %v
+		Underline:     %v
+		Strikethrough: %v
+		Undercurl:     %v
+	Vertex:
+		Pos:  %v Area: %f
+		Tex1: %v Area: %f
+		Tex2: %v Area: %f
+		Fg:   %v
+		Bg:   %v
+		Sp:   %v
+		`,
 			gridID, row, col,
-			grid, cell, vertex,
+			cell,
+			grid,
+			grid.renderer.atlas.GetCharPos(cell.char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, grid.CellSize()),
+			attrib.foreground,
+			attrib.background,
+			attrib.special,
+			attrib.bold,
+			attrib.italic,
+			attrib.underline,
+			attrib.strikethrough,
+			attrib.undercurl,
+			vertex.Pos, vertex.Pos.Area(),
+			vertex.Tex1, vertex.Tex1.Area(),
+			vertex.Tex2, vertex.Tex2.Area(),
+			vertex.Fg,
+			vertex.Bg,
+			vertex.Sp,
 		)
 	}
 }

@@ -16,7 +16,7 @@ type Rectangle[T Numbers] struct {
 }
 
 func (rect Rectangle[T]) String() string {
-	return fmt.Sprintf("%T(X: %v, Y: %v, W: %v, H: %v)", rect, rect.X, rect.Y, rect.W, rect.H)
+	return fmt.Sprintf("Rectangle(X: %v, Y: %v, W: %v, H: %v)", rect.X, rect.Y, rect.W, rect.H)
 }
 
 // Shortcut for creating a new rectangle
@@ -40,4 +40,8 @@ func (rect Rectangle[T]) ToF32() Rectangle[float32] {
 		W: float32(rect.W),
 		H: float32(rect.H),
 	}
+}
+
+func (rect Rectangle[T]) Area() float32 {
+	return float32(rect.W * rect.H)
 }
