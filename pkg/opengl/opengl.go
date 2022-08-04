@@ -3,7 +3,6 @@ package opengl
 import (
 	_ "embed"
 	"fmt"
-	"runtime"
 	"unsafe"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
@@ -39,9 +38,8 @@ func New(getProcAddress func(name string) unsafe.Pointer) (*Context, error) {
 
 	// Create framebuffer object
 	// We dont need to bind framebuffer because we need it only when clearing texture
-	CheckGLError(func() {
-		gl.GenFramebuffers(1, &context.framebuffer)
-	})
+	gl.GenFramebuffers(1, &context.framebuffer)
+	checkGLError()
 
 	return context, nil
 }
@@ -58,23 +56,21 @@ func (context *Context) Info() ContextInfo {
 }
 
 func (context *Context) SetViewport(rect common.Rectangle[int]) {
-	CheckGLError(func() {
-		gl.Viewport(int32(rect.X), int32(rect.Y), int32(rect.W), int32(rect.H))
-	})
+	gl.Viewport(int32(rect.X), int32(rect.Y), int32(rect.W), int32(rect.H))
+	checkGLError()
 }
 
 func (context *Context) ClearScreen(c common.Color[float32]) {
-	CheckGLError(func() {
-		gl.ClearColor(c.R, c.G, c.B, c.A)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-	})
+	gl.ClearColor(c.R, c.G, c.B, c.A)
+	checkGLError()
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	checkGLError()
 }
 
 func (context *Context) Flush() {
 	// Since we are not using doublebuffering, we don't need to swap buffers, but we need to flush.
-	CheckGLError(func() {
-		gl.Flush()
-	})
+	gl.Flush()
+	checkGLError()
 }
 
 func (context *Context) Destroy() {
@@ -84,16 +80,11 @@ func (context *Context) Destroy() {
 	context.shader.Destroy()
 }
 
-// If any opengl error happens, prints error to stdout and returns false
-func CheckGLError(glFunc func()) {
-	// Call opengl function
-	glFunc()
-	// Check for error
+func checkGLError() {
 	error_code := gl.GetError()
 	if error_code == gl.NO_ERROR {
 		return
 	}
-
 	var errorName string
 	switch error_code {
 	case gl.INVALID_ENUM:
@@ -113,13 +104,5 @@ func CheckGLError(glFunc func()) {
 	default:
 		errorName = fmt.Sprintf("#%.4x", error_code)
 	}
-
-	// Get caller function name
-	callerName := "unknown"
-	pc, _, _, ok := runtime.Caller(1)
-	if ok {
-		callerName = runtime.FuncForPC(pc).Name()
-	}
-
-	panic(fmt.Errorf("Opengl Error: %s on %s", errorName, callerName))
+	panic(fmt.Errorf("Opengl Error: %s", errorName))
 }

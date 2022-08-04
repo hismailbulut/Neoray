@@ -23,9 +23,8 @@ func (program ShaderProgram) UniformLocation(name string) int32 {
 }
 
 func (program ShaderProgram) Use() {
-	CheckGLError(func() {
-		gl.UseProgram(uint32(program))
-	})
+	gl.UseProgram(uint32(program))
+	checkGLError()
 }
 
 func (program ShaderProgram) Destroy() {
@@ -39,12 +38,14 @@ func DefaultProgram() ShaderProgram {
 	fragShader := compileShader(fsSource, gl.FRAGMENT_SHADER)
 
 	shader_program := gl.CreateProgram()
-	CheckGLError(func() {
-		gl.AttachShader(shader_program, vertShader)
-		gl.AttachShader(shader_program, geomShader)
-		gl.AttachShader(shader_program, fragShader)
-		gl.LinkProgram(shader_program)
-	})
+	gl.AttachShader(shader_program, vertShader)
+	checkGLError()
+	gl.AttachShader(shader_program, geomShader)
+	checkGLError()
+	gl.AttachShader(shader_program, fragShader)
+	checkGLError()
+	gl.LinkProgram(shader_program)
+	checkGLError()
 
 	var status int32
 	gl.GetProgramiv(shader_program, gl.LINK_STATUS, &status)
@@ -56,11 +57,9 @@ func DefaultProgram() ShaderProgram {
 		panic(fmt.Errorf("Failed to link shader program: %s", log))
 	}
 
-	CheckGLError(func() {
-		gl.DeleteShader(vertShader)
-		gl.DeleteShader(geomShader)
-		gl.DeleteShader(fragShader)
-	})
+	gl.DeleteShader(vertShader)
+	gl.DeleteShader(geomShader)
+	gl.DeleteShader(fragShader)
 
 	return ShaderProgram(shader_program)
 }
@@ -89,10 +88,10 @@ func compileShader(source string, shader_type uint32) uint32 {
 	shader := gl.CreateShader(shader_type)
 	cstr, free := gl.Strs(source)
 	defer free()
-	CheckGLError(func() {
-		gl.ShaderSource(shader, 1, cstr, nil)
-		gl.CompileShader(shader)
-	})
+	gl.ShaderSource(shader, 1, cstr, nil)
+	checkGLError()
+	gl.CompileShader(shader)
+	checkGLError()
 	var result int32
 	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &result)
 	if result == gl.FALSE {

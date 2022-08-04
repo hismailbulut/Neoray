@@ -95,12 +95,8 @@ in GS_OUT {
 uniform sampler2D atlas;
 
 void main() {
-	// Mix colors with special. (For undercurl)
-	float ucAlpha   = min(fs_in.spColor.a, texture(atlas, fs_in.ucPos).a);
-	vec4 foreground = mix(fs_in.fgColor, fs_in.spColor, ucAlpha);
-	vec4 background = mix(fs_in.bgColor, fs_in.spColor, ucAlpha);
-	// Mix background and foreground color with textures.
-	float texAlpha = max(texture(atlas, fs_in.tex1pos).a, texture(atlas, fs_in.tex2pos).a);
-	vec4 result    = mix(background, foreground, texAlpha);
-	outFragColor   = result;
+	float texA   = max(texture(atlas, fs_in.tex1pos).a, texture(atlas, fs_in.tex2pos).a);
+	float ucA    = min(texture(atlas, fs_in.ucPos).a, fs_in.spColor.a);
+	vec4 result  = mix(fs_in.bgColor, fs_in.fgColor, texA);
+	outFragColor = mix(result, fs_in.spColor, ucA);
 }
