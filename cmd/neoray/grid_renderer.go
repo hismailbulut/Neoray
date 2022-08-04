@@ -200,7 +200,7 @@ func (renderer *GridRenderer) Render() {
 	renderer.atlas.BindTexture()
 	renderer.buffer.Bind()
 	renderer.buffer.Update()
-	renderer.buffer.SetProjection(Editor.window.Viewport())
+	renderer.buffer.SetProjection(Editor.window.Viewport().ToF32())
 	renderer.buffer.Render()
 }
 

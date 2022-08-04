@@ -174,8 +174,8 @@ func orthoProjection(top, left, right, bottom, near, far float32) [16]float32 {
 	return matrix
 }
 
-func (buffer *VertexBuffer) SetProjection(rect common.Rectangle[int]) {
-	projection := orthoProjection(0, 0, float32(rect.W), float32(rect.H), -1, 1)
+func (buffer *VertexBuffer) SetProjection(rect common.Rectangle[float32]) {
+	projection := orthoProjection(rect.X, rect.Y, rect.W, rect.H, -1, 1)
 	loc := buffer.shader.UniformLocation("projection")
 	gl.UniformMatrix4fv(loc, 1, true, &projection[0])
 }

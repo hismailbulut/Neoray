@@ -32,3 +32,12 @@ func (rect Rectangle[T]) ToInt() Rectangle[int] {
 		H: int(math.Floor(float64(rect.H))),
 	}
 }
+
+func (rect Rectangle[T]) ToF32() Rectangle[float32] {
+	return Rectangle[float32]{
+		X: float32(rect.X),
+		Y: float32(rect.Y),
+		W: float32(rect.W),
+		H: float32(rect.H),
+	}
+}
