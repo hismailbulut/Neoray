@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hismailbulut/Neoray/pkg/bench"
@@ -62,13 +61,9 @@ command -nargs=+ -complete=customlist,NeorayCompletion NeoraySet call NeorayOpti
 `
 
 type NvimProcess struct {
-	handle        *nvim.Nvim
-	eventReceived common.AtomicBool
-	eventMutex    *sync.Mutex
-	eventStack    [][]interface{}
-	optionChanged common.AtomicBool
-	optionMutex   *sync.Mutex
-	optionStack   [][]string
+	handle     *nvim.Nvim
+	eventChan  chan []interface{}
+	optionChan chan []string
 	// This is required for when closing neoray. If neoray connected via stdin-out
 	// it is responsible for closing nvim, but if neoray connected via tcp, it will
 	// not close nvim.
@@ -76,11 +71,10 @@ type NvimProcess struct {
 }
 
 func CreateNvimProcess() *NvimProcess {
+
 	proc := &NvimProcess{
-		eventMutex:  &sync.Mutex{},
-		eventStack:  make([][]interface{}, 0),
-		optionMutex: &sync.Mutex{},
-		optionStack: make([][]string, 0),
+		eventChan:  make(chan []interface{}, 256), // Thats enough
+		optionChan: make(chan []string, 16),
 	}
 
 	if Editor.parsedArgs.address != "" {
@@ -160,10 +154,7 @@ func CreateNvimProcess() *NvimProcess {
 		// Register handler
 		proc.handle.RegisterHandler("NeorayOptionSet", func(args ...string) {
 			// arg 0 is the name of the option, others are arguments
-			proc.optionMutex.Lock()
-			defer proc.optionMutex.Unlock()
-			proc.optionStack = append(proc.optionStack, args)
-			proc.optionChanged.Set(true)
+			proc.optionChan <- args
 		})
 	}
 
@@ -182,11 +173,10 @@ func CreateNvimProcess() *NvimProcess {
 }
 
 func (proc *NvimProcess) StartUI(rows, cols int) {
-	err := proc.handle.RegisterHandler("redraw", func(updates ...[]interface{}) {
-		proc.eventMutex.Lock()
-		defer proc.eventMutex.Unlock()
-		proc.eventStack = append(proc.eventStack, updates...)
-		proc.eventReceived.Set(true)
+	err := proc.handle.RegisterHandler("redraw", func(events ...[]interface{}) {
+		for _, event := range events {
+			proc.eventChan <- event
+		}
 	})
 	if err != nil {
 		logger.Log(logger.ERROR, "Failed to register redraw method:", err)
@@ -273,17 +263,10 @@ func (proc *NvimProcess) Update() {
 }
 
 func (proc *NvimProcess) CheckOptions() {
-	if !proc.optionChanged.Get() {
-		return
+	for len(proc.optionChan) > 0 {
+		option := <-proc.optionChan
+		proc.processOption(option)
 	}
-	proc.optionMutex.Lock()
-	defer proc.optionMutex.Unlock()
-	for _, opt := range proc.optionStack {
-		proc.processOption(opt)
-	}
-	// Clear stack
-	proc.optionStack = proc.optionStack[0:0]
-	proc.optionChanged.Set(false)
 }
 
 func (proc *NvimProcess) processOption(opt []string) {

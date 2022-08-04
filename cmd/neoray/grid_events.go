@@ -13,33 +13,22 @@ var (
 )
 
 func (manager *GridManager) HandleEvents() {
-	if !Editor.nvim.eventReceived.Get() {
-		return
-	}
-	Editor.nvim.eventMutex.Lock()
-	defer Editor.nvim.eventMutex.Unlock()
 	// We must only take last cursor event at same redraw event batch, see issue #6
-	gridCursorGotoLast := -1
-	for i := len(Editor.nvim.eventStack) - 1; i >= 0; i-- {
-		if Editor.nvim.eventStack[i][0] == "grid_cursor_goto" {
-			gridCursorGotoLast = i
-			break
-		}
-	}
-	// Event stack is 3 dimensional array of interface, so it may contain an array also
-	for i, update := range Editor.nvim.eventStack {
-		switch update[0] {
+	var lastGridCursorGoto []interface{}
+	for len(Editor.nvim.eventChan) > 0 {
+		event := <-Editor.nvim.eventChan
+		switch event[0] {
 		// Global events
 		case "set_title":
-			title := reflect.ValueOf(update[1]).Index(0).Elem().String()
+			title := reflect.ValueOf(event[1]).Index(0).Elem().String()
 			Editor.window.SetTitle(title)
 		case "set_icon":
 		case "mode_info_set":
-			manager.mode_info_set(update[1:])
+			manager.mode_info_set(event[1:])
 		case "option_set":
-			manager.option_set(update[1:])
+			manager.option_set(event[1:])
 		case "mode_change":
-			manager.mode_change(update[1:])
+			manager.mode_change(event[1:])
 		case "mouse_on":
 		case "mouse_off":
 		case "busy_start":
@@ -57,44 +46,42 @@ func (manager *GridManager) HandleEvents() {
 			MarkDraw()
 		// Grid Events (line-based)
 		case "grid_resize":
-			manager.grid_resize(update[1:])
+			manager.grid_resize(event[1:])
 		case "default_colors_set":
-			manager.default_colors_set(update[1:])
+			manager.default_colors_set(event[1:])
 		case "hl_attr_define":
-			manager.hl_attr_define(update[1:])
+			manager.hl_attr_define(event[1:])
 		case "hl_group_set":
 		case "grid_line":
-			manager.grid_line(update[1:])
+			manager.grid_line(event[1:])
 		case "grid_clear":
-			manager.grid_clear(update[1:])
+			manager.grid_clear(event[1:])
 		case "grid_destroy":
-			manager.grid_destroy(update[1:])
+			manager.grid_destroy(event[1:])
 		case "grid_cursor_goto":
-			if gridCursorGotoLast == i {
-				manager.grid_cursor_goto(update[1:])
-			}
+			lastGridCursorGoto = event
 		case "grid_scroll":
-			manager.grid_scroll(update[1:])
+			manager.grid_scroll(event[1:])
 		// Multgrid specific events
 		case "win_pos":
-			manager.win_pos(update[1:])
+			manager.win_pos(event[1:])
 		case "win_float_pos":
-			manager.win_float_pos(update[1:])
+			manager.win_float_pos(event[1:])
 		case "win_external_pos":
-			manager.win_external_pos(update[1:])
+			manager.win_external_pos(event[1:])
 		case "win_hide":
-			manager.win_hide(update[1:])
+			manager.win_hide(event[1:])
 		case "win_close":
-			manager.win_close(update[1:])
+			manager.win_close(event[1:])
 		case "msg_set_pos":
-			manager.msg_set_pos(update[1:])
+			manager.msg_set_pos(event[1:])
 		case "win_viewport":
-			manager.win_viewport(update[1:])
+			manager.win_viewport(event[1:])
 		}
 	}
-	// clear update stack
-	Editor.nvim.eventStack = Editor.nvim.eventStack[0:0]
-	Editor.nvim.eventReceived.Set(false)
+	if lastGridCursorGoto != nil {
+		manager.grid_cursor_goto(lastGridCursorGoto[1:])
+	}
 }
 
 func refToInt(val reflect.Value) int {

@@ -1,7 +1,5 @@
 package common
 
-import "sync/atomic"
-
 // Constraints
 type Integers interface {
 	int | int8 | int16 | int32 | int64
@@ -74,22 +72,6 @@ func (anim *Animation) Step(delta float32) Vector2[float32] {
 
 func (anim *Animation) IsFinished() bool {
 	return anim.time >= anim.lifeTime
-}
-
-// Threadsafe bool value, use it's methods
-type AtomicBool int32
-
-func (atomicBool *AtomicBool) Set(value bool) {
-	val := int32(0)
-	if value == true {
-		val = 1
-	}
-	atomic.StoreInt32((*int32)(atomicBool), val)
-}
-
-func (atomicBool *AtomicBool) Get() bool {
-	val := atomic.LoadInt32((*int32)(atomicBool))
-	return val != 0
 }
 
 // This is just for making code more readable

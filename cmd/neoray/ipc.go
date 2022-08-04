@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
-	"sync"
 	"time"
 
-	"github.com/hismailbulut/Neoray/pkg/common"
 	"github.com/hismailbulut/Neoray/pkg/logger"
 )
 
@@ -156,11 +154,9 @@ func (client *IpcClient) Close() {
 
 // Server is a listener, not sends messages but processes incoming messages from clients
 type IpcServer struct {
-	listener       net.Listener
-	mac            uint64
-	callsAvailable common.AtomicBool
-	callsMutex     sync.Mutex
-	calls          []IpcFuncCall
+	listener  net.Listener
+	mac       uint64
+	callsChan chan IpcFuncCall
 }
 
 // Create a server and process incoming signals.
@@ -170,8 +166,9 @@ func CreateServer() (*IpcServer, error) {
 		return nil, err
 	}
 	server := IpcServer{
-		listener: listener,
-		mac:      getMacAddress(),
+		listener:  listener,
+		mac:       getMacAddress(),
+		callsChan: make(chan IpcFuncCall, 16),
 	}
 	go server.mainLoop()
 	return &server, nil
@@ -234,7 +231,7 @@ func (server *IpcServer) mainLoop() {
 					}
 					return
 				default:
-					server.appendNewCall(funcCall)
+					server.callsChan <- funcCall
 					_, err = conn.Write(encodedOK)
 					if err != nil {
 						logger.Log(logger.WARN, "Failed to send response to client.")
@@ -246,20 +243,9 @@ func (server *IpcServer) mainLoop() {
 	}
 }
 
-func (server *IpcServer) appendNewCall(call IpcFuncCall) {
-	server.callsMutex.Lock()
-	defer server.callsMutex.Unlock()
-	server.calls = append(server.calls, call)
-	server.callsAvailable.Set(true)
-}
-
 func (server *IpcServer) Update() {
-	if !server.callsAvailable.Get() {
-		return
-	}
-	server.callsMutex.Lock()
-	defer server.callsMutex.Unlock()
-	for _, call := range server.calls {
+	for len(server.callsChan) > 0 {
+		call := <-server.callsChan
 		// bool, for JSON booleans
 		// float64, for JSON numbers
 		// string, for JSON strings
@@ -284,9 +270,6 @@ func (server *IpcServer) Update() {
 			break
 		}
 	}
-	server.calls = server.calls[0:0]
-	server.callsAvailable.Set(false)
-	// On windows 11 this won't work
 	Editor.window.Raise()
 }
 
