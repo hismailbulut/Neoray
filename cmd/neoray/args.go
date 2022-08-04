@@ -50,7 +50,7 @@ Options:
 --help, -h
 	Prints this message and quits
 
-All other flags will send to neovim
+All other flags forwards to neovim
 `
 
 var ALLOWEDOS = func() bool {
@@ -162,14 +162,14 @@ func ParseArgs(args []string) (ParsedArgs, error, bool) {
 
 func PrintVersion() {
 	version := logger.Version{Major: VERSION_MAJOR, Minor: VERSION_MINOR, Patch: VERSION_PATCH}
-	msg := "Neoray " + version.String() + "\n" + "Start with -h option for more information."
+	msg := "Neoray " + version.String() + "\n" + "Start with -h option for more information"
 	fmt.Println(msg)
 	dialog.Message(msg).Title("Version").Info()
 }
 
 func PrintHelp() {
 	msg := fmt.Sprintf(usageTemplate, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, bench.BUILD_TYPE, LICENSE, WEBPAGE)
-	fmt.Println(msg)
+	fmt.Print(msg)
 	dialog.Message(msg).Title("Help").Info()
 }
 
