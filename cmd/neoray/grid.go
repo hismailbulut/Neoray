@@ -39,12 +39,49 @@ type Cell struct {
 }
 
 func (cell Cell) String() string {
-	return fmt.Sprintf("Cell(Char: %d %x %s, AttribID: %d)",
-		cell.char,
-		cell.char,
+	return fmt.Sprintf("Cell(Char: %s %d #%x, AttribID: %d)",
 		string(cell.char),
+		cell.char,
+		cell.char,
 		cell.attribID,
 	)
+}
+
+func (cell *Cell) Attribute() HighlightAttribute {
+	if cell.attribID == 0 {
+		// Default attribute
+		background := Editor.gridManager.background
+		background.A = Editor.options.transparency
+		return HighlightAttribute{
+			foreground: Editor.gridManager.foreground,
+			background: background,
+			special:    Editor.gridManager.special,
+		}
+	} else {
+		attrib, ok := Editor.gridManager.attributes[cell.attribID]
+		if !ok {
+			logger.LogF(logger.ERROR, "Attribute id %d not found!", cell.attribID)
+			return attrib
+		}
+		// Zero alpha means color is not set and we use default color
+		if attrib.foreground.A <= 0 {
+			attrib.foreground = Editor.gridManager.foreground
+		}
+		if attrib.background.A <= 0 {
+			attrib.background = Editor.gridManager.background
+			// Default backgrounds are transparent
+			attrib.background.A = Editor.options.transparency
+		}
+		if attrib.special.A <= 0 {
+			attrib.special = Editor.gridManager.special
+		}
+		// Reverse foreground an background colors if reverse attribute set
+		if attrib.reverse {
+			attrib.foreground, attrib.background = attrib.background, attrib.foreground
+			attrib.reverse = false
+		}
+		return attrib
+	}
 }
 
 type Grid struct {
@@ -215,13 +252,9 @@ func (grid *Grid) Draw(force bool) {
 	for row := 0; row < grid.rows; row++ {
 		for col := 0; col < grid.cols; col++ {
 			cell := grid.CellAt(row, col)
-			if force || cell.needsDraw {
-				attrib := Editor.gridManager.Attribute(cell.attribID)
-				// Override background alpha
-				// TODO We must check whether it is default background or not
-				attrib.background.A = uint8(Editor.options.transparency * 255)
-				grid.renderer.DrawCell(row, col, cell.char, attrib)
-				cell.needsDraw = false
+			if cell.needsDraw || force {
+				grid.renderer.DrawCell(row, col, cell.char, cell.Attribute())
+				grid.cells[row][col].needsDraw = false
 			}
 		}
 	}

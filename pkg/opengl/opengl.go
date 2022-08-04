@@ -60,7 +60,7 @@ func (context *Context) SetViewport(rect common.Rectangle[int]) {
 	checkGLError()
 }
 
-func (context *Context) ClearScreen(c common.Color[float32]) {
+func (context *Context) ClearScreen(c common.Color) {
 	gl.ClearColor(c.R, c.G, c.B, c.A)
 	checkGLError()
 	gl.Clear(gl.COLOR_BUFFER_BIT)

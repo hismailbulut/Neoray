@@ -167,7 +167,7 @@ func (cursor *Cursor) modeRectangle(info ModeInfo, position, cellSize common.Vec
 	}
 }
 
-func (cursor *Cursor) AttributeColors(id int) (common.Color[uint8], common.Color[uint8]) {
+func (cursor *Cursor) AttributeColors(id int) (common.Color, common.Color) {
 	// When attr_id is 0 we are using cursor foreground for default background and background for default foreground
 	fg := Editor.gridManager.background
 	bg := Editor.gridManager.foreground
@@ -204,10 +204,10 @@ func (cursor *Cursor) Draw(delta float32) {
 		// has a printable character and cursor shape is block
 		if cursor.anim.IsFinished() && cell.char != 0 && blockShaped {
 			// We need to draw cell character to the cursor foreground
-			cellAttrib := Editor.gridManager.Attribute(cell.attribID)
+			cellAttrib := cell.Attribute()
 			// Draw undercurl to cursor if cell has
 			if cellAttrib.undercurl {
-				cursor.buffer.SetIndexSp(0, cursorFg.ToF32())
+				cursor.buffer.SetIndexSp(0, cursorFg)
 			}
 			// Draw this cell to the cursor
 			charPos := grid.renderer.atlas.GetCharPos(cell.char, cellAttrib.bold, cellAttrib.italic, cellAttrib.underline, cellAttrib.strikethrough, grid.CellSize())
@@ -215,15 +215,15 @@ func (cursor *Cursor) Draw(delta float32) {
 				charPos.W /= 2
 			}
 			cursor.buffer.SetIndexTex1(0, grid.renderer.atlas.Normalize(charPos))
-			cursor.buffer.SetIndexFg(0, cursorFg.ToF32())
+			cursor.buffer.SetIndexFg(0, cursorFg)
 		} else {
 			// No cell drawing needed. Clear foreground.
 			cursor.buffer.SetIndexTex1(0, common.ZeroRectangleF32)
-			cursor.buffer.SetIndexFg(0, common.ZeroColorF32)
-			cursor.buffer.SetIndexSp(0, common.ZeroColorF32)
+			cursor.buffer.SetIndexFg(0, common.ZeroColor)
+			cursor.buffer.SetIndexSp(0, common.ZeroColor)
 		}
 		// Background and position is always required
-		cursor.buffer.SetIndexBg(0, cursorBg.ToF32())
+		cursor.buffer.SetIndexBg(0, cursorBg)
 		cursor.buffer.SetIndexPos(0, rect)
 	}
 }
@@ -239,6 +239,7 @@ func (cursor *Cursor) Render() {
 		cursor.buffer.Bind()
 		cursor.buffer.Update()
 		// TODO Do we need to update projection?
+		// cursor.buffer.SetProjection(Editor.window.Viewport().ToF32())
 		cursor.buffer.Render()
 	}
 }

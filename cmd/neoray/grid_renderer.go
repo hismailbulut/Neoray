@@ -125,20 +125,23 @@ func (renderer *GridRenderer) CopyRow(dst, src, left, right int) {
 }
 
 func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib HighlightAttribute) {
+
 	// Calculate indices
 	index := renderer.cellIndex(row, col)
 	nextIndex := -1
 	if col+1 < renderer.cols {
 		nextIndex = renderer.cellIndex(row, col+1)
 	}
+
 	// Draw background
-	renderer.buffer.SetIndexBg(index, attrib.background.ToF32())
+	renderer.buffer.SetIndexBg(index, attrib.background)
+
 	if char == 0 {
-		// This is an empty cell, clear foreground data (not color but texture)
-		// We will not clear foreground color because may be the previous cell is multiwidth character
-		// and it may set the foreground color of this cell.
+		// This is an empty cell, clear foreground data (not color)
+		// We will not clear foreground color because may the previous cell is a multiwidth character
+		// and it may set the foreground color of this cell
 		renderer.buffer.SetIndexTex1(index, common.ZeroRectangleF32)
-		renderer.buffer.SetIndexSp(index, common.ZeroColorF32)
+		renderer.buffer.SetIndexSp(index, common.ZeroColor)
 		if nextIndex != -1 {
 			// Clear next cells second texture
 			renderer.buffer.SetIndexTex2(nextIndex, common.ZeroRectangleF32)
@@ -151,49 +154,46 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 		if firstDraw {
 			// This is the first time we draw undercurl, because of this we must update
 			// it's position to the shader
-			normalized := renderer.atlas.Normalize(undercurlRect)
 			// Buffer must bound while we updating undercurl rectangle
 			renderer.buffer.Bind()
-			renderer.buffer.SetUndercurlRect(normalized)
+			renderer.buffer.SetUndercurlRect(renderer.atlas.Normalize(undercurlRect))
 		}
-		renderer.buffer.SetIndexSp(index, attrib.special.ToF32())
+		renderer.buffer.SetIndexSp(index, attrib.special)
 	} else {
 		// Setting special color to zero means clear the undercurl. Undercurl
 		// will always be drawed for every cell and multiplied by the special
 		// color. And setting special color to zero makes undercurl fully
 		// transparent. This is also true for other color layouts.
-		renderer.buffer.SetIndexSp(index, common.ZeroColorF32)
+		renderer.buffer.SetIndexSp(index, common.ZeroColor)
 	}
 
-	// get character position in atlas texture
+	// Get character position in atlas texture
 	atlasPos := renderer.atlas.GetCharPos(char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, renderer.cellSize)
 	// Check if there is a require for second texture in next cell
-	if nextIndex != -1 {
-		if atlasPos.W > renderer.cellSize.Width() {
-			// The atlas width will be 2 times more if the char is a multiwidth char
-			// and we are dividing atlas to 2. One for current cell and one for next.
-			atlasPos.W /= 2
-			// Draw the parts more than width to the next cell.
-			// NOTE: The more part has the same color with next cell.
-			// NOTE: Multiwidth cells causes glyphs to overlap. But we don't care.
+	if atlasPos.W > renderer.cellSize.Width() {
+		// The atlas width will be 2 times wider if the char is a multiwidth char
+		// and we are dividing this width by 2. One for current cell and one for next
+		atlasPos.W /= 2
+		if nextIndex != -1 {
+			// Draw the parts more than width to the next cell
+			// NOTE: The more part has the same color with next cell
+			// NOTE: Multiwidth cells causes glyphs to overlap
 			secAtlasPos := common.Rectangle[int]{
 				X: atlasPos.X + renderer.cellSize.Width(),
 				Y: atlasPos.Y,
 				W: renderer.cellSize.Width(),
 				H: renderer.cellSize.Height(),
 			}
-			normalized := renderer.atlas.Normalize(secAtlasPos)
-			renderer.buffer.SetIndexTex2(nextIndex, normalized)
-			renderer.buffer.SetIndexFg(nextIndex, attrib.foreground.ToF32())
-		} else {
-			// Clear second texture.
-			renderer.buffer.SetIndexTex2(nextIndex, common.ZeroRectangleF32)
+			renderer.buffer.SetIndexTex2(nextIndex, renderer.atlas.Normalize(secAtlasPos))
+			renderer.buffer.SetIndexFg(nextIndex, attrib.foreground)
 		}
+	} else if nextIndex != -1 {
+		// Clear second texture.
+		renderer.buffer.SetIndexTex2(nextIndex, common.ZeroRectangleF32)
 	}
-	// draw
-	normalized := renderer.atlas.Normalize(atlasPos)
-	renderer.buffer.SetIndexTex1(index, normalized)
-	renderer.buffer.SetIndexFg(index, attrib.foreground.ToF32())
+	// Draw
+	renderer.buffer.SetIndexTex1(index, renderer.atlas.Normalize(atlasPos))
+	renderer.buffer.SetIndexFg(index, attrib.foreground)
 }
 
 func (renderer *GridRenderer) Render() {

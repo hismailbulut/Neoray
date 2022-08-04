@@ -88,9 +88,9 @@ func (options *UIOptions) setGuiFont(guifont string) {
 }
 
 type HighlightAttribute struct {
-	foreground    common.Color[uint8]
-	background    common.Color[uint8]
-	special       common.Color[uint8]
+	foreground    common.Color
+	background    common.Color
+	special       common.Color
 	reverse       bool
 	italic        bool
 	bold          bool
@@ -101,6 +101,7 @@ type HighlightAttribute struct {
 	// underdot  bool
 	// underdash bool
 	// blend     int
+	// TODO: Implement commented attributes
 }
 
 type ModeInfo struct {

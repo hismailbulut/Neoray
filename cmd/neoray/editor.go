@@ -296,10 +296,15 @@ func UpdateHandler(delta float32) {
 		// Render calls
 		if Editor.cDraw || Editor.cForceDraw || Editor.cRender {
 			EndBenchmark := bench.BeginBenchmark()
-			Editor.window.GL().ClearScreen(Editor.gridManager.background.ToF32())
+			// Clear background
+			bg := Editor.gridManager.background
+			bg.A = Editor.options.transparency
+			Editor.window.GL().ClearScreen(bg)
+			// Render in order
 			Editor.gridManager.Render()
 			Editor.cursor.Render()
 			Editor.contextMenu.Render()
+			// Flush to make changes visible
 			Editor.window.GL().Flush()
 			EndBenchmark("UpdateHandler.Render")
 		}

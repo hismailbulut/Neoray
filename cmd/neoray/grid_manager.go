@@ -18,9 +18,9 @@ type GridManager struct {
 	fontSize          float64          // last globally set font size
 	// style information
 	attributes map[int]HighlightAttribute
-	foreground common.Color[uint8] // Default foreground color
-	background common.Color[uint8] // Default background color
-	special    common.Color[uint8] // Default special color
+	foreground common.Color // Default foreground color
+	background common.Color // Default background color
+	special    common.Color // Default special color
 }
 
 func NewGridManager() *GridManager {
@@ -29,38 +29,6 @@ func NewGridManager() *GridManager {
 		attributes: make(map[int]HighlightAttribute),
 	}
 	return grid
-}
-
-// Attribute itself reverses the color if required, so you dont have to swap them
-// for rendering grids
-func (manager *GridManager) Attribute(id int) (attrib HighlightAttribute) {
-	var ok bool
-	if id == 0 {
-		// Default attribute
-		attrib.foreground = manager.foreground
-		attrib.background = manager.background
-		attrib.special = manager.special
-	} else {
-		attrib, ok = manager.attributes[id]
-		if !ok {
-			logger.LogF(logger.ERROR, "Attribute id %d not found!", id)
-		}
-		// Zero alpha means color is not set yet and we use default color
-		if attrib.foreground.A == 0 {
-			attrib.foreground = manager.foreground
-		}
-		if attrib.background.A == 0 {
-			attrib.background = manager.background
-		}
-		if attrib.special.A == 0 {
-			attrib.special = manager.special
-		}
-		// Reverse foreground an background colors if reverse attribute set
-		if attrib.reverse {
-			attrib.foreground, attrib.background = attrib.background, attrib.foreground
-		}
-	}
-	return attrib
 }
 
 // Font related
