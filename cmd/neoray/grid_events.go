@@ -150,7 +150,6 @@ func (manager *GridManager) mode_info_set(args []interface{}) {
 			}
 			Editor.cursor.mode.Add(info)
 		}
-		MarkForceDraw()
 	}
 }
 
