@@ -207,7 +207,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 	}()
 
 	// Dictionary describing the version
-	version := &nvim.ClientVersion{
+	version := nvim.ClientVersion{
 		Major: VERSION_MAJOR,
 		Minor: VERSION_MINOR,
 		Patch: VERSION_PATCH,
@@ -216,7 +216,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		version.Prerelease = "dev"
 	}
 	// Client type
-	typ := "ui"
+	typ := nvim.UIClientType
 	// Builtin methods in the client
 	methods := make(map[string]*nvim.ClientMethod, 0)
 	// Arbitrary string:string map of informal client properties
