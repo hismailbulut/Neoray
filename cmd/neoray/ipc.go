@@ -269,8 +269,8 @@ func (server *IpcServer) Update() {
 			logger.Log(logger.WARN, "Server received invalid signal:", call)
 			break
 		}
+		Editor.window.Raise()
 	}
-	Editor.window.Raise()
 }
 
 func (server *IpcServer) Close() {
