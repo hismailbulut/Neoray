@@ -71,7 +71,6 @@ type NvimProcess struct {
 }
 
 func CreateNvimProcess() *NvimProcess {
-
 	proc := &NvimProcess{
 		eventChan:  make(chan []interface{}, 256), // Thats enough
 		optionChan: make(chan []string, 16),
@@ -130,7 +129,7 @@ func CreateNvimProcess() *NvimProcess {
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
 
-	// Prepare and Register NeorayOptionSet
+	// Prepare NeorayOptionSet
 	// Replace channel ids in the template
 	source := strings.ReplaceAll(NeorayOptionSet_Source, "CHANID", strconv.Itoa(proc.handle.ChannelID()))
 	// Create option list string
@@ -146,30 +145,59 @@ func CreateNvimProcess() *NvimProcess {
 	source = strings.Replace(source, "OPTIONLIST", listStr, 1)
 	// Trim whitespaces
 	source = strings.TrimSpace(source)
-	// Execute script
-	_, err = proc.handle.Exec(source, false)
-	if err != nil {
-		logger.Log(logger.ERROR, "Failed to register NeorayOptionSet:", err)
-	} else {
-		// Register handler
-		proc.handle.RegisterHandler("NeorayOptionSet", func(args ...string) {
+
+	// Register NeorayOptionSet
+	proc.RegisterCustomEvent(
+		"NeorayOptionSet",
+		source,
+		func(args ...string) {
 			// arg 0 is the name of the option, others are arguments
 			proc.optionChan <- args
-		})
-	}
+		},
+	)
 
-	// Register VimEnter autocmd
+	// Register VimEnter
 	// NOTE: We are not using this for now but I added for we may need in future
-	_, err = proc.handle.Exec("autocmd VimEnter * call rpcrequest(1, 'VimEnter')", false)
-	if err != nil {
-		logger.Log(logger.ERROR, "Failed to register VimEnter:", err)
-	} else {
-		proc.handle.RegisterHandler("VimEnter", func() {
+	proc.RegisterCustomEvent(
+		"NeorayVimEnter",
+		"autocmd VimEnter * call rpcnotify(1, 'NeorayVimEnter')",
+		func() {
 			logger.Log(logger.DEBUG, "VimEnter")
-		})
-	}
+		},
+	)
+
+	// Register VimLeave
+	proc.RegisterCustomEvent(
+		"NeorayVimLeave",
+		"autocmd VimLeave * call rpcnotify(1, 'NeorayVimLeave')",
+		func() {
+			logger.Log(logger.DEBUG, "VimLeave")
+			Editor.quitChan <- true
+		},
+	)
 
 	return proc
+}
+
+func (proc *NvimProcess) RegisterCustomEvent(name string, script string, handler interface{}) {
+	var err error
+	if strings.Contains(script, "\n") {
+		// Exec support multiline scripts
+		// But it introduced in neovim version 0.5
+		// Only scripts has multiline is not supported in older versions
+		// Important ones (eg. VimLeave) are supported
+		_, err = proc.handle.Exec(script, false)
+	} else {
+		err = proc.handle.Command(script)
+	}
+	if err != nil {
+		logger.LogF(logger.ERROR, "Failed to execute register script for %s because error: %v", name, err)
+	} else {
+		err = proc.handle.RegisterHandler(name, handler)
+		if err != nil {
+			logger.LogF(logger.ERROR, "Failed to register handler for %s because error: %v", name, err)
+		}
+	}
 }
 
 func (proc *NvimProcess) StartUI(rows, cols int) {
@@ -195,16 +223,6 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 	if err := proc.handle.AttachUI(cols, rows, options); err != nil {
 		logger.Log(logger.FATAL, "AttachUI failed:", err)
 	}
-
-	go func() {
-		err := proc.handle.Serve()
-		if err != nil {
-			logger.Log(logger.ERROR, "Neovim child process closed with errors:", err)
-		} else if !proc.connectedViaTcp {
-			logger.Log(logger.TRACE, "Neovim child process closed")
-		}
-		Editor.quitChan <- true
-	}()
 
 	// Dictionary describing the version
 	version := nvim.ClientVersion{
@@ -560,7 +578,6 @@ func (proc *NvimProcess) tryResizeGrid(id, rows, cols int) {
 }
 
 func (proc *NvimProcess) Close() {
-	// NOTE: Neoray always trying to close neovim even if it alread closed
 	err := proc.handle.Close()
 	if err != nil {
 		logger.Log(logger.WARN, "Failed to close neovim child process:", err)
