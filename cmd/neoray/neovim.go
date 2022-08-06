@@ -578,8 +578,15 @@ func (proc *NvimProcess) tryResizeGrid(id, rows, cols int) {
 }
 
 func (proc *NvimProcess) Close() {
-	err := proc.handle.Close()
-	if err != nil {
-		logger.Log(logger.WARN, "Failed to close neovim child process:", err)
-	}
+	// Sometimes Close function blocks forever
+	// I realized that when using a popular neovim configuration
+	// And it only happens when :wq in a lua file
+	go func() {
+		err := proc.handle.Close()
+		if err != nil {
+			logger.Log(logger.WARN, "Failed to close neovim client:", err)
+		} else {
+			logger.Log(logger.DEBUG, "Neovim client closed")
+		}
+	}()
 }
