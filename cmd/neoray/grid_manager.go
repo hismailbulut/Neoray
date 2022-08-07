@@ -213,8 +213,7 @@ func (manager *GridManager) printCellInfoAt(pos common.Vector2[int]) {
 			attrib = HighlightAttribute{}
 		}
 		vertex := grid.renderer.CellVertexData(row, col)
-		logger.LogF(logger.DEBUG,
-			`Cell Info (Grid: %d Row: %d Col: %d)
+		format := `Cell Info (Grid: %d Row: %d Col: %d)
 	%v
 	%v
 	Position in atlas: %v
@@ -233,8 +232,9 @@ func (manager *GridManager) printCellInfoAt(pos common.Vector2[int]) {
 		Tex2: %v Area: %f
 		Fg:   %v
 		Bg:   %v
-		Sp:   %v
-		`,
+		Sp:   %v`
+		logger.LogF(logger.DEBUG,
+			format,
 			gridID, row, col,
 			cell,
 			grid,
