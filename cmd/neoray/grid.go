@@ -175,7 +175,7 @@ func (grid *Grid) PixelPos() common.Vector2[int] {
 }
 
 func (grid *Grid) CellSize() common.Vector2[int] {
-	return grid.renderer.cellSize
+	return grid.renderer.CellSize()
 }
 
 func (grid *Grid) Scroll(top, bot, rows, left, right int) {

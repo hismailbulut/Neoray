@@ -11,7 +11,6 @@ type GridRenderer struct {
 	atlas    *opengl.Atlas        // Font atlas of this renderer
 	buffer   *opengl.VertexBuffer // Vertex buffer of this renderer
 	position common.Vector2[int]
-	cellSize common.Vector2[int]
 	rows     int
 	cols     int
 }
@@ -23,23 +22,13 @@ func NewGridRenderer(window *window.Window, rows, cols int, kit *fontkit.FontKit
 	renderer.rows = rows
 	renderer.cols = cols
 	renderer.position = position
-	face, err := renderer.atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
-		Size:            fontSize,
-		DPI:             window.DPI(),
-		UseBoxDrawing:   false,
-		UseBlockDrawing: false,
-	})
-	if err != nil {
-		return nil, err
-	}
-	renderer.cellSize = face.ImageSize()
 	renderer.UpdatePositions()
 	return renderer, nil
 }
 
 func (renderer *GridRenderer) SetFontKit(kit *fontkit.FontKit) {
 	renderer.atlas.SetFontKit(kit)
-	renderer.CalculateCellSize()
+	renderer.UpdatePositions()
 }
 
 func (renderer *GridRenderer) FontSize() float64 {
@@ -48,19 +37,11 @@ func (renderer *GridRenderer) FontSize() float64 {
 
 func (renderer *GridRenderer) SetFontSize(fontSize, dpi float64) {
 	renderer.atlas.SetFontSize(fontSize, dpi)
-	renderer.CalculateCellSize()
+	renderer.UpdatePositions()
 }
 
 func (renderer *GridRenderer) SetBoxDrawing(useBoxDrawing, useBlockDrawing bool) {
 	renderer.atlas.SetBoxDrawing(useBoxDrawing, useBlockDrawing)
-}
-
-func (renderer *GridRenderer) CalculateCellSize() {
-	imgSize := renderer.atlas.ImageSize()
-	if !imgSize.Equals(renderer.cellSize) {
-		renderer.cellSize = imgSize
-		renderer.UpdatePositions()
-	}
 }
 
 func (renderer *GridRenderer) SetPos(position common.Vector2[int]) {
@@ -73,6 +54,10 @@ func (renderer *GridRenderer) Resize(rows, cols int) {
 	renderer.cols = cols
 	renderer.buffer.Resize(rows * cols)
 	renderer.UpdatePositions()
+}
+
+func (renderer *GridRenderer) CellSize() common.Vector2[int] {
+	return renderer.atlas.ImageSize()
 }
 
 // NOTE: Neovim's coordinates and opengl coordinates we are using are
@@ -90,12 +75,12 @@ func (renderer *GridRenderer) Resize(rows, cols int) {
 //     |
 //     v Row, y, second
 // This function returns position rectangle of the cell needed for opengl.
-func (renderer *GridRenderer) cellPos(row, col int) common.Rectangle[float32] {
+func (renderer *GridRenderer) cellPos(row, col int, cellSize common.Vector2[int]) common.Rectangle[float32] {
 	return common.Rectangle[float32]{
-		X: float32(renderer.position.X + col*renderer.cellSize.Width()),
-		Y: float32(renderer.position.Y + row*renderer.cellSize.Height()),
-		W: float32(renderer.cellSize.Width()),
-		H: float32(renderer.cellSize.Height()),
+		X: float32(renderer.position.X + col*cellSize.Width()),
+		Y: float32(renderer.position.Y + row*cellSize.Height()),
+		W: float32(cellSize.Width()),
+		H: float32(cellSize.Height()),
 	}
 }
 
@@ -104,9 +89,10 @@ func (renderer *GridRenderer) cellIndex(row, col int) int {
 }
 
 func (renderer *GridRenderer) UpdatePositions() {
+	cellSize := renderer.atlas.ImageSize()
 	for row := 0; row < renderer.rows; row++ {
 		for col := 0; col < renderer.cols; col++ {
-			renderer.buffer.SetIndexPos(renderer.cellIndex(row, col), renderer.cellPos(row, col))
+			renderer.buffer.SetIndexPos(renderer.cellIndex(row, col), renderer.cellPos(row, col, cellSize))
 		}
 	}
 }
@@ -125,14 +111,12 @@ func (renderer *GridRenderer) CopyRow(dst, src, left, right int) {
 }
 
 func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib HighlightAttribute) {
-
 	// Calculate indices
 	index := renderer.cellIndex(row, col)
 	nextIndex := -1
 	if col+1 < renderer.cols {
 		nextIndex = renderer.cellIndex(row, col+1)
 	}
-
 	// Draw background
 	renderer.buffer.SetIndexBg(index, attrib.background)
 
@@ -149,8 +133,10 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 		return
 	}
 
+	cellSize := renderer.atlas.ImageSize()
+
 	if attrib.undercurl {
-		undercurlRect, firstDraw := renderer.atlas.Undercurl(renderer.cellSize)
+		undercurlRect, firstDraw := renderer.atlas.Undercurl(cellSize)
 		if firstDraw {
 			// This is the first time we draw undercurl, because of this we must update
 			// it's position to the shader
@@ -166,11 +152,10 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 		// transparent. This is also true for other color layouts.
 		renderer.buffer.SetIndexSp(index, common.ZeroColor)
 	}
-
 	// Get character position in atlas texture
-	atlasPos := renderer.atlas.GetCharPos(char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, renderer.cellSize)
+	atlasPos := renderer.atlas.GetCharPos(char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, cellSize)
 	// Check if there is a require for second texture in next cell
-	if atlasPos.W > renderer.cellSize.Width() {
+	if atlasPos.W > cellSize.Width() {
 		// The atlas width will be 2 times wider if the char is a multiwidth char
 		// and we are dividing this width by 2. One for current cell and one for next
 		atlasPos.W /= 2
@@ -179,10 +164,10 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 			// NOTE: The more part has the same color with next cell
 			// NOTE: Multiwidth cells causes glyphs to overlap
 			secAtlasPos := common.Rectangle[int]{
-				X: atlasPos.X + renderer.cellSize.Width(),
+				X: atlasPos.X + cellSize.Width(),
 				Y: atlasPos.Y,
-				W: renderer.cellSize.Width(),
-				H: renderer.cellSize.Height(),
+				W: cellSize.Width(),
+				H: cellSize.Height(),
 			}
 			renderer.buffer.SetIndexTex2(nextIndex, renderer.atlas.Normalize(secAtlasPos))
 			renderer.buffer.SetIndexFg(nextIndex, attrib.foreground)

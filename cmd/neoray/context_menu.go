@@ -185,7 +185,7 @@ func (menu *ContextMenu) Hide() {
 }
 
 func (menu *ContextMenu) Dimensions() common.Rectangle[int] {
-	cellSize := menu.renderer.cellSize
+	cellSize := menu.renderer.CellSize()
 	return common.Rectangle[int]{
 		X: menu.pos.X,
 		Y: menu.pos.Y,
@@ -205,7 +205,7 @@ func (menu *ContextMenu) IsIntersecting(pos common.Vector2[int]) (bool, int) {
 			X: pos.X - menu.pos.X,
 			Y: pos.Y - menu.pos.Y,
 		}
-		cellSize := menu.renderer.cellSize
+		cellSize := menu.renderer.CellSize()
 		row := relativePos.Y / cellSize.Height()
 		col := relativePos.X / cellSize.Width()
 		if col > 0 && col < menu.cols-1 {
