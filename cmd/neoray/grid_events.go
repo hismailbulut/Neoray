@@ -1,15 +1,11 @@
 package main
 
 import (
-	"reflect"
+	"fmt"
 	"unicode"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
-)
-
-var (
-	t_int  = reflect.TypeOf(int(0))
-	t_uint = reflect.TypeOf(uint(0))
+	"github.com/neovim/go-client/nvim"
 )
 
 func (manager *GridManager) HandleEvents() {
@@ -20,7 +16,7 @@ func (manager *GridManager) HandleEvents() {
 		switch event[0] {
 		// Global events
 		case "set_title":
-			title := reflect.ValueOf(event[1]).Index(0).Elem().String()
+			title := event[1].([]interface{})[0].(string)
 			Editor.window.SetTitle(title)
 		case "set_icon":
 		case "mode_info_set":
@@ -84,68 +80,91 @@ func (manager *GridManager) HandleEvents() {
 	}
 }
 
-func refToInt(val reflect.Value) int {
-	return int(val.Elem().Convert(t_int).Int())
+func to_int(v interface{}) int {
+	switch v := v.(type) {
+	case int64:
+		return int(v)
+	case uint64:
+		return int(v)
+	case float64:
+		return int(v)
+	default:
+		panic(fmt.Errorf("to_int: unexpected type %T", v))
+	}
+}
+
+func to_uint32(v interface{}) uint32 {
+	switch v := v.(type) {
+	case int64:
+		return uint32(v)
+	case uint64:
+		return uint32(v)
+	case float64:
+		return uint32(v)
+	default:
+		panic(fmt.Errorf("to_uint32: unexpected type %T", v))
+	}
 }
 
 func (manager *GridManager) option_set(args []interface{}) {
 	options := &Editor.uiOptions
 	for _, arg := range args {
-		val := reflect.ValueOf(arg).Index(1).Elem()
-		switch reflect.ValueOf(arg).Index(0).Elem().String() {
+		arg := arg.([]interface{})
+		opt := arg[0].(string)
+		val := arg[1]
+		switch opt {
 		case "arabicshape":
-			options.arabicshape = val.Bool()
+			options.arabicshape = val.(bool)
 		case "ambiwidth":
-			options.ambiwidth = val.String()
+			options.ambiwidth = val.(string)
 		case "emoji":
-			options.emoji = val.Bool()
+			options.emoji = val.(bool)
 		case "guifont":
-			options.setGuiFont(val.String())
+			options.setGuiFont(val.(string))
 		case "guifontset":
-			options.guifontset = val.String()
+			options.guifontset = val.(string)
 		case "guifontwide":
-			options.guifontwide = val.String()
+			options.guifontwide = val.(string)
 		case "linespace":
-			options.linespace = int(val.Convert(t_int).Int())
+			options.linespace = to_int(val)
 		case "pumblend":
-			options.pumblend = int(val.Convert(t_int).Int())
+			options.pumblend = to_int(val)
 		case "showtabline":
-			options.showtabline = int(val.Convert(t_int).Int())
+			options.showtabline = to_int(val)
 		case "termguicolors":
-			options.termguicolors = val.Bool()
+			options.termguicolors = val.(bool)
 		}
 	}
 }
 
 func (manager *GridManager) mode_info_set(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		Editor.cursor.mode.cursor_style_enabled = v.Index(0).Elem().Bool()
+		arg := arg.([]interface{})
+		Editor.cursor.mode.cursor_style_enabled = arg[0].(bool)
 		Editor.cursor.mode.Clear()
-		for _, infos := range v.Index(1).Interface().([]interface{}) {
-			mapIter := reflect.ValueOf(infos).MapRange()
+		for _, infos := range arg[1].([]interface{}) {
+			infoMap := infos.(map[string]interface{})
 			info := ModeInfo{}
-			for mapIter.Next() {
-				val := mapIter.Value().Elem()
-				switch mapIter.Key().String() {
+			for k, v := range infoMap {
+				switch k {
 				case "cursor_shape":
-					info.cursor_shape = val.String()
+					info.cursor_shape = v.(string)
 				case "cell_percentage":
-					info.cell_percentage = int(val.Convert(t_int).Int())
+					info.cell_percentage = to_int(v)
 				case "blinkwait":
-					info.blinkwait = int(val.Convert(t_int).Int())
+					info.blinkwait = to_int(v)
 				case "blinkon":
-					info.blinkon = int(val.Convert(t_int).Int())
+					info.blinkon = to_int(v)
 				case "blinkoff":
-					info.blinkoff = int(val.Convert(t_int).Int())
+					info.blinkoff = to_int(v)
 				case "attr_id":
-					info.attr_id = int(val.Convert(t_int).Int())
+					info.attr_id = to_int(v)
 				case "attr_id_lm":
-					info.attr_id_lm = int(val.Convert(t_int).Int())
+					info.attr_id_lm = to_int(v)
 				case "short_name":
-					info.short_name = val.String()
+					info.short_name = v.(string)
 				case "name":
-					info.name = val.String()
+					info.name = v.(string)
 				}
 			}
 			Editor.cursor.mode.Add(info)
@@ -155,28 +174,28 @@ func (manager *GridManager) mode_info_set(args []interface{}) {
 
 func (manager *GridManager) mode_change(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		Editor.cursor.mode.current_mode_name = v.Index(0).Elem().String()
-		Editor.cursor.mode.current_mode = refToInt(v.Index(1))
+		arg := arg.([]interface{})
+		Editor.cursor.mode.current_mode_name = arg[0].(string)
+		Editor.cursor.mode.current_mode = to_int(arg[1])
 	}
 }
 
 func (manager *GridManager) grid_resize(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		cols := refToInt(v.Index(1))
-		rows := refToInt(v.Index(2))
-		manager.ResizeGrid(grid, rows, cols)
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		cols := to_int(arg[1])
+		rows := to_int(arg[2])
+		manager.ResizeGrid(grid_id, rows, cols)
 	}
 }
 
 func (manager *GridManager) default_colors_set(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		fg := uint32(v.Index(0).Elem().Convert(t_uint).Uint())
-		bg := uint32(v.Index(1).Elem().Convert(t_uint).Uint())
-		sp := uint32(v.Index(2).Elem().Convert(t_uint).Uint())
+		arg := arg.([]interface{})
+		fg := to_uint32(arg[0])
+		bg := to_uint32(arg[1])
+		sp := to_uint32(arg[2])
 		manager.foreground = common.ColorFromUint(fg)
 		manager.background = common.ColorFromUint(bg)
 		manager.special = common.ColorFromUint(sp)
@@ -189,25 +208,24 @@ func (manager *GridManager) default_colors_set(args []interface{}) {
 
 func (manager *GridManager) hl_attr_define(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
+		arg := arg.([]interface{})
 		// args is an array with first element is
-		// attribute id and second is a map which
+		// attribute hl_id and second is a map which
 		// contains attribute keys
-		id := refToInt(v.Index(0))
-		mapIter := v.Index(1).Elem().MapRange()
+		hl_id := to_int(arg[0])
+		attribs := arg[1].(map[string]interface{})
 		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes
-		for mapIter.Next() {
-			val := mapIter.Value().Elem()
-			switch mapIter.Key().String() {
+		for k, v := range attribs {
+			switch k {
 			case "foreground":
-				fg := uint32(val.Convert(t_uint).Uint())
+				fg := to_uint32(v)
 				hl_attr.foreground = common.ColorFromUint(fg)
 			case "background":
-				bg := uint32(val.Convert(t_uint).Uint())
+				bg := to_uint32(v)
 				hl_attr.background = common.ColorFromUint(bg)
 			case "special":
-				sp := uint32(val.Convert(t_uint).Uint())
+				sp := to_uint32(v)
 				hl_attr.special = common.ColorFromUint(sp)
 			// All boolean keys default to false,
 			// and will only be sent when they are true.
@@ -233,26 +251,26 @@ func (manager *GridManager) hl_attr_define(args []interface{}) {
 				// hl_attr.blend = int(val.Convert(t_uint).Uint())
 			}
 		}
-		manager.attributes[id] = hl_attr
+		manager.attributes[hl_id] = hl_attr
 		MarkForceDraw()
 	}
 }
 
 func (manager *GridManager) grid_line(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		row := refToInt(v.Index(1))
-		col := refToInt(v.Index(2))
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		row := to_int(arg[1])
+		col := to_int(arg[2])
 		// cells is an array of arrays each with 1 to 3 elements
-		cells := v.Index(3).Elem().Interface().([]interface{})
-		attribId := 0 // if hl_id is not present, we will use the last one
+		cells := arg[3].([]interface{})
+		hl_id := 0 // if hl_id is not present, we will use the last one
 		for _, cell := range cells {
 			// cell is a slice, may have 1 to 3 elements
-			cellv := reflect.ValueOf(cell)
+			cell := cell.([]interface{})
 			// first one is character
 			var char rune
-			str := cellv.Index(0).Elem().String()
+			str := cell[0].(string)
 			if len(str) > 0 {
 				char = []rune(str)[0]
 				// If this is a space, we set it to zero
@@ -262,82 +280,82 @@ func (manager *GridManager) grid_line(args []interface{}) {
 				}
 			}
 			// second one is highlight attribute id -optional
-			if cellv.Len() >= 2 {
-				attribId = refToInt(cellv.Index(1))
+			if len(cell) >= 2 {
+				hl_id = to_int(cell[1])
 			}
 			// third one is repeat count -optional
 			repeat := 0
-			if cellv.Len() == 3 {
-				repeat = refToInt(cellv.Index(2))
+			if len(cell) == 3 {
+				repeat = to_int(cell[2])
 			}
-			manager.SetCell(grid, row, &col, char, attribId, repeat)
+			manager.SetCell(grid_id, row, &col, char, hl_id, repeat)
 		}
 	}
 }
 
 func (manager *GridManager) grid_clear(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		manager.ClearGrid(grid)
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		manager.ClearGrid(grid_id)
 	}
 }
 
 func (manager *GridManager) grid_destroy(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		manager.DestroyGrid(grid)
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		manager.DestroyGrid(grid_id)
 	}
 }
 
 func (manager *GridManager) grid_cursor_goto(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		row := refToInt(v.Index(1))
-		col := refToInt(v.Index(2))
-		Editor.cursor.SetPosition(grid, row, col)
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		row := to_int(arg[1])
+		col := to_int(arg[2])
+		Editor.cursor.SetPosition(grid_id, row, col)
 	}
 }
 
 func (manager *GridManager) grid_scroll(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid_id := refToInt(v.Index(0))
-		top := refToInt(v.Index(1))
-		bot := refToInt(v.Index(2))
-		left := refToInt(v.Index(3))
-		right := refToInt(v.Index(4))
-		rows := refToInt(v.Index(5))
-		// cols := refToInt(v.Index(6))
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		top := to_int(arg[1])
+		bot := to_int(arg[2])
+		left := to_int(arg[3])
+		right := to_int(arg[4])
+		rows := to_int(arg[5])
+		// cols := to_int(v[6])
 		manager.ScrollGrid(grid_id, top, bot, rows, left, right)
 	}
 }
 
 func (manager *GridManager) win_pos(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid_id := refToInt(v.Index(0))
-		win := refToInt(v.Index(1))
-		start_row := refToInt(v.Index(2))
-		start_col := refToInt(v.Index(3))
-		width := refToInt(v.Index(4))
-		height := refToInt(v.Index(5))
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		win := arg[1].(nvim.Window)
+		start_row := to_int(arg[2])
+		start_col := to_int(arg[3])
+		width := to_int(arg[4])
+		height := to_int(arg[5])
 		manager.SetGridPos(grid_id, win, start_row, start_col, height, width, GridTypeNormal)
 	}
 }
 
 func (manager *GridManager) win_float_pos(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid_id := refToInt(v.Index(0))
-		win := refToInt(v.Index(1))
-		anchor := v.Index(2).Elem().String()
-		anchor_grid_id := refToInt(v.Index(3))
-		anchor_row := refToInt(v.Index(4))
-		anchor_col := refToInt(v.Index(5))
-		// focusable := v.Index(6).Elem().Bool()
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		win := arg[1].(nvim.Window)
+		anchor := arg[2].(string)
+		anchor_grid_id := to_int(arg[3])
+		anchor_row := to_int(arg[4])
+		anchor_col := to_int(arg[5])
+		// focusable := v[6].(bool)
 
 		grid := manager.Grid(grid_id)
 		anchor_grid := manager.Grid(anchor_grid_id)
@@ -367,37 +385,36 @@ func (manager *GridManager) win_external_pos(args []interface{}) {
 	// NOTE: Currently not supported
 	/*
 		for _, arg := range args {
-			// Not implemented
-			v := reflect.ValueOf(arg)
-			grid := refToInt(v.Index(0))
-			win := refToInt(v.Index(1))
+			arg := arg.([]interface{})
+			grid := to_int(arg[0])
+			win := arg[1].(nvim.Window)
 		}
 	*/
 }
 
 func (manager *GridManager) win_hide(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		manager.HideGrid(grid)
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		manager.HideGrid(grid_id)
 	}
 }
 
 func (manager *GridManager) win_close(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid := refToInt(v.Index(0))
-		manager.DestroyGrid(grid)
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		manager.DestroyGrid(grid_id)
 	}
 }
 
 func (manager *GridManager) msg_set_pos(args []interface{}) {
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		grid_id := refToInt(v.Index(0))
-		row := refToInt(v.Index(1))
-		// scrolled := v.Index(2).Elem().Bool()
-		// sep_char := v.Index(3).Elem().String()
+		arg := arg.([]interface{})
+		grid_id := to_int(arg[0])
+		row := to_int(arg[1])
+		// scrolled := arg[2].(bool)
+		// sep_char := arg[3].(string)
 
 		grid := manager.Grid(grid_id)
 		default_grid := manager.Grid(1)
@@ -411,13 +428,13 @@ func (manager *GridManager) msg_set_pos(args []interface{}) {
 func (manager *GridManager) win_viewport(args []interface{}) {
 	/*
 		for _, arg := range args {
-			v := reflect.ValueOf(arg)
-			grid := refToInt(v.Index(0))
-			win := refToInt(v.Index(1))
-			topline := refToInt(v.Index(2))
-			botline := refToInt(v.Index(3))
-			curline := refToInt(v.Index(4))
-			curcol := refToInt(v.Index(5))
+			arg := arg.([]interface{})
+			grid_id := to_int(arg[0])
+			win := arg[1].(nvim.Window)
+			topline := to_int(arg[2])
+			botline := to_int(arg[3])
+			curline := to_int(arg[4])
+			curcol := to_int(arg[5])
 		}
 	*/
 }

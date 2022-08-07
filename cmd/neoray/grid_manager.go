@@ -7,6 +7,7 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/common"
 	"github.com/hismailbulut/Neoray/pkg/fontkit"
 	"github.com/hismailbulut/Neoray/pkg/logger"
+	"github.com/neovim/go-client/nvim"
 )
 
 type GridManager struct {
@@ -268,7 +269,7 @@ func (manager *GridManager) GridPosition(sRow, sCol int) common.Vector2[int] {
 	return position
 }
 
-func (manager *GridManager) SetGridPos(id, win, sRow, sCol, rows, cols int, typ GridType) {
+func (manager *GridManager) SetGridPos(id int, win nvim.Window, sRow, sCol, rows, cols int, typ GridType) {
 	grid, ok := manager.grids[id]
 	if ok {
 		position := manager.GridPosition(sRow, sCol)

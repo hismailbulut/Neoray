@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -110,13 +109,14 @@ func CreateNvimProcess() *NvimProcess {
 	if err != nil {
 		logger.Log(logger.FATAL, "Failed to get api information:", err)
 	} else {
-		// Check the version.
+		// Check neovim version
 		// info[1] is dictionary of infos and it has a key named 'version',
-		// and this key contains a map which has major, minor and patch informations.
-		vInfo := reflect.ValueOf(info[1]).MapIndex(reflect.ValueOf("version")).Elem()
-		vMajor := vInfo.MapIndex(reflect.ValueOf("major")).Elem().Convert(t_int).Int()
-		vMinor := vInfo.MapIndex(reflect.ValueOf("minor")).Elem().Convert(t_int).Int()
-		vPatch := vInfo.MapIndex(reflect.ValueOf("patch")).Elem().Convert(t_int).Int()
+		// and this key contains a map which has major, minor and patch informations
+
+		vInfo := info[1].(map[string]interface{})["version"].(map[string]interface{})
+		vMajor := to_int(vInfo["major"])
+		vMinor := to_int(vInfo["minor"])
+		vPatch := to_int(vInfo["patch"])
 
 		if vMinor < 4 {
 			logger.Log(logger.FATAL, "Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")

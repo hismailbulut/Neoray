@@ -8,6 +8,7 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/fontkit"
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/hismailbulut/Neoray/pkg/window"
+	"github.com/neovim/go-client/nvim"
 )
 
 type GridType int32
@@ -85,11 +86,11 @@ func (cell *Cell) Attribute() HighlightAttribute {
 }
 
 type Grid struct {
-	id         int // id is the same id used in the grids hashmap
-	number     int // number specifies the create order of the grid, which starts from zero and counts
-	sRow, sCol int // top left corner of the grid
-	rows, cols int // rows and columns of the grid
-	window     int // grid's window id
+	id         int         // id is the same id used in the grids hashmap
+	number     int         // number specifies the create order of the grid, which starts from zero and counts
+	sRow, sCol int         // top left corner of the grid
+	rows, cols int         // rows and columns of the grid
+	window     nvim.Window // grid's window id
 	hidden     bool
 	typ        GridType
 	renderer   *GridRenderer
@@ -231,7 +232,7 @@ func (grid *Grid) Resize(rows, cols int) {
 	MarkForceDraw()
 }
 
-func (grid *Grid) SetPos(win, sRow, sCol int, rows, cols int, typ GridType, position common.Vector2[int]) {
+func (grid *Grid) SetPos(win nvim.Window, sRow, sCol int, rows, cols int, typ GridType, position common.Vector2[int]) {
 	grid.window = win
 	grid.typ = typ
 	grid.hidden = false
