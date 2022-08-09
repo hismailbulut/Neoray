@@ -113,7 +113,7 @@ func (viewer *ImageViewer) Show() {
 		return
 	}
 	viewer.hidden = false
-	MarkRender()
+	MarkDraw()
 }
 
 func (viewer *ImageViewer) Hide() {
