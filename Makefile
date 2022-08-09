@@ -9,6 +9,8 @@ ifeq ($(OUTDIR),)
 	OUTDIR=bin
 endif
 
+VERSION=$(shell git describe --abbrev=0 --tags)
+
 SOURCEFOLDER=./cmd/neoray
 SOURCETESTFOLDER=./cmd/neoray/...
 PACKAGETESTFOLDER=./pkg/...
@@ -33,7 +35,7 @@ run: build
 	$(EXECPATHDEBUG) $(ARGS)
 
 generate:
-	$(if $(isWindows), cd cmd/neoray/assets && go-winres make --product-version=git-tag --file-version=git-tag)
+	$(if $(isWindows), cd cmd/neoray/assets && go-winres make --product-version=$(VERSION) --file-version=$(VERSION))
 	glow generate -out=./pkg/opengl/gl -api=gl -version=3.3 -profile=core -restrict=$(GLOWDIR)/glfunclist.json -tmpl=$(GLOWDIR)/tmpl -xml=$(GLOWDIR)/xml
 
 release:
