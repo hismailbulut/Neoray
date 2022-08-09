@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,9 +18,10 @@ const (
 	OPTION_CURSOR_ANIM    = "CursorAnimTime"
 	OPTION_TRANSPARENCY   = "Transparency"
 	OPTION_TARGET_TPS     = "TargetTPS"
-	OPTION_CONTEXT_MENU   = "ContextMenuOn"
+	OPTION_CONTEXT_MENU   = "ContextMenu"
 	OPTION_CONTEXT_BUTTON = "ContextButton"
-	OPTION_BOX_DRAWING    = "BoxDrawingOn"
+	OPTION_BOX_DRAWING    = "BoxDrawing"
+	OPTION_IMAGE_VIEWER   = "ImageViewer"
 	OPTION_WINDOW_STATE   = "WindowState"
 	OPTION_WINDOW_SIZE    = "WindowSize"
 	// Keybindings
@@ -28,36 +30,8 @@ const (
 	OPTION_KEY_ZOOMOUT  = "KeyZoomOut"
 )
 
-// Add all options here
-var OptionsList = []string{
-	OPTION_CURSOR_ANIM,
-	OPTION_TRANSPARENCY,
-	OPTION_TARGET_TPS,
-	OPTION_CONTEXT_MENU,
-	OPTION_CONTEXT_BUTTON,
-	OPTION_BOX_DRAWING,
-	OPTION_WINDOW_STATE,
-	OPTION_WINDOW_SIZE,
-	OPTION_KEY_FULLSCRN,
-	OPTION_KEY_ZOOMIN,
-	OPTION_KEY_ZOOMOUT,
-}
-
-var NeorayOptionSet_Source string = `
-function NeorayOptionSet(...)
-	if a:0 < 2
-		echoerr 'NeoraySet needs at least 2 arguments.'
-		return
-	endif
-	call call(function("rpcnotify"), [CHANID, "NeorayOptionSet"] + a:000)
-endfunction
-
-function NeorayCompletion(A, L, P)
-	return OPTIONLIST
-endfunction
-
-command -nargs=+ -complete=customlist,NeorayCompletion NeoraySet call NeorayOptionSet(<f-args>)
-`
+//go:embed neoray.vim
+var NeorayRuntimeScript string
 
 type NvimProcess struct {
 	handle     *nvim.Nvim
@@ -118,8 +92,8 @@ func CreateNvimProcess() *NvimProcess {
 		vMinor := to_int(vInfo["minor"])
 		vPatch := to_int(vInfo["patch"])
 
-		if vMinor < 4 {
-			logger.Log(logger.FATAL, "Neoray needs at least 0.4.0 version of neovim. Please update your neovim to a newer version.")
+		if vMinor < 5 {
+			logger.Log(logger.FATAL, "Neoray needs at least 0.5.0 version of neovim. Please update your neovim to a newer version.")
 		}
 
 		vStr := fmt.Sprintf("%d.%d.%d", vMajor, vMinor, vPatch)
@@ -129,86 +103,83 @@ func CreateNvimProcess() *NvimProcess {
 	// Set a variable that users can define their neoray specific customization.
 	proc.handle.SetVar("neoray", 1)
 
-	// Prepare NeorayOptionSet
-	// Replace channel ids in the template
-	source := strings.ReplaceAll(NeorayOptionSet_Source, "CHANID", strconv.Itoa(proc.handle.ChannelID()))
-	// Create option list string
-	listStr := "["
-	for i := 0; i < len(OptionsList); i++ {
-		listStr += "'" + OptionsList[i] + "'"
-		if i < len(OptionsList)-1 {
-			listStr += ","
+	// Prepare runtime script
+	source := NeorayRuntimeScript
+	// Replace \r\n to \n (windows)
+	source = strings.ReplaceAll(source, "\r\n", "\n")
+	// Remove starting lines with # (comments)
+	lines := strings.Split(source, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "#") {
+			lines[i] = ""
 		}
 	}
-	listStr += "]"
-	// Replace list in source
-	source = strings.Replace(source, "OPTIONLIST", listStr, 1)
-	// Trim whitespaces
-	source = strings.TrimSpace(source)
+	source = strings.Join(lines, "\n")
+	// Replace channel ids in the template
+	source = strings.ReplaceAll(source, "$(CHANID)", strconv.Itoa(proc.handle.ChannelID()))
+
+	// Execute runtime script
+	_, err = proc.handle.Exec(source, false)
+	if err != nil {
+		logger.Log(logger.FATAL, "Failed to execute runtime script:", err)
+	}
 
 	// Register NeorayOptionSet
-	proc.RegisterCustomEvent(
+	proc.RegisterHandler(
 		"NeorayOptionSet",
-		source,
 		func(args ...string) {
-			// arg 0 is the name of the option, others are arguments
 			proc.optionChan <- args
 		},
 	)
 
 	// Register VimEnter
 	// NOTE: We are not using this for now but I added for we may need in future
-	proc.RegisterCustomEvent(
+	proc.RegisterHandler(
 		"NeorayVimEnter",
-		"autocmd VimEnter * call rpcnotify(1, 'NeorayVimEnter')",
 		func() {
 			logger.Log(logger.DEBUG, "VimEnter")
 		},
 	)
 
 	// Register VimLeave
-	proc.RegisterCustomEvent(
+	proc.RegisterHandler(
 		"NeorayVimLeave",
-		"autocmd VimLeave * call rpcnotify(1, 'NeorayVimLeave')",
 		func() {
 			logger.Log(logger.DEBUG, "VimLeave")
 			Editor.quitChan <- true
 		},
 	)
 
+	// Register ImageViewer
+	proc.RegisterHandler(
+		"NeorayViewImage",
+		func(imgPath string) (bool, error) {
+			if Editor.options.imageViewerEnabled {
+				logger.Log(logger.DEBUG, "ViewImage:", imgPath)
+				Editor.imageViewer.imageChan <- imgPath
+				return true, nil
+			} else {
+				return false, nil
+			}
+		},
+	)
+
 	return proc
 }
 
-func (proc *NvimProcess) RegisterCustomEvent(name string, script string, handler interface{}) {
-	var err error
-	if strings.Contains(script, "\n") {
-		// Exec support multiline scripts
-		// But it introduced in neovim version 0.5
-		// Only scripts has multiline is not supported in older versions
-		// Important ones (eg. VimLeave) are supported
-		_, err = proc.handle.Exec(script, false)
-	} else {
-		err = proc.handle.Command(script)
-	}
+func (proc *NvimProcess) RegisterHandler(name string, handler interface{}) {
+	err := proc.handle.RegisterHandler(name, handler)
 	if err != nil {
-		logger.LogF(logger.ERROR, "Failed to execute register script for %s because error: %v", name, err)
-	} else {
-		err = proc.handle.RegisterHandler(name, handler)
-		if err != nil {
-			logger.LogF(logger.ERROR, "Failed to register handler for %s because error: %v", name, err)
-		}
+		logger.LogF(logger.FATAL, "Failed to register handler for '%s' because error: %v", name, err)
 	}
 }
 
 func (proc *NvimProcess) StartUI(rows, cols int) {
-	err := proc.handle.RegisterHandler("redraw", func(events ...[]interface{}) {
+	proc.RegisterHandler("redraw", func(events ...[]interface{}) {
 		for _, event := range events {
 			proc.eventChan <- event
 		}
 	})
-	if err != nil {
-		logger.Log(logger.ERROR, "Failed to register redraw method:", err)
-	}
 
 	options := map[string]interface{}{
 		"rgb":          true,
@@ -248,7 +219,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		// window and no user event can be handled Also we can not render the
 		// error screen. See issue #33
 		// NOTE: Not only this one but most api calls gets blocking
-		err = proc.handle.SetClientInfo(NAME, version, typ, methods, attributes)
+		err := proc.handle.SetClientInfo(NAME, version, typ, methods, attributes)
 		if err != nil {
 			logger.Log(logger.FATAL, "Failed to set client information:", err)
 		}
@@ -261,7 +232,9 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 func (proc *NvimProcess) disconnect() {
 	proc.handle.Unsubscribe("redraw")
 	proc.handle.Unsubscribe("NeorayOptionSet")
-	proc.handle.Unsubscribe("VimEnter")
+	proc.handle.Unsubscribe("NeorayVimEnter")
+	proc.handle.Unsubscribe("NeorayVimLeave")
+	proc.handle.Unsubscribe("NeorayViewImage")
 	proc.handle.DetachUI()
 }
 
@@ -288,6 +261,7 @@ func (proc *NvimProcess) CheckOptions() {
 }
 
 func (proc *NvimProcess) processOption(opt []string) {
+	// opt[0] is the name of the option, others are arguments
 	switch opt[0] {
 	case OPTION_CURSOR_ANIM:
 		{
@@ -357,6 +331,16 @@ func (proc *NvimProcess) processOption(opt []string) {
 			Editor.options.boxDrawingEnabled = value
 			// Currently we didn't separate this two options but may be in the future
 			Editor.gridManager.SetBoxDrawing(Editor.options.boxDrawingEnabled, Editor.options.boxDrawingEnabled)
+		}
+	case OPTION_IMAGE_VIEWER:
+		{
+			value, err := strconv.ParseBool(opt[1])
+			if err != nil {
+				logger.Log(logger.WARN, OPTION_IMAGE_VIEWER, "value isn't valid.")
+				break
+			}
+			logger.Log(logger.DEBUG, "Option", OPTION_IMAGE_VIEWER, "is", value)
+			Editor.options.imageViewerEnabled = value
 		}
 	case OPTION_WINDOW_STATE:
 		{

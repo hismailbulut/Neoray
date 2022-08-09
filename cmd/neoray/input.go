@@ -149,11 +149,14 @@ func checkNeorayKeybindings(keycode string) bool {
 	case Editor.options.keyToggleFullscreen:
 		Editor.window.ToggleFullscreen()
 		return true
-	case "<ESC>":
-		// Hide context menu if esc pressed.
-		if Editor.options.contextMenuEnabled && !Editor.contextMenu.hidden {
+	default: // Do not return true
+		// Hide image preview if it is visible
+		if Editor.imageViewer.IsVisible() {
+			Editor.imageViewer.Hide()
+		}
+		// Hide context menu if it is visible
+		if Editor.contextMenu.IsVisible() {
 			Editor.contextMenu.Hide()
-			return true
 		}
 	}
 	// Debugging only keybindings

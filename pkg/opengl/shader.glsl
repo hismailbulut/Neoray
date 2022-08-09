@@ -95,8 +95,10 @@ in GS_OUT {
 uniform sampler2D atlas;
 
 void main() {
-	float texA   = max(texture(atlas, fs_in.tex1pos).a, texture(atlas, fs_in.tex2pos).a);
-	float ucA    = min(texture(atlas, fs_in.ucPos).a, fs_in.spColor.a);
-	vec4 result  = mix(fs_in.bgColor, fs_in.fgColor, texA);
-	outFragColor = mix(result, fs_in.spColor, ucA);
+	vec4 tex1    = texture(atlas, fs_in.tex1pos);
+	vec4 fg      = mix(tex1, fs_in.fgColor, fs_in.fgColor.a);           // Use texture color if fg.A < 1
+	float texA   = max(tex1.a, texture(atlas, fs_in.tex2pos).a);        // Use both of textures
+	float ucA    = min(texture(atlas, fs_in.ucPos).a, fs_in.spColor.a); // If sp.A == 0 we don't draw undercurl
+	vec4 result  = mix(fs_in.bgColor, fg, texA);                        // Draw foreground over background
+	outFragColor = mix(result, fs_in.spColor, ucA);                     // Draw special over result color
 }

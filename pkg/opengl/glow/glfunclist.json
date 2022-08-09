@@ -1,6 +1,8 @@
 {
     "Enums": [
         "GL_ARRAY_BUFFER",
+        "GL_BLEND",
+        "GL_CLAMP_TO_BORDER",
         "GL_CLAMP_TO_EDGE",
         "GL_COLOR_ATTACHMENT0",
         "GL_COLOR_BUFFER_BIT",
@@ -21,6 +23,7 @@
         "GL_LINEAR",
         "GL_LINK_STATUS",
         "GL_MAX_TEXTURE_SIZE",
+        "GL_NEAREST",
         "GL_NO_ERROR",
         "GL_OUT_OF_MEMORY",
         "GL_POINTS",
@@ -62,7 +65,9 @@
         "glDeleteShader",
         "glDeleteTextures",
         "glDeleteVertexArrays",
+        "glDisable",
         "glDrawArrays",
+        "glEnable",
         "glEnableVertexAttribArray",
         "glFlush",
         "glFramebufferTexture2D",

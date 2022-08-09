@@ -130,6 +130,10 @@ func (menu *ContextMenu) AddFontSize(v float64) {
 	MarkForceDraw()
 }
 
+func (menu *ContextMenu) IsVisible() bool {
+	return !menu.hidden
+}
+
 func (menu *ContextMenu) Draw() {
 	if menu.hidden {
 		return

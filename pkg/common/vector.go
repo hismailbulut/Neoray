@@ -34,6 +34,10 @@ func (v Vector2[T]) Height() T {
 	return v.Y
 }
 
+func (v Vector2[T]) Area() float32 {
+	return float32(v.X * v.Y)
+}
+
 func (v Vector2[T]) ToInt() Vector2[int] {
 	return Vector2[int]{
 		X: int(math.Floor(float64(v.X))),

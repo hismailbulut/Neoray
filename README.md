@@ -64,7 +64,7 @@ functionality that opens system file dialog. Menu text is same as the font and
 the colors are from your color scheme. This makes it look and feel like
 terminal. You can disable it by setting this option to false. Default is true.
 ```vim
-NeoraySet ContextMenuOn true
+NeoraySet ContextMenu true
 ```
 
 You can add custom buttons to context menu. First give a name to your button
@@ -81,7 +81,12 @@ pixel aligned which makes no gap between glyphs and makes them visually
 compatible with each other. This is enabled by default but you can disable it
 and use the font's glyphs.
 ```vim
-NeoraySet BoxDrawingOn true
+NeoraySet BoxDrawing true
+```
+
+Neoray has a simple image viewer and it is enabled by default but you can disable it
+```vim
+NeoraySet ImageViewer true
 ```
 
 You can specify how the Neoray window will be shown. The possible values are
@@ -112,10 +117,14 @@ NeoraySet KeyZoomOut    <C-kMinus>
 ### Font
 Neoray respects your `guifont` option, finds the font and loads it. If it can't
 find your font, try with different names and also with file name. Giving full
-shared name except the style and weight names will give best result. You can
-change the font without having to restart Neoray. Underscores are treated as
-spaces. If you think you tried every possibility but Neoray still can't find
-the font, please [report to me](https://github.com/hismailbulut/Neoray/issues/new/choose).
+shared name except the style and weight names will give best result.
+Underscores are treated as spaces. You can change the font without having to
+restart Neoray.
+You can also list the fonts by starting Neoray with option `--list-fonts
+fontlist.txt` This commands generates a file named fontlist.txt and this file
+will has all of the fonts Neoray can see in your system.
+If you think you tried every possibility but Neoray still can't find the font,
+please [report](https://github.com/hismailbulut/Neoray/issues/new/choose).
 
 ```vim
 set guifont=Consolas:h11
@@ -124,7 +133,6 @@ set guifont=:h13 " Use default font with 13 pt size
 ```
 NOTE:
 - For now Neoray doesn't support TTC fonts.
-- On Windows check the font names from here `C:\Users\%USERNAME%\AppData\Local\Microsoft\Windows\Fonts` to set the guifont.
 
 ### Example init.vim with all options
 ```vim
@@ -133,8 +141,9 @@ if exists('g:neoray')
     NeoraySet CursorAnimTime 0.08
     NeoraySet Transparency   0.95
     NeoraySet TargetTPS      120
-    NeoraySet ContextMenuOn  TRUE
-    NeoraySet BoxDrawingOn   TRUE
+    NeoraySet ContextMenu    TRUE
+    NeoraySet BoxDrawing     TRUE
+    NeoraySet ImageViewer    TRUE
     NeoraySet WindowSize     100x40
     NeoraySet WindowState    centered
     NeoraySet KeyFullscreen  <M-C-CR>
@@ -147,8 +156,9 @@ You can disable all of these features.
 ```vim
 if exists('g:neoray')
     NeoraySet CursorAnimTime 0
-    NeoraySet ContextMenuOn  FALSE
-    NeoraySet BoxDrawingOn   FALSE
+    NeoraySet ContextMenu    FALSE
+    NeoraySet BoxDrawing     FALSE
+    NeoraySet ImageViewer    FALSE
     NeoraySet KeyFullscreen  <>
     NeoraySet KeyZoomIn      <>
     NeoraySet KeyZoomOut     <>

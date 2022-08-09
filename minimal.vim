@@ -4,11 +4,12 @@ if exists('g:neoray')
     NeoraySet CursorAnimTime  0.08
     NeoraySet Transparency    0.975
     NeoraySet TargetTPS       90
-    NeoraySet ContextMenuOn   TRUE
+    NeoraySet ContextMenu     TRUE
     " NeoraySet ContextMenuItem ------------ :
     " NeoraySet ContextMenuItem Say\ Hello   :echo\ "Hello\ World"
     " NeoraySet ContextMenuItem Toggle\ Nerd :NERDTreeToggle
-    NeoraySet BoxDrawingOn    TRUE
+    NeoraySet BoxDrawing      TRUE
+    NeoraySet ImageViewer     TRUE
     NeoraySet WindowSize      100x40
     NeoraySet WindowState     centered
     " NeoraySet KeyFullscreen <M-C-CR>

@@ -23,6 +23,7 @@ type Options struct {
 	targetTPS           int
 	contextMenuEnabled  bool
 	boxDrawingEnabled   bool
+	imageViewerEnabled  bool
 	keyToggleFullscreen string
 	keyIncreaseFontSize string
 	keyDecreaseFontSize string
@@ -35,6 +36,7 @@ func DefaultOptions() Options {
 		targetTPS:           60,
 		contextMenuEnabled:  true,
 		boxDrawingEnabled:   true,
+		imageViewerEnabled:  true,
 		keyToggleFullscreen: "<F11>",
 		keyIncreaseFontSize: "<C-kPlus>",
 		keyDecreaseFontSize: "<C-kMinus>",
@@ -90,6 +92,8 @@ var Editor struct {
 	cursor *Cursor
 	// ContextMenu is the only context menu in this program for right click menu.
 	contextMenu *ContextMenu
+	// ImageViewer
+	imageViewer *ImageViewer
 	// UIOptions is a struct, holds some user ui uiOptions like guifont.
 	uiOptions UIOptions
 	// Neovim child process
@@ -142,6 +146,8 @@ func InitEditor() {
 	Editor.cursor = NewCursor(Editor.window)
 	// Initialize contextMenu
 	Editor.contextMenu = NewContextMenu()
+	// Initialize imageViewer
+	Editor.imageViewer = NewImageViewer(Editor.window)
 	// TODO Move this to gridManager
 	Editor.uiOptions = CreateUIOptions()
 	// Start neovim
@@ -281,6 +287,7 @@ func UpdateHandler(delta float32) {
 	Editor.nvim.Update()
 	Editor.gridManager.Update()
 	Editor.cursor.Update(delta)
+	Editor.imageViewer.Update()
 	if Editor.server != nil {
 		Editor.server.Update()
 	}
@@ -291,6 +298,7 @@ func UpdateHandler(delta float32) {
 			Editor.gridManager.Draw(Editor.cForceDraw)
 			Editor.cursor.Draw(delta)
 			Editor.contextMenu.Draw()
+			Editor.imageViewer.Draw()
 			EndBenchmark("UpdateHandler.Draw")
 		}
 		// Render calls
@@ -304,6 +312,7 @@ func UpdateHandler(delta float32) {
 			Editor.gridManager.Render()
 			Editor.cursor.Render()
 			Editor.contextMenu.Render()
+			Editor.imageViewer.Render()
 			// Flush to make changes visible
 			Editor.window.GL().Flush()
 			EndBenchmark("UpdateHandler.Render")
@@ -426,6 +435,7 @@ func ShutdownEditor() {
 		Editor.server.Close()
 	}
 	Editor.nvim.Close()
+	Editor.imageViewer.Destroy()
 	Editor.contextMenu.Destroy()
 	Editor.cursor.Destroy()
 	Editor.gridManager.Destroy()

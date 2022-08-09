@@ -85,7 +85,9 @@ package gl
 // typedef void  (APIENTRYP GPDELETESHADER)(GLuint  shader);
 // typedef void  (APIENTRYP GPDELETETEXTURES)(GLsizei  n, const GLuint * textures);
 // typedef void  (APIENTRYP GPDELETEVERTEXARRAYS)(GLsizei  n, const GLuint * arrays);
+// typedef void  (APIENTRYP GPDISABLE)(GLenum  cap);
 // typedef void  (APIENTRYP GPDRAWARRAYS)(GLenum  mode, GLint  first, GLsizei  count);
+// typedef void  (APIENTRYP GPENABLE)(GLenum  cap);
 // typedef void  (APIENTRYP GPENABLEVERTEXATTRIBARRAY)(GLuint  index);
 // typedef void  (APIENTRYP GPFLUSH)();
 // typedef void  (APIENTRYP GPFRAMEBUFFERTEXTURE2D)(GLenum  target, GLenum  attachment, GLenum  textarget, GLuint  texture, GLint  level);
@@ -172,8 +174,14 @@ package gl
 // static void  glowDeleteVertexArrays(GPDELETEVERTEXARRAYS fnptr, GLsizei  n, const GLuint * arrays) {
 //   (*fnptr)(n, arrays);
 // }
+// static void  glowDisable(GPDISABLE fnptr, GLenum  cap) {
+//   (*fnptr)(cap);
+// }
 // static void  glowDrawArrays(GPDRAWARRAYS fnptr, GLenum  mode, GLint  first, GLsizei  count) {
 //   (*fnptr)(mode, first, count);
+// }
+// static void  glowEnable(GPENABLE fnptr, GLenum  cap) {
+//   (*fnptr)(cap);
 // }
 // static void  glowEnableVertexAttribArray(GPENABLEVERTEXATTRIBARRAY fnptr, GLuint  index) {
 //   (*fnptr)(index);
@@ -264,6 +272,8 @@ import (
 
 const (
 	ARRAY_BUFFER             = 0x8892
+	BLEND                    = 0x0BE2
+	CLAMP_TO_BORDER          = 0x812D
 	CLAMP_TO_EDGE            = 0x812F
 	COLOR_ATTACHMENT0        = 0x8CE0
 	COLOR_BUFFER_BIT         = 0x00004000
@@ -283,6 +293,7 @@ const (
 	LINEAR                   = 0x2601
 	LINK_STATUS              = 0x8B82
 	MAX_TEXTURE_SIZE         = 0x0D33
+	NEAREST                  = 0x2600
 	NO_ERROR                 = 0
 	OUT_OF_MEMORY            = 0x0505
 	POINTS                   = 0x0000
@@ -325,7 +336,9 @@ var (
 	gpDeleteShader            C.GPDELETESHADER
 	gpDeleteTextures          C.GPDELETETEXTURES
 	gpDeleteVertexArrays      C.GPDELETEVERTEXARRAYS
+	gpDisable                 C.GPDISABLE
 	gpDrawArrays              C.GPDRAWARRAYS
+	gpEnable                  C.GPENABLE
 	gpEnableVertexAttribArray C.GPENABLEVERTEXATTRIBARRAY
 	gpFlush                   C.GPFLUSH
 	gpFramebufferTexture2D    C.GPFRAMEBUFFERTEXTURE2D
@@ -464,10 +477,18 @@ func DeleteTextures(n int32, textures *uint32) {
 func DeleteVertexArrays(n int32, arrays *uint32) {
 	C.glowDeleteVertexArrays(gpDeleteVertexArrays, (C.GLsizei)(n), (*C.GLuint)(unsafe.Pointer(arrays)))
 }
+func Disable(cap uint32) {
+	C.glowDisable(gpDisable, (C.GLenum)(cap))
+}
 
 // render primitives from array data
 func DrawArrays(mode uint32, first int32, count int32) {
 	C.glowDrawArrays(gpDrawArrays, (C.GLenum)(mode), (C.GLint)(first), (C.GLsizei)(count))
+}
+
+// enable or disable server-side GL capabilities
+func Enable(cap uint32) {
+	C.glowEnable(gpEnable, (C.GLenum)(cap))
 }
 
 // Enable or disable a generic vertex attribute     array
@@ -709,9 +730,17 @@ func InitWithProcAddrFunc(getProcAddr func(name string) unsafe.Pointer) error {
 	if gpDeleteVertexArrays == nil {
 		return errors.New("glDeleteVertexArrays")
 	}
+	gpDisable = (C.GPDISABLE)(getProcAddr("glDisable"))
+	if gpDisable == nil {
+		return errors.New("glDisable")
+	}
 	gpDrawArrays = (C.GPDRAWARRAYS)(getProcAddr("glDrawArrays"))
 	if gpDrawArrays == nil {
 		return errors.New("glDrawArrays")
+	}
+	gpEnable = (C.GPENABLE)(getProcAddr("glEnable"))
+	if gpEnable == nil {
+		return errors.New("glEnable")
 	}
 	gpEnableVertexAttribArray = (C.GPENABLEVERTEXATTRIBARRAY)(getProcAddr("glEnableVertexAttribArray"))
 	if gpEnableVertexAttribArray == nil {

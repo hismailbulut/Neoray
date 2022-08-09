@@ -1,12 +1,5 @@
 name: Release
 
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        required: true
-        description: "Version of this release and will be used as tag. Needs to match with the version in source code."
-
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -107,24 +100,3 @@ jobs:
         name: linux-binaries
         path: |
           bin/neoray-linux
-
-  release:
-    runs-on: ubuntu-latest
-    needs: [build-windows, build-macos, build-linux]
-    if: success()
-    steps:
-      - name: Download binaries
-        uses: actions/download-artifact@v2
-
-      - name: Deploy latest release
-        uses: "marvinpinto/action-automatic-releases@latest"
-        if: success()
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{ github.event.inputs.version }}"
-          prerelease: false
-          title: "${{ github.event.inputs.version }}"
-          files: |
-            windows-binaries/neoray-windows.exe
-            macos-binaries/neoray-macos
-            linux-binaries/neoray-linux
