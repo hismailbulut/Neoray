@@ -151,27 +151,27 @@ func (viewer *ImageViewer) Draw() {
 	imgH := float32(viewer.texture.Size().Height())
 	wRatio := w / imgW
 	hRatio := h / imgH
-	var padding float32
-	const paddingRatio = 10
 	// Fit image
 	if wRatio < hRatio {
 		// Fit width and keep ratio
 		ratio := imgH / imgW
 		imgW = w
 		imgH = imgW * ratio
-		padding = imgW / paddingRatio
 	} else {
 		// Fit height and keep ratio
 		ratio := imgW / imgH
 		imgH = h
 		imgW = imgH * ratio
-		padding = imgH / paddingRatio
 	}
+	// Apply padding
+	const paddingRatio = 16
+	var paddingX float32 = imgW / paddingRatio
+	var paddingY float32 = imgH / paddingRatio
 	position := common.Rectangle[float32]{
-		X: padding + (w/2 - imgW/2),
-		Y: padding + (h/2 - imgH/2),
-		W: imgW - 2*padding,
-		H: imgH - 2*padding,
+		X: paddingX + (w/2 - imgW/2),
+		Y: paddingY + (h/2 - imgH/2),
+		W: imgW - 2*paddingX,
+		H: imgH - 2*paddingY,
 	}
 	viewer.buffer.SetIndexPos(0, position)
 }
