@@ -14,6 +14,8 @@ You can download prebuilt binaries from [releases page](https://github.com/hisma
 If you are using Linux you will need x11 and gtk3 runtime libraries to run the Neoray.
 Windows and MacOS binaries doesn't have any dependencies except Neovim.
 
+NOTE: Neoray needs at least 0.5.0 version of [Neovim](https://neovim.io/)
+
 ### From source
 You can install Neoray with `go install` command:
 
@@ -35,9 +37,6 @@ For other distros you need to install corresponding libraries.
 Neoray doesn't need any additional configuration, but you can customize it in
 your `init.vim`. All options can be set via NeoraySet command. Takes at least
 two arguments, first one is the name of the option and others are arguments.
-Neoray needs at least 0.4.4 version of Neovim installed on your path, however
-if you want to use this NeoraySet commands and customize it then you need Neovim
-version 0.5.0
 
 The cursor is moving smoothly in Neoray and you can specify how long it's move
 takes. Default is 0.1 (1.0 is one second) You can disable it by setting to 0.
