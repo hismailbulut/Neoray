@@ -9,7 +9,7 @@ ifeq ($(OUTDIR),)
 	OUTDIR=bin
 endif
 
-VERSION=$(shell git describe --abbrev=0 --tags)
+VERSION=0.2.4
 
 SOURCEFOLDER=./cmd/neoray
 SOURCETESTFOLDER=./cmd/neoray/...
