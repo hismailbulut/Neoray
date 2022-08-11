@@ -430,7 +430,7 @@ func (proc *NvimProcess) echoMsg(format string, args ...interface{}) {
 
 func (proc *NvimProcess) echoErr(format string, args ...interface{}) {
 	formatted := fmt.Sprintf(format, args...)
-	go proc.handle.WritelnErr(formatted)
+	proc.handle.WritelnErr(formatted)
 	// Also log this as an error
 	logger.LogF(logger.ERROR, format, args...)
 }
