@@ -63,7 +63,7 @@ func (context *Context) CreateVertexBuffer(size int) *VertexBuffer {
 		panic("vertex buffer size must bigger then zero")
 	}
 	buffer := new(VertexBuffer)
-	buffer.shader = &context.shader
+	buffer.shader = context.shader
 	// Initialize vao
 	gl.GenVertexArrays(1, &buffer.vaoid)
 	checkGLError()

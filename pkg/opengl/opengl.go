@@ -18,8 +18,8 @@ type ContextInfo struct {
 }
 
 type Context struct {
-	shader      ShaderProgram // default shader for monospaced font rendering
-	framebuffer uint32        // only for clearing textures
+	shader      *ShaderProgram // default shader for monospaced font rendering
+	framebuffer uint32         // only for clearing textures
 }
 
 // Call per window
@@ -33,7 +33,15 @@ func New(getProcAddress func(name string) unsafe.Pointer) (*Context, error) {
 	context := new(Context)
 
 	// Init shaders
-	context.shader = DefaultProgram()
+	vert := NewShaderFromSource(VERTEX_SHADER, ShaderSourceGridVert)
+	geom := NewShaderFromSource(GEOMETRY_SHADER, ShaderSourceGridGeom)
+	frag := NewShaderFromSource(FRAGMENT_SHADER, ShaderSourceGridFrag)
+	context.shader = NewShaderProgram(vert, geom, frag)
+	// Delete shaders because we don't need them after program creation
+	vert.Delete()
+	geom.Delete()
+	frag.Delete()
+	// TODO: When we start using multiple shaders this line will be deleted
 	context.shader.Use()
 
 	// Create framebuffer object

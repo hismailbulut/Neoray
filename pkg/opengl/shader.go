@@ -8,110 +8,135 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/opengl/gl"
 )
 
-//go:embed shader.glsl
-var EmbeddedShaderSources string
+// Embedded shader sources
+var (
+	//go:embed shaders/grid.vert
+	ShaderSourceGridVert string
+	//go:embed shaders/grid.geom
+	ShaderSourceGridGeom string
+	//go:embed shaders/grid.frag
+	ShaderSourceGridFrag string
+)
 
-type ShaderProgram uint32
+// for reducing gl.UseProgram calls
+var currentShaderProgramID uint32
 
-func (program ShaderProgram) UniformLocation(name string) int32 {
-	uniform_name := gl.Str(name + "\x00")
-	loc := gl.GetUniformLocation(uint32(program), uniform_name)
-	if loc < 0 {
-		panic(fmt.Errorf("Failed to find uniform: %s", name))
+type ShaderType uint32
+
+const (
+	VERTEX_SHADER   ShaderType = gl.VERTEX_SHADER
+	GEOMETRY_SHADER ShaderType = gl.GEOMETRY_SHADER
+	FRAGMENT_SHADER ShaderType = gl.FRAGMENT_SHADER
+)
+
+func (st ShaderType) String() string {
+	switch st {
+	case VERTEX_SHADER:
+		return "VERTEX_SHADER"
+	case GEOMETRY_SHADER:
+		return "GEOMETRY_SHADER"
+	case FRAGMENT_SHADER:
+		return "FRAGMENT_SHADER"
 	}
-	return loc
+	panic("unknown shader type")
 }
 
-func (program ShaderProgram) Use() {
-	gl.UseProgram(uint32(program))
-	checkGLError()
+type Shader struct {
+	ID   uint32
+	Type ShaderType
 }
 
-func (program ShaderProgram) Destroy() {
-	gl.DeleteProgram(uint32(program))
-}
-
-func DefaultProgram() ShaderProgram {
-	vsSource, gsSource, fsSource := loadDefaultShaders()
-	vertShader := compileShader(vsSource, gl.VERTEX_SHADER)
-	geomShader := compileShader(gsSource, gl.GEOMETRY_SHADER)
-	fragShader := compileShader(fsSource, gl.FRAGMENT_SHADER)
-
-	shader_program := gl.CreateProgram()
-	gl.AttachShader(shader_program, vertShader)
-	checkGLError()
-	gl.AttachShader(shader_program, geomShader)
-	checkGLError()
-	gl.AttachShader(shader_program, fragShader)
-	checkGLError()
-	gl.LinkProgram(shader_program)
-	checkGLError()
-
-	var status int32
-	gl.GetProgramiv(shader_program, gl.LINK_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetProgramiv(shader_program, gl.INFO_LOG_LENGTH, &logLength)
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetProgramInfoLog(shader_program, logLength, nil, gl.Str(log))
-		panic(fmt.Errorf("Failed to link shader program: %s", log))
+func NewShaderFromSource(shader_type ShaderType, source string) *Shader {
+	shader := &Shader{
+		ID:   gl.CreateShader(uint32(shader_type)),
+		Type: shader_type,
 	}
-
-	gl.DeleteShader(vertShader)
-	gl.DeleteShader(geomShader)
-	gl.DeleteShader(fragShader)
-
-	return ShaderProgram(shader_program)
-}
-
-func loadDefaultShaders() (string, string, string) {
-	vsBegin := strings.Index(EmbeddedShaderSources, "// Vertex Shader")
-	gsBegin := strings.Index(EmbeddedShaderSources, "// Geometry Shader")
-	fsBegin := strings.Index(EmbeddedShaderSources, "// Fragment Shader")
-
-	if vsBegin == -1 || gsBegin == -1 || fsBegin == -1 {
-		panic("Shader sources are not correctly tagged!")
-	}
-
-	if vsBegin >= gsBegin || gsBegin >= fsBegin {
-		panic("Shader sources are not correctly ordered!")
-	}
-
-	vsSource := EmbeddedShaderSources[vsBegin:gsBegin]
-	gsSource := EmbeddedShaderSources[gsBegin:fsBegin]
-	fsSource := EmbeddedShaderSources[fsBegin:]
-
-	return vsSource + "\x00", gsSource + "\x00", fsSource + "\x00"
-}
-
-func compileShader(source string, shader_type uint32) uint32 {
-	shader := gl.CreateShader(shader_type)
-	cstr, free := gl.Strs(source)
+	source_cstr, free := gl.Strs(source + "\x00")
 	defer free()
-	gl.ShaderSource(shader, 1, cstr, nil)
+	gl.ShaderSource(shader.ID, 1, source_cstr, nil)
 	checkGLError()
-	gl.CompileShader(shader)
+	gl.CompileShader(shader.ID)
 	checkGLError()
 	var result int32
-	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &result)
+	gl.GetShaderiv(shader.ID, gl.COMPILE_STATUS, &result)
 	if result == gl.FALSE {
 		var logLength int32
-		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		panic(fmt.Errorf("Shader %s compilation failed: %s\n", shaderName(shader_type), log))
+		gl.GetShaderiv(shader.ID, gl.INFO_LOG_LENGTH, &logLength)
+		log := string(make([]byte, logLength))
+		gl.GetShaderInfoLog(shader.ID, logLength, nil, gl.Str(log))
+		log = strings.Trim(log, "\x00")
+		panic(fmt.Errorf("Shader %s compilation failed: %s\n", shader_type, log))
 	}
 	return shader
 }
 
-func shaderName(shader_type uint32) string {
-	switch shader_type {
-	case gl.VERTEX_SHADER:
-		return "VERTEX SHADER"
-	case gl.GEOMETRY_SHADER:
-		return "GEOMETRY SHADER"
-	case gl.FRAGMENT_SHADER:
-		return "FRAGMENT SHADER"
+func (shader *Shader) Delete() {
+	gl.DeleteShader(shader.ID)
+	shader.ID = 0
+	shader.Type = 0
+}
+
+type ShaderProgram struct {
+	ID       uint32
+	uniforms map[string]int32
+}
+
+// All shaders can be safely destroyed after program creation
+func NewShaderProgram(vert *Shader, geom *Shader, frag *Shader) *ShaderProgram {
+	program := &ShaderProgram{
+		ID:       gl.CreateProgram(),
+		uniforms: make(map[string]int32),
 	}
-	panic("unknown shader name")
+	if vert != nil {
+		gl.AttachShader(program.ID, vert.ID)
+		checkGLError()
+	}
+	if geom != nil {
+		gl.AttachShader(program.ID, geom.ID)
+		checkGLError()
+	}
+	if frag != nil {
+		gl.AttachShader(program.ID, frag.ID)
+		checkGLError()
+	}
+	gl.LinkProgram(program.ID)
+	checkGLError()
+	var status int32
+	gl.GetProgramiv(program.ID, gl.LINK_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetProgramiv(program.ID, gl.INFO_LOG_LENGTH, &logLength)
+		log := string(make([]byte, logLength))
+		gl.GetProgramInfoLog(program.ID, logLength, nil, gl.Str(log))
+		log = strings.Trim(log, "\x00")
+		panic(fmt.Errorf("Failed to link shader program: %s", log))
+	}
+	return program
+}
+
+func (program ShaderProgram) UniformLocation(name string) int32 {
+	if location, ok := program.uniforms[name]; ok {
+		return location
+	}
+	uniform_name := gl.Str(name + "\x00")
+	loc := gl.GetUniformLocation(uint32(program.ID), uniform_name)
+	if loc < 0 {
+		panic(fmt.Errorf("Failed to find uniform: %s", name))
+	}
+	program.uniforms[name] = loc
+	return loc
+}
+
+func (program ShaderProgram) Use() {
+	if program.ID != currentShaderProgramID {
+		gl.UseProgram(program.ID)
+		checkGLError()
+		currentShaderProgramID = program.ID
+	}
+}
+
+func (program ShaderProgram) Destroy() {
+	gl.DeleteProgram(program.ID)
+	program.ID = 0
+	program.uniforms = nil
 }
