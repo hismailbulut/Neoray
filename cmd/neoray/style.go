@@ -62,7 +62,9 @@ func (options *UIOptions) setGuiFont(guifont string) {
 		logger.Log(logger.TRACE, "Loading font", name)
 		kit, err := fontkit.CreateKit(name)
 		if err != nil {
-			Editor.nvim.echoErr("Font %s not found", name)
+			logger.Log(logger.ERROR, "Font", name, "not found, use default font")
+			Editor.gridManager.SetGridFontKit(1, nil)
+			Editor.contextMenu.SetFontKit(nil)
 		} else {
 			// Log some info
 			if kit.Regular() != nil {
