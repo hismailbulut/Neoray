@@ -1,6 +1,6 @@
 if exists('g:neoray')
-    set guifont=Consolas:h11
-    " set guicursor+=a:blinkwait1000-blinkon500-blinkoff250-Cursor
+    set guifont=:h13
+    set guicursor+=a:blinkwait1000-blinkon500-blinkoff250-Cursor
     NeoraySet CursorAnimTime  0.08
     NeoraySet Transparency    0.975
     NeoraySet TargetTPS       90
