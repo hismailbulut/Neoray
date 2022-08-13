@@ -308,10 +308,8 @@ func (proc *NvimProcess) processOption(opt []string) {
 	case OPTION_CONTEXT_BUTTON:
 		{
 			if len(opt) >= 3 {
-				logger.Log(logger.DEBUG, "Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", opt[2])
-				// NOTE: If we pass opt[2] to execCommand directly, compiler does not copy the string
-				// and tries to access deleted slice and generates index out of range.
-				cmd := opt[2]
+				cmd := strings.Join(opt[2:], " ")
+				logger.Log(logger.DEBUG, "Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", cmd)
 				Editor.contextMenu.AddButton(ContextButton{
 					name: opt[1],
 					fn:   func() { proc.execCommand(cmd) },

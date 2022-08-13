@@ -67,12 +67,12 @@ NeoraySet ContextMenu true
 ```
 
 You can add custom buttons to context menu. First give a name to your button
-and write your command. You must escape spaces in the name and command. Every
+and write your command. You must escape spaces in the command name. Every
 command adds a new button. My advice to you is don't write entire command here,
 write a function that does your job and call the function here. Do not escape
 space between name and command.
 ```vim
-NeoraySet ContextButton Say\ Hello :echo\ "Hello\ World!"
+NeoraySet ContextButton Say\ Hello :echo "Hello World!"
 ```
 
 Neoray can handle some of the Unicode box drawing characters itself, draws them
