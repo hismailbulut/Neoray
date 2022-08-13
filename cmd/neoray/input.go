@@ -89,7 +89,7 @@ var (
 
 func sendKeyInput(keycode string) {
 	if !checkNeorayKeybindings(keycode) {
-		Editor.nvim.input(keycode)
+		Editor.nvim.Input(keycode)
 	}
 }
 
@@ -130,7 +130,7 @@ func sendMouseInput(button, action string, mods common.BitMask, grid, row, colum
 			// :h nvim_input_mouse() says send 0 for grid if multigrid is off
 			grid = 0
 		}
-		Editor.nvim.inputMouse(button, action, modsStr(mods), grid, row, column)
+		Editor.nvim.InputMouse(button, action, modsStr(mods), grid, row, column)
 	}
 }
 
@@ -401,7 +401,7 @@ func ScrollHandler(xoff, yoff float64) {
 
 func DropHandler(names []string) {
 	for _, name := range names {
-		Editor.nvim.openFile(name)
+		Editor.nvim.EditFile(name)
 	}
 }
 

@@ -132,7 +132,7 @@ func (viewer *ImageViewer) Update() {
 	if len(viewer.imageChan) > 0 {
 		err := viewer.SetImage(<-viewer.imageChan)
 		if err != nil {
-			Editor.nvim.echoErr("%v", err)
+			Editor.nvim.EchoError("%v", err)
 		} else {
 			viewer.Show()
 		}

@@ -263,12 +263,12 @@ func (options ParsedArgs) ProcessAfter() {
 		}
 	}
 	if options.file != "" {
-		Editor.nvim.openFile(options.file)
+		Editor.nvim.EditFile(options.file)
 	}
 	if options.line != -1 {
-		Editor.nvim.gotoLine(options.line)
+		Editor.nvim.MoveCursor(options.line, 0)
 	}
 	if options.column != -1 {
-		Editor.nvim.gotoColumn(options.column)
+		Editor.nvim.MoveCursor(0, options.column)
 	}
 }

@@ -255,15 +255,15 @@ func (server *IpcServer) Update() {
 		switch call.MsgType {
 		case IPC_MSG_TYPE_OPEN_FILE:
 			path := call.Args[0].(string)
-			Editor.nvim.openFile(path)
+			Editor.nvim.EditFile(path)
 			break
 		case IPC_MSG_TYPE_GOTO_LINE:
 			line := int(call.Args[0].(float64))
-			Editor.nvim.gotoLine(line)
+			Editor.nvim.MoveCursor(line, 0)
 			break
 		case IPC_MSG_TYPE_GOTO_COLUMN:
 			column := int(call.Args[0].(float64))
-			Editor.nvim.gotoColumn(column)
+			Editor.nvim.MoveCursor(0, column)
 			break
 		default:
 			logger.Log(logger.WARN, "Server received invalid signal:", call)

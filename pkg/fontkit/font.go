@@ -8,7 +8,6 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
-// FontKit is a struct that holds different styles of same font family
 type Font struct {
 	handle    *sfnt.Font
 	buffer    sfnt.Buffer

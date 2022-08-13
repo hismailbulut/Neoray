@@ -370,7 +370,7 @@ func EventHandler(event window.WindowEvent) {
 				break
 			}
 			// Try to resize the neovim
-			Editor.nvim.tryResizeUI(rows, cols)
+			Editor.nvim.TryResizeUI(rows, cols)
 		}
 	case window.WindowEventKeyInput:
 		{
@@ -417,13 +417,13 @@ func EventHandler(event window.WindowEvent) {
 		{
 			if Editor.nvim.connectedViaTcp {
 				// Neoray is not responsible for closing neovim.
-				Editor.nvim.disconnect()
+				Editor.nvim.Disconnect()
 				// Stop loop
 				Editor.quitChan <- true
 			} else {
 				// Send quit command to neovim and wait until neovim quits.
 				Editor.window.KeepAlive()
-				go Editor.nvim.execCommand("qa")
+				go Editor.nvim.Command("qa")
 			}
 		}
 	}

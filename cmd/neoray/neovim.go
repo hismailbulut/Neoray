@@ -229,7 +229,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 }
 
 // Neoray only has to call this when quiting without closing neovim
-func (proc *NvimProcess) disconnect() {
+func (proc *NvimProcess) Disconnect() {
 	proc.handle.Unsubscribe("redraw")
 	proc.handle.Unsubscribe("NeorayOptionSet")
 	proc.handle.Unsubscribe("NeorayVimEnter")
@@ -312,7 +312,7 @@ func (proc *NvimProcess) processOption(opt []string) {
 				logger.Log(logger.DEBUG, "Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", cmd)
 				Editor.contextMenu.AddButton(ContextButton{
 					name: opt[1],
-					fn:   func() { proc.execCommand(cmd) },
+					fn:   func() { proc.Command(cmd) },
 				})
 			} else {
 				logger.Log(logger.WARN, "Not enough argument for option", OPTION_CONTEXT_BUTTON)
@@ -401,7 +401,7 @@ func (proc *NvimProcess) processOption(opt []string) {
 	}
 }
 
-func (proc *NvimProcess) execCommand(format string, args ...interface{}) bool {
+func (proc *NvimProcess) Command(format string, args ...interface{}) bool {
 	cmd := fmt.Sprintf(format, args...)
 	logger.Log(logger.DEBUG, "Executing command: [", cmd, "]")
 	err := proc.handle.Command(cmd)
@@ -412,7 +412,8 @@ func (proc *NvimProcess) execCommand(format string, args ...interface{}) bool {
 	return true
 }
 
-func (proc *NvimProcess) currentMode() string {
+// Returns current mode
+func (proc *NvimProcess) Mode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
 		logger.Log(logger.ERROR, "Failed to get current mode name:", err)
@@ -421,19 +422,14 @@ func (proc *NvimProcess) currentMode() string {
 	return mode.Mode
 }
 
-func (proc *NvimProcess) echoMsg(format string, args ...interface{}) {
-	formatted := fmt.Sprintf(format, args...)
-	go proc.execCommand("echomsg '%s'", formatted)
-}
-
-func (proc *NvimProcess) echoErr(format string, args ...interface{}) {
+func (proc *NvimProcess) EchoError(format string, args ...interface{}) {
 	formatted := fmt.Sprintf(format, args...)
 	proc.handle.WritelnErr(formatted)
 	// Also log this as an error
 	logger.LogF(logger.ERROR, format, args...)
 }
 
-func (proc *NvimProcess) getRegister(register string) string {
+func (proc *NvimProcess) GetRegister(register string) string {
 	var content string
 	err := proc.handle.Call("getreg", &content, register)
 	if err != nil {
@@ -444,11 +440,11 @@ func (proc *NvimProcess) getRegister(register string) string {
 
 // This function cuts current selected text and returns the content.
 // Not updates clipboard on every system.
-func (proc *NvimProcess) cutSelected() string {
-	switch proc.currentMode() {
+func (proc *NvimProcess) Cut() string {
+	switch proc.Mode() {
 	case "v", "V":
-		proc.feedKeys("\"*ygvd")
-		return proc.getRegister("*")
+		proc.FeedKeys("\"*ygvd")
+		return proc.GetRegister("*")
 	default:
 		return ""
 	}
@@ -456,18 +452,18 @@ func (proc *NvimProcess) cutSelected() string {
 
 // This function copies current selected text and returns the content.
 // Not updates clipboard on every system.
-func (proc *NvimProcess) copySelected() string {
-	switch proc.currentMode() {
+func (proc *NvimProcess) Copy() string {
+	switch proc.Mode() {
 	case "v", "V":
-		proc.feedKeys("\"*y")
-		return proc.getRegister("*")
+		proc.FeedKeys("\"*y")
+		return proc.GetRegister("*")
 	default:
 		return ""
 	}
 }
 
 // Pastes text at cursor.
-func (proc *NvimProcess) paste(str string) {
+func (proc *NvimProcess) Paste(str string) {
 	go func() {
 		err := proc.handle.Call("nvim_paste", nil, str, true, -1)
 		if err != nil {
@@ -478,33 +474,28 @@ func (proc *NvimProcess) paste(str string) {
 
 // TODO: We need to check if this buffer is normal buffer.
 // Executing this function in non normal buffers may be dangerous.
-func (proc *NvimProcess) selectAll() {
-	switch proc.currentMode() {
+func (proc *NvimProcess) SelectAll() {
+	switch proc.Mode() {
 	case "i", "v":
-		proc.feedKeys("<ESC>ggVG")
+		proc.FeedKeys("<ESC>ggVG")
 		break
 	case "n":
-		proc.feedKeys("ggVG")
+		proc.FeedKeys("ggVG")
 		break
 	}
 }
 
-func (proc *NvimProcess) openFile(file string) {
-	logger.Log(logger.DEBUG, "Open file", file)
-	go proc.execCommand("edit %s", file)
+func (proc *NvimProcess) EditFile(file string) {
+	logger.Log(logger.DEBUG, "Editing file", file)
+	go proc.Command("edit %s", file)
 }
 
-func (proc *NvimProcess) gotoLine(line int) {
-	logger.Log(logger.DEBUG, "Goto line", line)
-	go proc.handle.Call("cursor", nil, line, 0)
+func (proc *NvimProcess) MoveCursor(line, col int) {
+	logger.Log(logger.DEBUG, "Moving cursor", line, col)
+	go proc.handle.Call("cursor", nil, line, col)
 }
 
-func (proc *NvimProcess) gotoColumn(col int) {
-	logger.Log(logger.DEBUG, "Goto column", col)
-	go proc.handle.Call("cursor", nil, 0, col)
-}
-
-func (proc *NvimProcess) feedKeys(keys string) {
+func (proc *NvimProcess) FeedKeys(keys string) {
 	keycode, err := proc.handle.ReplaceTermcodes(keys, true, true, true)
 	if err != nil {
 		logger.Log(logger.ERROR, "Failed to replace termcodes:", err)
@@ -516,7 +507,7 @@ func (proc *NvimProcess) feedKeys(keys string) {
 	}
 }
 
-func (proc *NvimProcess) input(keycode string) {
+func (proc *NvimProcess) Input(keycode string) {
 	written, err := proc.handle.Input(keycode)
 	if err != nil {
 		logger.Log(logger.WARN, "Failed to send input keys:", err)
@@ -526,14 +517,14 @@ func (proc *NvimProcess) input(keycode string) {
 	}
 }
 
-func (proc *NvimProcess) inputMouse(button, action, modifier string, grid, row, column int) {
+func (proc *NvimProcess) InputMouse(button, action, modifier string, grid, row, column int) {
 	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
 	if err != nil {
 		logger.Log(logger.WARN, "Failed to send mouse input:", err)
 	}
 }
 
-func (proc *NvimProcess) tryResizeUI(rows, cols int) {
+func (proc *NvimProcess) TryResizeUI(rows, cols int) {
 	if rows <= 0 || cols <= 0 {
 		return
 	}
@@ -546,7 +537,7 @@ func (proc *NvimProcess) tryResizeUI(rows, cols int) {
 	}()
 }
 
-func (proc *NvimProcess) tryResizeGrid(id, rows, cols int) {
+func (proc *NvimProcess) TryResizeUIGrid(id, rows, cols int) {
 	if rows <= 0 || cols <= 0 {
 		return
 	}

@@ -19,7 +19,7 @@ var ContextMenuButtons = []ContextButton{
 	{
 		name: "Cut",
 		fn: func() {
-			text := Editor.nvim.cutSelected()
+			text := Editor.nvim.Cut()
 			if text != "" {
 				glfw.SetClipboardString(text)
 			}
@@ -28,7 +28,7 @@ var ContextMenuButtons = []ContextButton{
 	{
 		name: "Copy",
 		fn: func() {
-			text := Editor.nvim.copySelected()
+			text := Editor.nvim.Copy()
 			if text != "" {
 				glfw.SetClipboardString(text)
 			}
@@ -37,13 +37,13 @@ var ContextMenuButtons = []ContextButton{
 	{
 		name: "Paste",
 		fn: func() {
-			Editor.nvim.paste(glfw.GetClipboardString())
+			Editor.nvim.Paste(glfw.GetClipboardString())
 		},
 	},
 	{
 		name: "Select All",
 		fn: func() {
-			Editor.nvim.selectAll()
+			Editor.nvim.SelectAll()
 		},
 	},
 	{
@@ -51,7 +51,7 @@ var ContextMenuButtons = []ContextButton{
 		fn: func() {
 			filename, err := dialog.File().Load()
 			if err == nil && filename != "" {
-				Editor.nvim.openFile(filename)
+				Editor.nvim.EditFile(filename)
 			}
 			Editor.window.Raise()
 		},

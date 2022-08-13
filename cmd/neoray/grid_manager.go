@@ -109,7 +109,7 @@ func (manager *GridManager) CheckDefaultGridSize() {
 		cols := Editor.window.Size().Width() / defaultGrid.CellSize().Width()
 		rows := Editor.window.Size().Height() / defaultGrid.CellSize().Height()
 		if rows != defaultGrid.rows || cols != defaultGrid.cols {
-			Editor.nvim.tryResizeUI(rows, cols)
+			Editor.nvim.TryResizeUI(rows, cols)
 		}
 	}
 }
@@ -127,7 +127,7 @@ func (manager *GridManager) CheckGridSize(grid *Grid, prevSize common.Vector2[in
 		// But neovim gives us every grid, we must look it as a separate problem
 		// TODO: per grid font size is not supported at this time and this function is not called anywhere
 		// but we designed Neoray to support per grid font and size and it will be implemented in the future
-		Editor.nvim.tryResizeGrid(grid.id, rows, cols)
+		Editor.nvim.TryResizeUIGrid(grid.id, rows, cols)
 	}
 }
 

@@ -7,11 +7,6 @@ import (
 )
 
 var (
-	// Public
-	DefaultRegularFontData    []byte
-	DefaultBoldFontData       []byte
-	DefaultItalicFontData     []byte
-	DefaultBoldItalicFontData []byte
 	// Private
 	defaultFontKit *FontKit
 )
