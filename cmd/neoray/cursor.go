@@ -198,7 +198,7 @@ func (cursor *Cursor) Draw(delta float32) {
 	if grid != nil {
 		pos := cursor.anim.Step(delta).ToInt()
 		rect, blockShaped := cursor.modeRectangle(modeInfo, pos, grid.CellSize())
-		cell := grid.CellAt(cursor.row, cursor.col)
+		cell := grid.SafeCellAt(cursor.row, cursor.col)
 		// Only draw character to the cursor if animation is finished and cell
 		// has a printable character and cursor shape is block
 		if cursor.anim.IsFinished() && cell.char != 0 && blockShaped {

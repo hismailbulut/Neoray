@@ -163,6 +163,14 @@ func (grid *Grid) CellAt(row, col int) Cell {
 	return grid.cells[row][col]
 }
 
+// Safe alternative to CellAt. Returns empty cell if out of bounds.
+func (grid *Grid) SafeCellAt(row, col int) Cell {
+	if row >= 0 && row < grid.rows && col >= 0 && col < grid.cols {
+		return grid.cells[row][col]
+	}
+	return Cell{}
+}
+
 // Sets the cell in grid. Does not check bounds.
 // Only internal usage
 func (grid *Grid) SetCell(row, col int, char rune, attribID int) {
