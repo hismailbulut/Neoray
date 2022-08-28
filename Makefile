@@ -19,12 +19,12 @@ GLOWDIR=./pkg/opengl/glow
 ifeq ($(OS),Windows_NT)
 	EXECPATHDEBUG=.\$(OUTDIR)\$(EXECNAME)_debug.exe
 	EXECPATHRELEASE=.\$(OUTDIR)\$(EXECNAME).exe
-	RELEASEFLAGS=-ldflags -H=windowsgui
+	RELEASEFLAGS=-ldflags="-H=windowsgui -s -w"
 	DELETECOMMAND=del
 else
 	EXECPATHDEBUG=./$(OUTDIR)/$(EXECNAME)_debug
 	EXECPATHRELEASE=./$(OUTDIR)/$(EXECNAME)
-	RELEASEFLAGS=
+	RELEASEFLAGS=-ldflags="-s -w"
 	DELETECOMMAND=rm
 endif
 
