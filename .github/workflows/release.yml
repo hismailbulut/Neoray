@@ -12,7 +12,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Install tools
       run: |
@@ -22,18 +22,24 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Build amd64
+    - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
       run: make release EXECNAME=neoray-windows
 
+    - name: List
+      run: |
+        dir
+        dir bin
+        dir ..
+
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: windows-binaries
+        name: windows
         path: |
           bin/neoray-windows.exe
 
@@ -45,7 +51,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Install tools
       run: go install github.com/go-gl/glow@latest
@@ -53,7 +59,7 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Build amd64
+    - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: darwin
@@ -64,7 +70,7 @@ jobs:
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: macos-binaries
+        name: macos
         path: |
           bin/neoray-macos
 
@@ -76,7 +82,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Set up required libs
       run: |
@@ -89,7 +95,7 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Build amd64
+    - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: linux
@@ -100,6 +106,6 @@ jobs:
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: linux-binaries
+        name: linux
         path: |
           bin/neoray-linux
