@@ -22,15 +22,18 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Test
-      run: make test
-
     - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
       run: make release EXECNAME=neoray-windows
+
+    - name: List
+      run: |
+        dir
+        dir bin
+        dir ..
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
@@ -55,9 +58,6 @@ jobs:
 
     - name: Generate
       run: make generate
-
-    - name: Test
-      run: make test
 
     - name: Build
       env:
@@ -94,9 +94,6 @@ jobs:
 
     - name: Generate
       run: make generate
-
-    - name: Test
-      run: make test
 
     - name: Build
       env:
