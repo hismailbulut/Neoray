@@ -22,6 +22,9 @@ jobs:
     - name: Generate
       run: make generate
 
+    - name: Test
+      run: make test
+
     - name: Build
       env:
         CGO_ENABLED: 1
@@ -52,6 +55,9 @@ jobs:
 
     - name: Generate
       run: make generate
+
+    - name: Test
+      run: make test
 
     - name: Build
       env:
@@ -88,6 +94,9 @@ jobs:
 
     - name: Generate
       run: make generate
+
+    - name: Test
+      run: make test
 
     - name: Build
       env:
