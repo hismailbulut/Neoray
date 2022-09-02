@@ -27,13 +27,16 @@ jobs:
 
     - name: Build
       env:
-        GITHUB_PATH: C:\msys64\mingw32\bin
-        CC: i686-w64-mingw32-gcc
+        #GITHUB_PATH: C:\msys64\mingw32\bin
+        CC: C:\msys64\mingw32\bin\gcc.exe
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
       run: make release EXECNAME=neoray-win32
 
+    - name: List bin
+      run: dir bin
+      
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
@@ -66,6 +69,9 @@ jobs:
         GOOS: windows
         GOARCH: amd64
       run: make release EXECNAME=neoray-win64
+
+    - name: List bin
+      run: dir bin
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
