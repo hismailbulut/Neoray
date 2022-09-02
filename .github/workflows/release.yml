@@ -27,7 +27,7 @@ jobs:
 
     - name: Build
       env:
-        CC: i686-w64-mingw32-gcc
+        #CC: i686-w64-mingw32-gcc
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
