@@ -8,49 +8,43 @@ ifeq ($(OUTDIR),)
 	OUTDIR=bin
 endif
 
-VERSION=0.2.5
-
-SOURCEFOLDER=./cmd/neoray
-SOURCETESTFOLDER=./cmd/neoray/...
-PACKAGETESTFOLDER=./pkg/...
-GLOWDIR=./pkg/opengl/glow
+VERSION    :=0.2.5
+SRCDIR     :=./cmd/neoray
+SRCTESTDIR :=./cmd/neoray/...
+PKGTESTDIR :=./pkg/...
+GLOWDIR    :=./pkg/opengl/glow
+OUTEXE     :=./$(OUTDIR)/$(EXECNAME)
+OUTDBG     :=$(OUTEXE)_debug
+LDFLAGS    :=-s -w
 
 ifeq ($(OS),Windows_NT)
-	EXECPATHDEBUG=.\$(OUTDIR)\$(EXECNAME)_debug.exe
-	EXECPATHRELEASE=.\$(OUTDIR)\$(EXECNAME).exe
-	RELEASEFLAGS=-ldflags="-H=windowsgui -s -w"
-	DELETECOMMAND=del
-else
-	EXECPATHDEBUG=./$(OUTDIR)/$(EXECNAME)_debug
-	EXECPATHRELEASE=./$(OUTDIR)/$(EXECNAME)
-	RELEASEFLAGS=-ldflags="-s -w"
-	DELETECOMMAND=rm
+	OUTDBG  :=$(OUTDBG).exe
+	OUTEXE  :=$(OUTEXE).exe
+	LDFLAGS :=$(LDFLAGS) -H=windowsgui
 endif
 
 build:
-	go build -tags debug -race -o $(EXECPATHDEBUG) $(SOURCEFOLDER)
+	go build -tags debug -race -o $(OUTDBG) $(SRCDIR)
 
 run: build
-	$(EXECPATHDEBUG) $(ARGS)
+	$(OUTDBG) $(ARGS)
 
 generate:
 	$(if $(isWindows), cd cmd/neoray/assets && go-winres make --product-version=$(VERSION) --file-version=$(VERSION))
 	glow generate -out=./pkg/opengl/gl -api=gl -version=3.3 -profile=core -restrict=$(GLOWDIR)/glfunclist.json -tmpl=$(GLOWDIR)/tmpl -xml=$(GLOWDIR)/xml
 
 release:
-	go build $(RELEASEFLAGS) -o $(EXECPATHRELEASE) $(SOURCEFOLDER)
+	go build -ldflags="$(LDFLAGS)" -o $(OUTEXE) $(SRCDIR)
 
 test:
-	go test -race $(SOURCETESTFOLDER)
-	go test -race $(PACKAGETESTFOLDER)
+	go test -race $(SRCTESTDIR)
+	go test -race $(PKGTESTDIR)
 
 bench:
-	go test -run=XXX -bench=. -benchmem -race $(SOURCETESTFOLDER)
-	go test -run=XXX -bench=. -benchmem -race $(PACKAGETESTFOLDER)
+	go test -run=XXX -bench=. -benchmem -race $(SRCTESTDIR)
+	go test -run=XXX -bench=. -benchmem -race $(PKGTESTDIR)
 
 debug:
-	dlv debug $(SOURCEFOLDER)
+	dlv debug $(SRCDIR)
 
-clean:
-	$(DELETECOMMAND) $(EXECPATHDEBUG)
-	$(DELETECOMMAND) $(EXECPATHRELEASE)
+all: generate test bench build release
