@@ -53,15 +53,6 @@ Options:
 All other flags forwards to neovim
 `
 
-var ALLOWEDOS = func() bool {
-	_, ok := map[string]struct{}{
-		"linux":  {},
-		"darwin": {},
-	}[runtime.GOOS]
-
-	return ok
-}()
-
 type ParsedArgs struct {
 	file       string
 	line       int
@@ -196,23 +187,25 @@ func ListFonts(fileName string) {
 
 // detach from terminal.
 func (options ParsedArgs) Fork() bool {
-	name := strings.ToUpper(NAME) + "_" + "NOFORK"
-	// Support for fork or nofork via env decision,
-	// e.g. `export NEORAY_NOFROK=true`.
-	ok, _ := strconv.ParseBool(os.Getenv(name))
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		name := strings.ToUpper(NAME) + "_" + "NOFORK"
+		// Support for fork or nofork via env decision,
+		// e.g. `export NEORAY_NOFORK=true`.
+		ok, _ := strconv.ParseBool(os.Getenv(name))
 
-	if !options.nofork && ALLOWEDOS && !ok {
-		env := os.Environ()
-		env = append(env, fmt.Sprintf("%s=%v", name, !options.nofork))
-		cmd := exec.Command(os.Args[0], os.Args[1:]...)
-		cmd.Env = env
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Start(); err != nil {
-			panic(err)
+		if !options.nofork && !ok {
+			env := os.Environ()
+			env = append(env, fmt.Sprintf("%s=%v", name, !options.nofork))
+			cmd := exec.Command(os.Args[0], os.Args[1:]...)
+			cmd.Env = env
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Start(); err != nil {
+				panic(err)
+			}
+			return true
 		}
-		return true
 	}
 	return false
 }
