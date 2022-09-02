@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build-win32:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
@@ -22,20 +22,53 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Build amd64
+    - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: windows
-        GOARCH: amd64
-      run: make release EXECNAME=neoray-windows
+        GOARCH: 386
+      run: make release EXECNAME=neoray-win32
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: windows-binaries
+        name: win32
         path: |
-          bin/neoray-windows.exe
+          bin/neoray-win32.exe
+          
+  build-win64:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.18
+
+    - name: Install tools
+      run: |
+        go install github.com/tc-hib/go-winres@latest
+        go install github.com/go-gl/glow@latest
+
+    - name: Generate
+      run: make generate
+
+    - name: Build
+      env:
+        CGO_ENABLED: 1
+        GOOS: windows
+        GOARCH: amd64
+      run: make release EXECNAME=neoray-win64
+
+    - name: Upload binaries
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: win64
+        path: |
+          bin/neoray-win64.exe
 
   build-macos:
     runs-on: macos-latest
@@ -53,7 +86,7 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Build amd64
+    - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: darwin
@@ -64,7 +97,7 @@ jobs:
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: macos-binaries
+        name: macos
         path: |
           bin/neoray-macos
 
@@ -89,7 +122,7 @@ jobs:
     - name: Generate
       run: make generate
 
-    - name: Build amd64
+    - name: Build
       env:
         CGO_ENABLED: 1
         GOOS: linux
@@ -100,6 +133,6 @@ jobs:
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: linux-binaries
+        name: linux
         path: |
           bin/neoray-linux
