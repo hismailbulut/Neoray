@@ -79,6 +79,20 @@ func CreateNvimProcess() *NvimProcess {
 		logger.Log(logger.TRACE, "Neovim started with command:", Editor.parsedArgs.execPath, args)
 	}
 
+	// Serve blocks until the msgpack session closed. But sometimes it not returns.
+	// Because of this we are using VimLeave to understand neovim quitted. And we are
+	// using both at the same time because VimLeave also unreliable. At least one of
+	// them should always work.
+	go func() {
+		err := proc.handle.Serve()
+		if err != nil {
+			logger.Log(logger.WARN, "nvim.Serve() exited with error:", err)
+		} else {
+			logger.Log(logger.DEBUG, "nvim.Serve() exited without error")
+		}
+		Editor.quitChan <- true
+	}()
+
 	info, err := proc.handle.APIInfo()
 	if err != nil {
 		logger.Log(logger.FATAL, "Failed to get api information:", err)

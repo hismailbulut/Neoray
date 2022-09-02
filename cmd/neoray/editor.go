@@ -160,7 +160,7 @@ func InitEditor() {
 	logger.Log(logger.DEBUG, "Calculated startup size of the neovim is", rows, cols)
 	Editor.nvim.StartUI(rows, cols)
 
-	Editor.quitChan = make(chan bool, 8) // 8 is for make sure this will not stuck
+	Editor.quitChan = make(chan bool, 1)
 
 	SetEditorState(EditorInitialized)
 }
