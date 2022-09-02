@@ -22,12 +22,12 @@ jobs:
     - name: Generate
       run: make generate
 
+    - name: Add mingw32 to path
+      run: echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
+
     - name: Build
       env:
-        GITHUB_PATH: C:/programdata/chocolatey/lib/mingw/tools/install/mingw32/bin
-        #AR: i686-w64-mingw32-gcc-ar
         CC: i686-w64-mingw32-gcc
-        #CXX: i686-w64-mingw32-g++
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
