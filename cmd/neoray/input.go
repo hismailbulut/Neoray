@@ -167,13 +167,13 @@ func checkNeorayKeybindings(keycode string) bool {
 		case "<C-F3>":
 			logger.Log(logger.FATAL, "Control+F3 manual fatal")
 		case "<C-F4>":
-			err := bench.ToggleCpuProfile()
+			err := bench.ToggleCpuProfile("Neoray_cpu_profile.prof")
 			if err != nil {
 				logger.Log(logger.ERROR, err)
 			}
 			return true
 		case "<C-F5>":
-			err := bench.DumpHeapProfile()
+			err := bench.DumpHeapProfile("Neoray_heap_profile.prof")
 			if err != nil {
 				logger.Log(logger.ERROR, err)
 			}

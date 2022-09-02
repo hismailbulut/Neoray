@@ -26,11 +26,11 @@ var cpuProfileFile *os.File
 // NOTE: All functions, types, constants and variables must exist in utils_release.go,
 // Add empty ones to release file if they are not local.
 
-func ToggleCpuProfile() error {
+func ToggleCpuProfile(name string) error {
 	if cpuProfileFile == nil {
 		// New profile
 		var err error
-		cpuProfileFile, err = os.Create("Neoray_cpu_profile.prof")
+		cpuProfileFile, err = os.Create(name)
 		if err != nil {
 			return fmt.Errorf("Failed to open cpu profile file: %s", err)
 		}
@@ -52,8 +52,8 @@ func ToggleCpuProfile() error {
 	return nil
 }
 
-func DumpHeapProfile() error {
-	heapFile, err := os.Create("Neoray_heap_profile.prof")
+func DumpHeapProfile(name string) error {
+	heapFile, err := os.Create(name)
 	if err != nil {
 		return fmt.Errorf("Failed to open memory profile file: %s", err)
 	}

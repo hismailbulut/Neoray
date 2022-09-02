@@ -9,9 +9,9 @@ const BUILD_TYPE = logger.ReleaseBuild
 
 func IsDebugBuild() bool { return false }
 
-func ToggleCpuProfile() error { return nil }
+func ToggleCpuProfile(string) error { return nil }
 
-func DumpHeapProfile() error { return nil }
+func DumpHeapProfile(string) error { return nil }
 
 func BeginBenchmark() (EndBenchmark func(name string)) { return func(name string) {} }
 
