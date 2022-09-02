@@ -8,7 +8,7 @@ ifeq ($(OUTDIR),)
 	OUTDIR=bin
 endif
 
-VERSION=0.2.4
+VERSION=0.2.5
 
 SOURCEFOLDER=./cmd/neoray
 SOURCETESTFOLDER=./cmd/neoray/...
