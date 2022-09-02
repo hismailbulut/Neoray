@@ -24,6 +24,7 @@ jobs:
 
     - name: Build
       env:
+        GITHUB_PATH: C:/programdata/chocolatey/lib/mingw/tools/install/mingw32/bin
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: 386
