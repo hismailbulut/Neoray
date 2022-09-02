@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-win32:
+  build-windows:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
@@ -12,48 +12,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
-
-    - name: Install tools
-      run: |
-        go install github.com/tc-hib/go-winres@latest
-        go install github.com/go-gl/glow@latest
-
-    - name: Generate
-      run: make generate
-
-    #- name: Add mingw32 to path
-      #run: echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
-
-    - name: Build
-      env:
-        #GITHUB_PATH: C:\msys64\mingw32\bin
-        CC: C:\msys64\mingw32\bin\gcc.exe
-        CGO_ENABLED: 1
-        GOOS: windows
-        GOARCH: 386
-      run: make release EXECNAME=neoray-win32
-
-    - name: List bin
-      run: dir bin
-      
-    - name: Upload binaries
-      uses: actions/upload-artifact@v2
-      if: success()
-      with:
-        name: win32
-        path: |
-          bin/neoray-win32.exe
-          
-  build-win64:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Install tools
       run: |
@@ -68,18 +27,15 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: make release EXECNAME=neoray-win64
-
-    - name: List bin
-      run: dir bin
+      run: make release EXECNAME=neoray-windows
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: win64
+        name: windows
         path: |
-          bin/neoray-win64.exe
+          bin/neoray-windows.exe
 
   build-macos:
     runs-on: macos-latest
@@ -89,7 +45,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Install tools
       run: go install github.com/go-gl/glow@latest
@@ -120,7 +76,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Set up required libs
       run: |
