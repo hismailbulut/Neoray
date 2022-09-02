@@ -1,4 +1,3 @@
-
 isWindows :=$(filter Windows_NT, $(OS))
 
 ifeq ($(EXECNAME),)
