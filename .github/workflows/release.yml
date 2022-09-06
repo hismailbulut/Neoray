@@ -27,21 +27,15 @@ jobs:
         CGO_ENABLED: 1
         GOOS: windows
         GOARCH: amd64
-      run: make release EXECNAME=neoray-windows
-
-    - name: List
-      run: |
-        dir
-        dir bin
-        dir ..
+      run: make release
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: windows
+        name: neoray-windows
         path: |
-          bin/neoray-windows.exe
+          bin/neoray.exe
 
   build-macos:
     runs-on: macos-latest
@@ -64,15 +58,15 @@ jobs:
         CGO_ENABLED: 1
         GOOS: darwin
         GOARCH: amd64
-      run: make release EXECNAME=neoray-macos
+      run: make release
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: macos
+        name: neoray-macos
         path: |
-          bin/neoray-macos
+          bin/neoray
 
   build-linux:
     runs-on: ubuntu-latest
@@ -100,12 +94,12 @@ jobs:
         CGO_ENABLED: 1
         GOOS: linux
         GOARCH: amd64
-      run: make release EXECNAME=neoray-linux
+      run: make release
 
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       if: success()
       with:
-        name: linux
+        name: neoray-linux
         path: |
-          bin/neoray-linux
+          bin/neoray
