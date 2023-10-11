@@ -352,8 +352,8 @@ func MouseMoveHandler(xpos, ypos float64) {
 		Editor.window.ShowMouseCursor()
 	}
 
-	inputCache.mousePos.X = int(xpos)
-	inputCache.mousePos.Y = int(ypos)
+	inputCache.mousePos.X = int(xpos) * Editor.parsedArgs.windowScale
+	inputCache.mousePos.Y = int(ypos) * Editor.parsedArgs.windowScale
 
 	if Editor.options.contextMenuEnabled {
 		Editor.contextMenu.MouseMove(inputCache.mousePos)
