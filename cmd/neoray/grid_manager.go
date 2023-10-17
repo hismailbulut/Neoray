@@ -170,7 +170,7 @@ func (manager *GridManager) SortGrids() {
 func (manager *GridManager) CellAt(pos common.Vector2[int]) (int, int, int) {
 	id, row, col := -1, -1, -1
 	// The input_mouse api call wants 0 for grid when multigrid is not enabled
-	if Editor.parsedArgs.multiGrid == false {
+	if !Editor.parsedArgs.multiGrid {
 		// get cell size of the global grid
 		defaultGrid := manager.Grid(1)
 		if defaultGrid != nil {

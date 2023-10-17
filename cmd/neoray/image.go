@@ -37,6 +37,9 @@ func NewImageViewer(window *window.Window) *ImageViewer {
 
 func (viewer *ImageViewer) LoadImageFromFile(path string) (*image.RGBA, error) {
 	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
 	// We load image by it's extension
 	format := filepath.Ext(path)[1:] // Remove dot
 	// Load image
@@ -72,9 +75,9 @@ func (viewer *ImageViewer) LoadImageFromFile(path string) (*image.RGBA, error) {
 	}
 	// Check image type and convert to RGBA if needed
 	var imgRGBA *image.RGBA
-	switch img.(type) {
+	switch img := img.(type) {
 	case *image.RGBA:
-		imgRGBA = img.(*image.RGBA)
+		imgRGBA = img
 	default:
 		imgRGBA = image.NewRGBA(img.Bounds())
 		draw.Draw(imgRGBA, img.Bounds(), img, image.Point{}, draw.Over)

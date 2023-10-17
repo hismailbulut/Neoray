@@ -55,7 +55,7 @@ func getMacAddress() uint64 {
 		return 0
 	}
 	for _, i := range interfaces {
-		if i.Flags&net.FlagUp != 0 && bytes.Compare(i.HardwareAddr, nil) != 0 {
+		if i.Flags&net.FlagUp != 0 && !bytes.Equal(i.HardwareAddr, nil) {
 			// Skip locally administered addresses
 			if i.HardwareAddr[0]&2 == 2 {
 				continue

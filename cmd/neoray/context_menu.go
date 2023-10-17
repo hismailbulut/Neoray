@@ -91,9 +91,9 @@ func (menu *ContextMenu) createCells() {
 	// Create cells
 	menu.cols = longest + 2
 	menu.rows = len(ContextMenuButtons)
-	menu.cells = make([][]rune, menu.rows, menu.rows)
+	menu.cells = make([][]rune, menu.rows)
 	for i := range menu.cells {
-		menu.cells[i] = make([]rune, menu.cols, menu.cols)
+		menu.cells[i] = make([]rune, menu.cols)
 	}
 	// Resize renderer
 	if menu.renderer != nil {

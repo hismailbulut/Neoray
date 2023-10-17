@@ -202,7 +202,7 @@ func (atlas *Atlas) Undercurl(imgSize common.Vector2[int]) (common.Rectangle[int
 	return pos, true
 }
 
-func (atlas *Atlas) unsupported(face *fontkit.Face, char rune, imgSize common.Vector2[int]) common.Rectangle[int] {
+func (atlas *Atlas) unsupported(char rune, imgSize common.Vector2[int]) common.Rectangle[int] {
 	pos, ok := atlas.cache[UNSUPPORTED_GLYPH_ID]
 	if ok {
 		return pos
@@ -244,7 +244,7 @@ func (atlas *Atlas) GetCharPos(char rune, bold, italic, underline, strikethrough
 		return pos
 	} else {
 		// unsupported
-		return atlas.unsupported(face, char, imgSize)
+		return atlas.unsupported(char, imgSize)
 	}
 }
 
