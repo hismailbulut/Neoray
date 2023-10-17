@@ -294,7 +294,7 @@ func UpdateHandler(delta float32) {
 	// Draw calls
 	if Editor.state >= EditorWindowShown {
 		if Editor.cDraw || Editor.cForceDraw {
-			EndBenchmark := bench.BeginBenchmark()
+			EndBenchmark := bench.Begin()
 			Editor.gridManager.Draw(Editor.cForceDraw)
 			Editor.cursor.Draw(delta)
 			Editor.contextMenu.Draw()
@@ -303,7 +303,7 @@ func UpdateHandler(delta float32) {
 		}
 		// Render calls
 		if Editor.cDraw || Editor.cForceDraw || Editor.cRender {
-			EndBenchmark := bench.BeginBenchmark()
+			EndBenchmark := bench.Begin()
 			// Clear background
 			bg := Editor.gridManager.background
 			bg.A = Editor.options.transparency

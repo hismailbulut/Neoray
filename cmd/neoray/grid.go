@@ -214,7 +214,7 @@ func (grid *Grid) Resize(rows, cols int) {
 	}
 	// TODO: We can reduce allocations by making cells 1 dimensional array
 	// NOTE: Resizing should not clear the cells
-	EndBenchmark := bench.BeginBenchmark()
+	EndBenchmark := bench.Begin()
 	// Resize rows
 	if cap(grid.cells) > rows {
 		grid.cells = grid.cells[:rows]
@@ -257,7 +257,7 @@ func (grid *Grid) Draw(force bool) {
 	if grid.hidden {
 		return
 	}
-	EndBenchmark := bench.BeginBenchmark()
+	EndBenchmark := bench.Begin()
 	for row := 0; row < grid.rows; row++ {
 		for col := 0; col < grid.cols; col++ {
 			cell := grid.CellAt(row, col)

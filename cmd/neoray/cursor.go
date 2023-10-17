@@ -188,7 +188,7 @@ func (cursor *Cursor) Draw(delta float32) {
 	if cursor.hidden || cursor.bHidden {
 		return
 	}
-	EndBenchmark := bench.BeginBenchmark()
+	EndBenchmark := bench.Begin()
 	defer EndBenchmark("Cursor.Draw")
 	// Draw
 	modeInfo := cursor.mode.Current()

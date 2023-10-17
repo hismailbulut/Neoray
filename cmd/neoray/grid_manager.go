@@ -369,7 +369,7 @@ func (manager *GridManager) SetCell(id, x int, y *int, char rune, attribId, repe
 }
 
 func (manager *GridManager) Update() {
-	EndBenchmark := bench.BeginBenchmark()
+	EndBenchmark := bench.Begin()
 	manager.HandleEvents()
 	EndBenchmark("GridManager.Update")
 }

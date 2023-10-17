@@ -100,7 +100,7 @@ func (buffer *VertexBuffer) Resize(size int) {
 	if size == len(buffer.data) {
 		return
 	}
-	EndBenchmark := bench.BeginBenchmark()
+	EndBenchmark := bench.Begin()
 	defer EndBenchmark("VertexBuffer.Resize")
 	// Clear current buffer
 	zVertex := Vertex{}

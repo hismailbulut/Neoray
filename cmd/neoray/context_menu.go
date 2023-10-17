@@ -138,7 +138,7 @@ func (menu *ContextMenu) Draw() {
 	if menu.hidden {
 		return
 	}
-	EndBenchmark := bench.BeginBenchmark()
+	EndBenchmark := bench.Begin()
 	for row := 0; row < menu.rows; row++ {
 		for col := 0; col < menu.cols; col++ {
 			char := menu.cells[row][col]

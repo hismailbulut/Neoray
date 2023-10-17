@@ -34,7 +34,7 @@ func main() {
 	logger.Init(NAME, logger.Version{Major: VERSION_MAJOR, Minor: VERSION_MINOR, Patch: VERSION_PATCH}, bench.BUILD_TYPE, true)
 	defer logger.Shutdown()
 	// Print benchmark results
-	defer bench.PrintResults()
+	defer bench.PrintResults(os.Stdout)
 	// Parse args
 	var err error
 	var quit bool
