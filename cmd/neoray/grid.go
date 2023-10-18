@@ -171,9 +171,11 @@ func (grid *Grid) SafeCellAt(row, col int) Cell {
 	return Cell{}
 }
 
-// Sets the cell in grid. Does not check bounds.
-// Only internal usage
+// Sets the cell in grid
 func (grid *Grid) SetCell(row, col int, char rune, attribID int) {
+	if row < 0 || row >= grid.rows || col < 0 || col >= grid.cols {
+		return
+	}
 	grid.cells[row][col].char = char
 	grid.cells[row][col].attribID = attribID
 	grid.cells[row][col].needsDraw = true
@@ -247,7 +249,10 @@ func (grid *Grid) SetPos(win nvim.Window, sRow, sCol int, rows, cols int, typ Gr
 	grid.sRow = sRow
 	grid.sCol = sCol
 	// NOTE: I don't know if this is required
-	// grid.Resize(rows, cols)
+	if grid.rows != rows || grid.cols != cols {
+		// grid.Resize(rows, cols)
+		logger.Log(logger.DEBUG, "Setpos has different size:", rows, cols, "current grid size:", grid.rows, grid.cols)
+	}
 	grid.renderer.SetPos(position)
 	logger.Log(logger.DEBUG, "Grid moved:", grid)
 	MarkForceDraw()
