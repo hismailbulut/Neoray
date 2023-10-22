@@ -135,6 +135,7 @@ func (manager *GridManager) CheckGridSize(grid *Grid, prevSize common.Vector2[in
 // You can access the sorted array via gridManager.sortedGrids
 // and don't call this function directly.
 func (manager *GridManager) SortGrids() {
+	bench.Begin()()
 	// Resize sorted slice to length of the grids slice
 	if len(manager.grids) == 0 {
 		return
@@ -354,14 +355,14 @@ func (manager *GridManager) ClearGrid(id int) {
 	}
 }
 
-// Sets cells with the given parameters, and advances y to the next. If
-// `repeat` is present, the cell should be repeated `repeat` times (including
-// the first time). This function will not check the end of the row. And
-// currently only used by neovim.
+// Sets the cells at the (x, [y, y+repeat]) to the char and attr, advances y to the end
 func (manager *GridManager) SetCell(id, x int, y *int, char rune, attribId, repeat int) {
 	grid, ok := manager.grids[id]
-	if ok {
-		for i := 0; i < common.Max(repeat, 1); i++ {
+	if !ok {
+		return
+	}
+	for i := 0; i < repeat; i++ {
+		if grid.IsInBounds(x, *y) {
 			grid.SetCell(x, *y, char, attribId)
 			*y++
 		}

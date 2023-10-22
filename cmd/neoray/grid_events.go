@@ -284,7 +284,7 @@ func (manager *GridManager) grid_line(args []interface{}) {
 				hl_id = to_int(cell[1])
 			}
 			// third one is repeat count -optional
-			repeat := 0
+			repeat := 1
 			if len(cell) == 3 {
 				repeat = to_int(cell[2])
 			}
