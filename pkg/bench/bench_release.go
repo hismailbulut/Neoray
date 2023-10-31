@@ -13,6 +13,8 @@ const BUILD_TYPE = logger.ReleaseBuild
 
 func IsDebugBuild() bool { return false }
 
-func Begin() func(name ...string)
+func Begin() func(name ...string) {
+	return func(name ...string) {}
+}
 
-func PrintResults(out io.Writer)
+func PrintResults(out io.Writer) {}
