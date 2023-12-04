@@ -50,6 +50,8 @@ func New(title string, width, height int, debugContext bool) (*Window, error) {
 	glfw.WindowHint(glfw.ScaleToMonitor, glfw.True)
 	// Focus to window after shown
 	glfw.WindowHint(glfw.FocusOnShow, glfw.True)
+	// Disable retina framebuffer
+	glfw.WindowHint(glfw.CocoaRetinaFramebuffer, glfw.False)
 
 	var err error
 	window.handle, err = glfw.CreateWindow(width, height, title, nil, nil)
