@@ -119,7 +119,7 @@ func InitEditor() {
 	}
 	logger.Log(logger.TRACE, "GLFW3 Version:", glfw.GetVersionString())
 
-	Editor.window, err = window.New(NAME, 800, 600, bench.IsDebugBuild())
+	Editor.window, err = window.New(NAME, 800, 600, bench.IsDebugBuild(), Editor.parsedArgs.windowScale)
 	if err != nil {
 		logger.Log(logger.FATAL, err)
 	}
@@ -335,7 +335,7 @@ func EventHandler(event window.WindowEvent) {
 			size := Editor.window.Size()
 			EventHandler(window.WindowEvent{
 				Type:   window.WindowEventResize,
-				Params: []any{size.Width(), size.Height()},
+				Params: []any{size.Width() * Editor.parsedArgs.windowScale, size.Height() * Editor.parsedArgs.windowScale},
 			})
 			// Only update if tick received
 			select {
@@ -364,8 +364,8 @@ func EventHandler(event window.WindowEvent) {
 				break
 			}
 			cellSize := defaultGrid.CellSize()
-			rows := height / cellSize.Height()
-			cols := width / cellSize.Width()
+			rows := (height / Editor.parsedArgs.windowScale) / cellSize.Height()
+			cols := (width / Editor.parsedArgs.windowScale) / cellSize.Width()
 			if rows == defaultGrid.rows && cols == defaultGrid.cols {
 				break
 			}

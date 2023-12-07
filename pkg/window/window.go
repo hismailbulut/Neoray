@@ -17,17 +17,20 @@ type Window struct {
 	dims         common.Rectangle[int]   // window dimensions used for restoring window from fullscreen
 	events       WindowEventStack        // Cached event stack
 	eventHandler func(event WindowEvent) // Event handler function will be called for every event at PollEvents call
+	windowScale  int
 }
 
 // New creates a window and initializes an opengl context for it
 // Im order to use context just call GL function of window
 // You must call the Show function to show the window
-func New(title string, width, height int, debugContext bool) (*Window, error) {
+func New(title string, width, height int, debugContext bool, windowScale int) (*Window, error) {
 	if width <= 0 || height <= 0 {
 		return nil, errors.New("Window dimensions must bigger than zero")
 	}
 
 	window := new(Window)
+
+	window.windowScale = windowScale
 
 	// Set opengl library version
 	// TODO: make it 2.1 (needs some research)
@@ -75,6 +78,7 @@ func New(title string, width, height int, debugContext bool) (*Window, error) {
 
 	window.handle.SetFramebufferSizeCallback(func(w *glfw.Window, width, height int) {
 		window.events.Push(WindowEventResize, width, height)
+		window.events.Push(WindowEventResize, width*windowScale, height*windowScale)
 	})
 
 	window.handle.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -141,7 +145,7 @@ func (window *Window) Resize(size common.Vector2[int]) {
 	if size.Y <= 0 {
 		size.Y = window.Size().Height()
 	}
-	window.handle.SetSize(size.X, size.Y)
+	window.handle.SetSize(size.X*window.windowScale, size.Y*window.windowScale)
 }
 
 func (window *Window) SetMinSize(minSize common.Vector2[int]) {
@@ -156,7 +160,7 @@ func (window *Window) Dimensions() common.Rectangle[int] {
 
 func (window *Window) Size() common.Vector2[int] {
 	W, H := window.handle.GetSize()
-	return common.Vector2[int]{X: W, Y: H}
+	return common.Vector2[int]{X: W * window.windowScale, Y: H * window.windowScale}
 }
 
 func (window *Window) Viewport() common.Rectangle[int] {

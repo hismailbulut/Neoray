@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/adrg/sysfont v0.1.2
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220806181222-55e207c401ad
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20221017161538-93cebf72946b
 	github.com/neovim/go-client v1.2.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sqweek/dialog v0.0.0-20220809060634-e981b270ebbf

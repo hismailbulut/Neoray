@@ -45,6 +45,8 @@ Options:
 	Lists all fonts and writes them to <file>
 --nofork
 	Do not detach process from terminal
+--retina
+    Scale window size for macOS retina display
 --version, -v
 	Prints only the version and quits
 --help, -h
@@ -54,30 +56,32 @@ All other flags forwards to neovim
 `
 
 type ParsedArgs struct {
-	file       string
-	line       int
-	column     int
-	singleInst bool
-	execPath   string
-	address    string
-	multiGrid  bool
-	nofork     bool
-	others     []string
+	file        string
+	line        int
+	column      int
+	singleInst  bool
+	execPath    string
+	address     string
+	multiGrid   bool
+	nofork      bool
+	others      []string
+	windowScale int
 }
 
 // Last boolean value specifies if we should quit after parsing
 func ParseArgs(args []string) (ParsedArgs, error, bool) {
 	// Init defaults
 	options := ParsedArgs{
-		file:       "",
-		line:       -1,
-		column:     -1,
-		singleInst: false,
-		execPath:   "nvim",
-		address:    "",
-		multiGrid:  false,
-		nofork:     false,
-		others:     []string{},
+		file:        "",
+		line:        -1,
+		column:      -1,
+		singleInst:  false,
+		execPath:    "nvim",
+		address:     "",
+		multiGrid:   false,
+		nofork:      false,
+		others:      []string{},
+		windowScale: 1,
 	}
 	var err error
 	for i := 0; i < len(args); i++ {
@@ -136,6 +140,8 @@ func ParseArgs(args []string) (ParsedArgs, error, bool) {
 			return options, nil, true
 		case "--nofork":
 			options.nofork = true
+		case "--retina":
+			options.windowScale = 2
 		case "--version", "-v":
 			PrintVersion()
 			return options, nil, true
