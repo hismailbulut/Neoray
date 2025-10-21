@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
+	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/neovim/go-client/nvim"
 )
 
@@ -16,9 +18,11 @@ func (manager *GridManager) HandleEvents() {
 		switch event[0] {
 		// Global events
 		case "set_title":
-			title := event[1].([]interface{})[0].(string)
-			Editor.window.SetTitle(title)
+			manager.set_title(event[1:])
+			// title := event[1].([]interface{})[0].(string)
+			// Editor.window.SetTitle(title)
 		case "set_icon":
+			// TODO
 		case "mode_info_set":
 			manager.mode_info_set(event[1:])
 		case "option_set":
@@ -135,6 +139,16 @@ func (manager *GridManager) option_set(args []interface{}) {
 			options.termguicolors = val.(bool)
 		}
 	}
+}
+
+func (manager *GridManager) set_title(args []interface{}) {
+	title := args[0].([]interface{})[0].(string)
+	logger.Log(logger.DEBUG, "Title is", title)
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = fmt.Sprintf("%s %v.%v.%v", NAME, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)
+	}
+	Editor.window.SetTitle(title)
 }
 
 func (manager *GridManager) mode_info_set(args []interface{}) {
