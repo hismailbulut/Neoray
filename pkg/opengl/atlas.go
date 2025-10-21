@@ -203,6 +203,7 @@ func (atlas *Atlas) Undercurl(imgSize common.Vector2[int]) (common.Rectangle[int
 }
 
 func (atlas *Atlas) unsupported(char rune, imgSize common.Vector2[int]) common.Rectangle[int] {
+	logger.Log(logger.DEBUG, "Unsupported glyph:", char, string(char))
 	pos, ok := atlas.cache[UNSUPPORTED_GLYPH_ID]
 	if ok {
 		return pos

@@ -227,7 +227,6 @@ func (server *IpcServer) mainLoop() {
 					_, err = conn.Write(encodedCLOSE)
 					if err != nil {
 						logger.Log(logger.WARN, "Failed to send response to client.")
-						break
 					}
 					return
 				default:
@@ -236,7 +235,6 @@ func (server *IpcServer) mainLoop() {
 					if err != nil {
 						logger.Log(logger.WARN, "Failed to send response to client.")
 					}
-					break
 				}
 			}
 		}()
@@ -256,18 +254,14 @@ func (server *IpcServer) Update() {
 		case IPC_MSG_TYPE_OPEN_FILE:
 			path := call.Args[0].(string)
 			Editor.nvim.EditFile(path)
-			break
 		case IPC_MSG_TYPE_GOTO_LINE:
 			line := int(call.Args[0].(float64))
 			Editor.nvim.MoveCursor(line, 0)
-			break
 		case IPC_MSG_TYPE_GOTO_COLUMN:
 			column := int(call.Args[0].(float64))
 			Editor.nvim.MoveCursor(0, column)
-			break
 		default:
 			logger.Log(logger.WARN, "Server received invalid signal:", call)
-			break
 		}
 		Editor.window.Raise()
 	}

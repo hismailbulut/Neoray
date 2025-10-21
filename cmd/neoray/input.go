@@ -216,7 +216,6 @@ func parseCharInput(char rune, mods common.BitMask) string {
 }
 
 func KeyInputHandler(key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-
 	// Toggle modifiers
 	switch key {
 	case glfw.KeyLeftAlt:

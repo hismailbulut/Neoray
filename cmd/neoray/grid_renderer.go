@@ -67,13 +67,17 @@ func (renderer *GridRenderer) CellSize() common.Vector2[int] {
 // row. We are storing data like neovim and because of this we need to multiply
 // position with other axis.
 // Neovim:
-//     +-----> Column, y, second
-//     |
-//     v Row, x, first
+//
+//	+-----> Column, y, second
+//	|
+//	v Row, x, first
+//
 // Opengl:
-//     +-----> Column, x, first
-//     |
-//     v Row, y, second
+//
+//	+-----> Column, x, first
+//	|
+//	v Row, y, second
+//
 // This function returns position rectangle of the cell needed for opengl.
 func (renderer *GridRenderer) cellPos(row, col int, cellSize common.Vector2[int]) common.Rectangle[float32] {
 	return common.Rectangle[float32]{
@@ -182,6 +186,7 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 }
 
 func (renderer *GridRenderer) Render() {
+	// DEBUG: Render atlas texture
 	renderer.atlas.BindTexture()
 	renderer.buffer.Bind()
 	renderer.buffer.Update()

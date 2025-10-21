@@ -93,7 +93,7 @@ func CreateNvimProcess() *NvimProcess {
 		if err != nil {
 			logger.Log(logger.FATAL, "Failed to start neovim instance:", err)
 		}
-		logger.Log(logger.TRACE, "Neovim started with command:", Editor.parsedArgs.execPath, args)
+		logger.Log(logger.TRACE, "Neovim started with command:", Editor.parsedArgs.execPath, strings.Join(args, " "))
 	}
 
 	// Serve blocks until the msgpack session closed. But sometimes it not returns.
@@ -164,7 +164,7 @@ func CreateNvimProcess() *NvimProcess {
 	)
 
 	// Register VimEnter
-	// NOTE: We are not using this for now but I added for we may need in future
+	// NOTE: We are not using this for now but I added because we may need in future
 	proc.RegisterHandler(
 		"NeorayVimEnter",
 		func() {
@@ -525,10 +525,8 @@ func (proc *NvimProcess) SelectAll() {
 	switch proc.Mode() {
 	case "i", "v":
 		proc.FeedKeys("<ESC>ggVG")
-		break
 	case "n":
 		proc.FeedKeys("ggVG")
-		break
 	}
 }
 
