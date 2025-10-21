@@ -82,7 +82,7 @@ func (viewer *ImageViewer) LoadImageFromFile(path string) (*image.RGBA, error) {
 		imgRGBA = image.NewRGBA(img.Bounds())
 		draw.Draw(imgRGBA, img.Bounds(), img, image.Point{}, draw.Over)
 	}
-	// Image should not has transparent pixels
+	// Image should not have transparent pixels
 	// Traverse through image and set every pixel alpha to 255
 	for i := 3; i < len(imgRGBA.Pix); i += 4 {
 		imgRGBA.Pix[i] = 255
