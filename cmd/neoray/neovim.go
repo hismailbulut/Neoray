@@ -3,6 +3,9 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -66,6 +69,20 @@ func CreateNvimProcess() *NvimProcess {
 	}
 
 	if !proc.connectedViaTcp {
+		// This is a fix for an issue on windows. If we don't provide the full path
+		// of the nvim.exe, and there is an nvim.exe in the same folder with neoray
+		// the windows doesn't accept it to open because of security reasons
+		// In order to open it we need to give the absolute path of it, this will
+		// help windows that we want to run it as a subprocess, not the executable
+		// found in the path. And we make sure we only do this if user not already
+		// provided a path for the neovim executable.
+		if runtime.GOOS == "windows" && Editor.parsedArgs.execPath == "nvim" /* default is nvim */ {
+			execPath := checkNvimExecPathInSameDir()
+			if execPath != "" {
+				Editor.parsedArgs.execPath = execPath
+				logger.Log(logger.TRACE, "Using neovim in the same directory of Neoray executable.")
+			}
+		}
 		// Connect via stdin-stdout
 		args := append([]string{"--embed"}, Editor.parsedArgs.others...)
 		var err error
@@ -179,6 +196,22 @@ func CreateNvimProcess() *NvimProcess {
 	)
 
 	return proc
+}
+
+func checkNvimExecPathInSameDir() string {
+	neorayExecPath, err := os.Executable()
+	if err != nil {
+		logger.Log(logger.ERROR, "Failed to find Neoray executable path:", err)
+		return ""
+	}
+	// check if there is an nvim.exe in the same folder with neoray
+	nvimExecPath := filepath.Join(filepath.Dir(neorayExecPath), "nvim.exe")
+	_, err = os.Stat(nvimExecPath)
+	if err != nil {
+		return "" // There is no nvim.exe in same folder, nothing to worry about
+	}
+	// there is an nvim.exe in the same folder, return the path of it
+	return nvimExecPath
 }
 
 func (proc *NvimProcess) RegisterHandler(name string, handler interface{}) {
