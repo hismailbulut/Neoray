@@ -119,6 +119,11 @@ func (menu *ContextMenu) SetFontKit(kit *fontkit.FontKit) {
 	MarkForceDraw()
 }
 
+func (menu *ContextMenu) SetFallbackFontKit(kit *fontkit.FontKit) {
+	menu.renderer.SetFallbackFontKit(kit)
+	MarkForceDraw()
+}
+
 func (menu *ContextMenu) SetFontSize(size float64) {
 	menu.renderer.SetFontSize(size, Editor.window.DPI())
 	MarkForceDraw()

@@ -31,6 +31,11 @@ func (renderer *GridRenderer) SetFontKit(kit *fontkit.FontKit) {
 	renderer.UpdatePositions()
 }
 
+func (renderer *GridRenderer) SetFallbackFontKit(kit *fontkit.FontKit) {
+	renderer.atlas.SetFallbackFontKit(kit)
+	renderer.UpdatePositions()
+}
+
 func (renderer *GridRenderer) FontSize() float64 {
 	return renderer.atlas.FontSize()
 }

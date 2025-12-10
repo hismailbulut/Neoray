@@ -138,6 +138,10 @@ func (grid *Grid) SetFontKit(kit *fontkit.FontKit) {
 	grid.renderer.SetFontKit(kit)
 }
 
+func (grid *Grid) SetFontFallbackKit(kit *fontkit.FontKit) {
+	grid.renderer.SetFallbackFontKit(kit)
+}
+
 func (grid *Grid) SetFontSize(fontSize, dpi float64) {
 	grid.renderer.SetFontSize(fontSize, dpi)
 }

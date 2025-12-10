@@ -43,7 +43,12 @@ func (options *UIOptions) setGuiFont(guifont string) {
 	guifont = strings.ReplaceAll(guifont, "_", " ")
 	// parse font options
 	fontOptions := strings.Split(guifont, ":")
-	name := fontOptions[0]
+	fontNames := strings.Split(fontOptions[0], ",")
+	name := fontNames[0]
+	fallbackName := ""
+	if len(fontNames) >= 2 {
+		fallbackName = fontNames[1]
+	}
 	for _, opt := range fontOptions[1:] {
 		if len(opt) > 1 && opt[0] == 'h' {
 			// Font size
@@ -80,6 +85,30 @@ func (options *UIOptions) setGuiFont(guifont string) {
 			// Set fonts
 			Editor.gridManager.SetGridFontKit(1, kit)
 			Editor.contextMenu.SetFontKit(kit)
+		}
+	}
+	if fallbackName != "" {
+		logger.Log(logger.TRACE, "Loading fallback font", fallbackName)
+		kit, err := fontkit.CreateKit(fallbackName)
+		if err != nil {
+			Editor.nvim.EchoError("Fallback font %s not found", fallbackName)
+		} else {
+			// Log some info
+			if kit.Regular() != nil {
+				logger.Log(logger.TRACE, "Regular:", kit.Regular().FilePath())
+			}
+			if kit.Bold() != nil {
+				logger.Log(logger.TRACE, "Bold:", kit.Bold().FilePath())
+			}
+			if kit.Italic() != nil {
+				logger.Log(logger.TRACE, "Italic:", kit.Italic().FilePath())
+			}
+			if kit.BoldItalic() != nil {
+				logger.Log(logger.TRACE, "BoldItalic:", kit.BoldItalic().FilePath())
+			}
+			// Set fallback font
+			Editor.gridManager.SetGridFallbackFontKit(1, kit)
+			Editor.contextMenu.SetFallbackFontKit(kit)
 		}
 	}
 	// Always set font size to default if user not set

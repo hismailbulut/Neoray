@@ -16,6 +16,7 @@ type GridManager struct {
 	// These are used for creating new grids
 	totalGridsCreated int              // total number of grids created (including deleted ones)
 	kit               *fontkit.FontKit // last globally set font kit
+	fallbackKit       *fontkit.FontKit // last globally set font fallback
 	fontSize          float64          // last globally set font size
 	// style information
 	attributes map[int]HighlightAttribute
@@ -46,6 +47,24 @@ func (manager *GridManager) SetGridFontKit(id int, kit *fontkit.FontKit) {
 		if grid != nil {
 			prevSize := grid.Size()
 			grid.SetFontKit(kit)
+			manager.CheckGridSize(grid, prevSize)
+		}
+	}
+	MarkForceDraw()
+}
+
+func (manager *GridManager) SetGridFallbackFontKit(id int, kit *fontkit.FontKit) {
+	if id == 1 {
+		for _, grid := range manager.grids {
+			grid.SetFontFallbackKit(kit)
+		}
+		manager.fallbackKit = kit
+		manager.CheckDefaultGridSize()
+	} else {
+		grid := manager.Grid(id)
+		if grid != nil {
+			prevSize := grid.Size()
+			grid.SetFontFallbackKit(kit)
 			manager.CheckGridSize(grid, prevSize)
 		}
 	}

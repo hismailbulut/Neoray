@@ -37,6 +37,7 @@ var (
 	// List of installed system fonts.
 	systemFontList      []*sysfont.Font
 	systemFontListGuard sync.Mutex
+	systemFontInitDone  bool
 
 	// Add more if you know any other filename used in
 	// font names. All characters must be lowercase.
@@ -57,10 +58,13 @@ func init() {
 			Extensions: []string{".ttf", ".otf"},
 		})
 		systemFontList = finder.List()
+		systemFontInitDone = true
 	}()
 }
 
 func List() []*sysfont.Font {
+	for !systemFontInitDone {
+	}
 	systemFontListGuard.Lock()
 	defer systemFontListGuard.Unlock()
 	return systemFontList
@@ -153,8 +157,9 @@ func sortFileNameLen(fonts *[]fontSearchInfo) {
 
 // Splits string to words according to delimiters and casing.
 // Example:
-//  This:           "HelloWorld_from-Turkey"
-//  Turns to this:  [Hello, World, from, Turkey]
+//
+//	This:           "HelloWorld_from-Turkey"
+//	Turns to this:  [Hello, World, from, Turkey]
 func splitWords(str string) []string {
 	// CamelCase pascalCase and "-_ "
 	arr := []string{}
