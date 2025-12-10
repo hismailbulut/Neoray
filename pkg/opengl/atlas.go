@@ -16,7 +16,7 @@ const (
 
 type Atlas struct {
 	kit             *fontkit.FontKit
-	fallback 				*fontkit.FontKit
+	fallback        *fontkit.FontKit
 	fontSize, dpi   float64
 	useBoxDrawing   bool
 	useBlockDrawing bool
@@ -85,7 +85,6 @@ func (atlas *Atlas) FallbackFontKit() *fontkit.FontKit {
 func (atlas *Atlas) SetFallbackFontKit(kit *fontkit.FontKit) {
 	atlas.fallback = kit
 }
-
 
 func (atlas *Atlas) FontSize() float64 {
 	return atlas.fontSize
@@ -182,7 +181,7 @@ func (atlas *Atlas) suitableFont(char rune, bold, italic bool) (*fontkit.Font, b
 	if atlas.FontKit().DefaultFont().ContainsGlyph(char) {
 		return atlas.FontKit().DefaultFont(), true
 	}
-	if atlas.FallbackFontKit().SuitableFont(bold ,italic).ContainsGlyph(char) {
+	if atlas.FallbackFontKit().SuitableFont(bold, italic).ContainsGlyph(char) {
 		return atlas.FallbackFontKit().SuitableFont(bold, italic), true
 	}
 	if atlas.FallbackFontKit().DefaultFont().ContainsGlyph(char) {

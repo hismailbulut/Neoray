@@ -37,7 +37,6 @@ var (
 	// List of installed system fonts.
 	systemFontList      []*sysfont.Font
 	systemFontListGuard sync.Mutex
-	systemFontInitDone  bool
 
 	// Add more if you know any other filename used in
 	// font names. All characters must be lowercase.
@@ -51,20 +50,17 @@ func init() {
 	// Because of this we are doing this in initilization and in another
 	// goroutine. Updates systemFontListReady value to true when finished.
 	// And Find() will wait for this to be done only for first time.
+	systemFontListGuard.Lock()
 	go func() {
-		systemFontListGuard.Lock()
 		defer systemFontListGuard.Unlock()
 		finder := sysfont.NewFinder(&sysfont.FinderOpts{
 			Extensions: []string{".ttf", ".otf"},
 		})
 		systemFontList = finder.List()
-		systemFontInitDone = true
 	}()
 }
 
 func List() []*sysfont.Font {
-	for !systemFontInitDone {
-	}
 	systemFontListGuard.Lock()
 	defer systemFontListGuard.Unlock()
 	return systemFontList
