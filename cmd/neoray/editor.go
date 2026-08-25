@@ -115,13 +115,13 @@ func InitEditor() {
 
 	err = glfw.Init()
 	if err != nil {
-		logger.Log(logger.FATAL, "Failed to initialize GLFW3:", err)
+		logger.Fatal("Failed to initialize GLFW3:", err)
 	}
-	logger.Log(logger.TRACE, "GLFW3 Version:", glfw.GetVersionString())
+	logger.Trace("GLFW3 Version:", glfw.GetVersionString())
 
 	Editor.window, err = window.New(NAME, 800, 600, bench.IsDebugBuild())
 	if err != nil {
-		logger.Log(logger.FATAL, err)
+		logger.Fatal(err)
 	}
 	// Event handler function runs when we call window.PollEvents
 	Editor.window.SetEventHandler(EventHandler)
@@ -133,11 +133,11 @@ func InitEditor() {
 	Editor.window.GL().SetViewport(Editor.window.Viewport())
 	// Print some opengl info
 	info := Editor.window.GL().Info()
-	logger.Log(logger.TRACE, "Opengl Version:", info.Version)
-	logger.Log(logger.TRACE, "Vendor:", info.Vendor)
-	logger.Log(logger.TRACE, "Renderer:", info.Renderer)
-	logger.Log(logger.TRACE, "GLSL:", info.ShadingLanguageVersion)
-	logger.Log(logger.TRACE, "Max Texture Size:", info.MaxTextureSize)
+	logger.Trace("Opengl Version:", info.Version)
+	logger.Trace("Vendor:", info.Vendor)
+	logger.Trace("Renderer:", info.Renderer)
+	logger.Trace("GLSL:", info.ShadingLanguageVersion)
+	logger.Trace("Max Texture Size:", info.MaxTextureSize)
 	// Set default font
 	fontkit.SetDefaultFontData(assets.Regular, assets.Bold, assets.Italic, assets.BoldItalic)
 	// Initialize gridManager
@@ -157,7 +157,7 @@ func InitEditor() {
 	cellSize := DefaultCellSize()
 	cols := Editor.window.Size().Width() / cellSize.Width()
 	rows := Editor.window.Size().Height() / cellSize.Height()
-	logger.Log(logger.DEBUG, "Calculated startup size of the neovim is", rows, cols)
+	logger.Debug("Calculated startup size of the neovim is", rows, cols)
 	Editor.nvim.StartUI(rows, cols)
 
 	Editor.quitChan = make(chan bool, 1)
@@ -169,21 +169,21 @@ func LoadDefaultIcons() {
 	icons := [3]image.Image{}
 	icon48, err := png.Decode(bytes.NewReader(assets.NeovimIconData48x48))
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to decode 48x48 icon:", err)
+		logger.Error("Failed to decode 48x48 icon:", err)
 	} else {
 		icons[0] = icon48
 	}
 
 	icon32, err := png.Decode(bytes.NewReader(assets.NeovimIconData32x32))
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to decode 32x32 icon:", err)
+		logger.Error("Failed to decode 32x32 icon:", err)
 	} else {
 		icons[1] = icon32
 	}
 
 	icon16, err := png.Decode(bytes.NewReader(assets.NeovimIconData16x16))
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to decode 16x16 icon:", err)
+		logger.Error("Failed to decode 16x16 icon:", err)
 	} else {
 		icons[2] = icon16
 	}
@@ -219,7 +219,7 @@ func ResizeWindowInCellFormat(rows, cols int) {
 func SetEditorState(state EditorState) {
 	// assert(state-1 == Editor.state, "Editor state can only incremented by 1")
 	Editor.state = state
-	logger.Log(logger.DEBUG, "Editor state changed to", state)
+	logger.Debug("Editor state changed to", state)
 }
 
 func ResetTicker() {
@@ -279,7 +279,7 @@ func MainLoop() {
 		}
 	}
 	SetEditorState(EditorLoopStopped)
-	logger.Log(logger.TRACE, "Program finished. Total execution time:", time.Since(programBegin))
+	logger.Trace("Program finished. Total execution time:", time.Since(programBegin))
 }
 
 func UpdateHandler(delta float32) {
@@ -442,5 +442,5 @@ func ShutdownEditor() {
 	Editor.window.Destroy()
 	glfw.Terminate()
 	SetEditorState(EditorDestroyed) // This is actually unnecessary
-	logger.Log(logger.DEBUG, "Editor terminated")
+	logger.Debug("Editor terminated")
 }

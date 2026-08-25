@@ -6,20 +6,19 @@ import (
 	"unicode"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
-	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/neovim/go-client/nvim"
 )
 
 func (manager *GridManager) HandleEvents() {
 	// We must only take last cursor event at same redraw event batch, see issue #6
-	var lastGridCursorGoto []interface{}
+	var lastGridCursorGoto []any
 	for len(Editor.nvim.eventChan) > 0 {
 		event := <-Editor.nvim.eventChan
 		switch event[0] {
 		// Global events
 		case "set_title":
 			manager.set_title(event[1:])
-			// title := event[1].([]interface{})[0].(string)
+			// title := event[1].([]any)[0].(string)
 			// Editor.window.SetTitle(title)
 		case "set_icon":
 			// TODO
@@ -84,7 +83,7 @@ func (manager *GridManager) HandleEvents() {
 	}
 }
 
-func to_int(v interface{}) int {
+func to_int(v any) int {
 	switch v := v.(type) {
 	case int64:
 		return int(v)
@@ -97,7 +96,7 @@ func to_int(v interface{}) int {
 	}
 }
 
-func to_uint32(v interface{}) uint32 {
+func to_uint32(v any) uint32 {
 	switch v := v.(type) {
 	case int64:
 		return uint32(v)
@@ -110,10 +109,10 @@ func to_uint32(v interface{}) uint32 {
 	}
 }
 
-func (manager *GridManager) option_set(args []interface{}) {
+func (manager *GridManager) option_set(args []any) {
 	options := &Editor.uiOptions
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		opt := arg[0].(string)
 		val := arg[1]
 		switch opt {
@@ -141,9 +140,8 @@ func (manager *GridManager) option_set(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) set_title(args []interface{}) {
-	title := args[0].([]interface{})[0].(string)
-	logger.Log(logger.DEBUG, "Title is", title)
+func (manager *GridManager) set_title(args []any) {
+	title := args[0].([]any)[0].(string)
 	title = strings.TrimSpace(title)
 	if title == "" {
 		title = fmt.Sprintf("%s %v.%v.%v", NAME, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)
@@ -151,13 +149,13 @@ func (manager *GridManager) set_title(args []interface{}) {
 	Editor.window.SetTitle(title)
 }
 
-func (manager *GridManager) mode_info_set(args []interface{}) {
+func (manager *GridManager) mode_info_set(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		Editor.cursor.mode.cursor_style_enabled = arg[0].(bool)
 		Editor.cursor.mode.Clear()
-		for _, infos := range arg[1].([]interface{}) {
-			infoMap := infos.(map[string]interface{})
+		for _, infos := range arg[1].([]any) {
+			infoMap := infos.(map[string]any)
 			info := ModeInfo{}
 			for k, v := range infoMap {
 				switch k {
@@ -186,17 +184,17 @@ func (manager *GridManager) mode_info_set(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) mode_change(args []interface{}) {
+func (manager *GridManager) mode_change(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		Editor.cursor.mode.current_mode_name = arg[0].(string)
 		Editor.cursor.mode.current_mode = to_int(arg[1])
 	}
 }
 
-func (manager *GridManager) grid_resize(args []interface{}) {
+func (manager *GridManager) grid_resize(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		cols := to_int(arg[1])
 		rows := to_int(arg[2])
@@ -204,9 +202,9 @@ func (manager *GridManager) grid_resize(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) default_colors_set(args []interface{}) {
+func (manager *GridManager) default_colors_set(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		fg := to_uint32(arg[0])
 		bg := to_uint32(arg[1])
 		sp := to_uint32(arg[2])
@@ -220,14 +218,14 @@ func (manager *GridManager) default_colors_set(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) hl_attr_define(args []interface{}) {
+func (manager *GridManager) hl_attr_define(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		// args is an array with first element is
 		// attribute hl_id and second is a map which
 		// contains attribute keys
 		hl_id := to_int(arg[0])
-		attribs := arg[1].(map[string]interface{})
+		attribs := arg[1].(map[string]any)
 		hl_attr := HighlightAttribute{}
 		// iterate over map and set attributes
 		for k, v := range attribs {
@@ -270,18 +268,18 @@ func (manager *GridManager) hl_attr_define(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) grid_line(args []interface{}) {
+func (manager *GridManager) grid_line(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		row := to_int(arg[1])
 		col := to_int(arg[2])
 		// cells is an array of arrays each with 1 to 3 elements
-		cells := arg[3].([]interface{})
+		cells := arg[3].([]any)
 		hl_id := 0 // if hl_id is not present, we will use the last one
 		for _, cell := range cells {
 			// cell is a slice, may have 1 to 3 elements
-			cell := cell.([]interface{})
+			cell := cell.([]any)
 			// first one is character
 			var char rune
 			str := cell[0].(string)
@@ -307,25 +305,25 @@ func (manager *GridManager) grid_line(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) grid_clear(args []interface{}) {
+func (manager *GridManager) grid_clear(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		manager.ClearGrid(grid_id)
 	}
 }
 
-func (manager *GridManager) grid_destroy(args []interface{}) {
+func (manager *GridManager) grid_destroy(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		manager.DestroyGrid(grid_id)
 	}
 }
 
-func (manager *GridManager) grid_cursor_goto(args []interface{}) {
+func (manager *GridManager) grid_cursor_goto(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		row := to_int(arg[1])
 		col := to_int(arg[2])
@@ -333,9 +331,9 @@ func (manager *GridManager) grid_cursor_goto(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) grid_scroll(args []interface{}) {
+func (manager *GridManager) grid_scroll(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		top := to_int(arg[1])
 		bot := to_int(arg[2])
@@ -347,9 +345,9 @@ func (manager *GridManager) grid_scroll(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) win_pos(args []interface{}) {
+func (manager *GridManager) win_pos(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		win := arg[1].(nvim.Window)
 		start_row := to_int(arg[2])
@@ -360,9 +358,9 @@ func (manager *GridManager) win_pos(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) win_float_pos(args []interface{}) {
+func (manager *GridManager) win_float_pos(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		win := arg[1].(nvim.Window)
 		anchor := arg[2].(string)
@@ -395,36 +393,36 @@ func (manager *GridManager) win_float_pos(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) win_external_pos(args []interface{}) {
+func (manager *GridManager) win_external_pos(args []any) {
 	// NOTE: Currently not supported
 	/*
 		for _, arg := range args {
-			arg := arg.([]interface{})
+			arg := arg.([]any)
 			grid := to_int(arg[0])
 			win := arg[1].(nvim.Window)
 		}
 	*/
 }
 
-func (manager *GridManager) win_hide(args []interface{}) {
+func (manager *GridManager) win_hide(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		manager.HideGrid(grid_id)
 	}
 }
 
-func (manager *GridManager) win_close(args []interface{}) {
+func (manager *GridManager) win_close(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		manager.DestroyGrid(grid_id)
 	}
 }
 
-func (manager *GridManager) msg_set_pos(args []interface{}) {
+func (manager *GridManager) msg_set_pos(args []any) {
 	for _, arg := range args {
-		arg := arg.([]interface{})
+		arg := arg.([]any)
 		grid_id := to_int(arg[0])
 		row := to_int(arg[1])
 		// scrolled := arg[2].(bool)
@@ -439,10 +437,10 @@ func (manager *GridManager) msg_set_pos(args []interface{}) {
 	}
 }
 
-func (manager *GridManager) win_viewport(args []interface{}) {
+func (manager *GridManager) win_viewport(args []any) {
 	/*
 		for _, arg := range args {
-			arg := arg.([]interface{})
+			arg := arg.([]any)
 			grid_id := to_int(arg[0])
 			win := arg[1].(nvim.Window)
 			topline := to_int(arg[2])

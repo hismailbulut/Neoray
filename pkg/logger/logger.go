@@ -44,12 +44,12 @@ func InitFile(filename string) {
 	}
 	path, err := filepath.Abs(filename)
 	if err != nil {
-		Log(ERROR, "Failed to get absolute path:", err)
+		Error("Failed to get absolute path:", err)
 		return
 	}
 	cache.file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_SYNC, 0666)
 	if err != nil {
-		Log(ERROR, "Failed to create log file:", err)
+		Error("Failed to create log file:", err)
 		return
 	}
 	fmt.Fprintf(cache.file, "%s %s %s LOG %s\n", cache.name, cache.version, cache.buildtype, timeString(time.Now()))
@@ -59,7 +59,7 @@ func InitFile(filename string) {
 func Shutdown() {
 	// This will capture the panic and turns it to a fatal
 	if pmsg := recover(); pmsg != nil {
-		Log(FATAL, pmsg)
+		Fatal(pmsg)
 	} else {
 		// Log(FATAL) already cleans up, we should only clean up if this is
 		// a regular quit
@@ -103,7 +103,7 @@ func createCrashReport(msg string, isPanic bool) {
 	}
 }
 
-func Log(logLevel LogLevel, message ...any) {
+func log(logLevel LogLevel, message ...any) {
 	guard.Lock()
 	buildtype := cache.buildtype
 	guard.Unlock()
@@ -141,6 +141,46 @@ func Log(logLevel LogLevel, message ...any) {
 	}
 }
 
-func LogF(level LogLevel, format string, args ...any) {
-	Log(level, fmt.Sprintf(format, args...))
+func logf(level LogLevel, format string, args ...any) {
+	log(level, fmt.Sprintf(format, args...))
+}
+
+func Debug(message ...any) {
+	log(DEBUG, message...)
+}
+
+func Debugf(format string, args ...any) {
+	logf(DEBUG, format, args...)
+}
+
+func Trace(message ...any) {
+	log(TRACE, message...)
+}
+
+func Tracef(format string, args ...any) {
+	logf(TRACE, format, args...)
+}
+
+func Warn(message ...any) {
+	log(WARN, message...)
+}
+
+func Warnf(format string, args ...any) {
+	logf(WARN, format, args...)
+}
+
+func Error(message ...any) {
+	log(ERROR, message...)
+}
+
+func Errorf(format string, args ...any) {
+	logf(ERROR, format, args...)
+}
+
+func Fatal(message ...any) {
+	log(FATAL, message...)
+}
+
+func Fatalf(format string, args ...any) {
+	logf(FATAL, format, args...)
 }

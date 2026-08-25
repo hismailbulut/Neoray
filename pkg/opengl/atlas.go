@@ -139,7 +139,7 @@ func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
 	if atlas.pen.Y+img.Rect.Dy() > textureSize.Height() {
 		// We must grow the texture
 		atlas.texture.Resize(textureSize.Width()*2, textureSize.Height()*2)
-		logger.Log(logger.DEBUG, "Atlas", atlas.texture.id, "texture resized to %v", atlas.texture.Size())
+		logger.Debug("Atlas", atlas.texture.id, "texture resized to %v", atlas.texture.Size())
 		// Resizing texture also clears it, so we should also clear the cache
 		atlas.cache = make(map[uint64]common.Rectangle[int])
 		atlas.pen = common.Vector2[int]{}
@@ -203,7 +203,7 @@ func (atlas *Atlas) Undercurl(imgSize common.Vector2[int]) (common.Rectangle[int
 }
 
 func (atlas *Atlas) unsupported(char rune, imgSize common.Vector2[int]) common.Rectangle[int] {
-	logger.Log(logger.DEBUG, "Unsupported glyph:", char, string(char))
+	logger.Debug("Unsupported glyph:", char, string(char))
 	pos, ok := atlas.cache[UNSUPPORTED_GLYPH_ID]
 	if ok {
 		return pos

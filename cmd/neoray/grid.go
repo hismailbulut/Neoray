@@ -61,7 +61,7 @@ func (cell *Cell) Attribute() HighlightAttribute {
 	} else {
 		attrib, ok := Editor.gridManager.attributes[cell.attribID]
 		if !ok {
-			logger.LogF(logger.ERROR, "Attribute id %d not found!", cell.attribID)
+			logger.Errorf("Attribute id %d not found!", cell.attribID)
 			return attrib
 		}
 		// Zero alpha means color is not set and we use default color
@@ -128,7 +128,7 @@ func NewGrid(window *window.Window, id, number int, rows, cols int, kit *fontkit
 	if err != nil {
 		return nil, err
 	}
-	logger.Log(logger.DEBUG, "Grid created:", grid)
+	logger.Debug("Grid created:", grid)
 	return grid, nil
 }
 
@@ -252,10 +252,10 @@ func (grid *Grid) SetPos(win nvim.Window, sRow, sCol int, rows, cols int, typ Gr
 	// NOTE: I don't know if this is required
 	if grid.rows != rows || grid.cols != cols {
 		// grid.Resize(rows, cols)
-		logger.Log(logger.DEBUG, "Setpos has different size:", rows, cols, "current grid size:", grid.rows, grid.cols)
+		logger.Debug("Setpos has different size:", rows, cols, "current grid size:", grid.rows, grid.cols)
 	}
 	grid.renderer.SetPos(position)
-	logger.Log(logger.DEBUG, "Grid moved:", grid)
+	logger.Debug("Grid moved:", grid)
 	MarkForceDraw()
 }
 
@@ -288,6 +288,6 @@ func (grid *Grid) Render() {
 }
 
 func (grid *Grid) Destroy() {
-	logger.Log(logger.DEBUG, "Grid destroyed:", grid)
+	logger.Debug("Grid destroyed:", grid)
 	grid.renderer.Destroy()
 }

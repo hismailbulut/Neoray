@@ -21,7 +21,7 @@ type IpcMessageType int
 type IpcFuncCall struct {
 	MsgType    IpcMessageType
 	MacAddress uint64
-	Args       []interface{}
+	Args       []any
 }
 
 const (
@@ -92,8 +92,8 @@ func CreateClient() (*IpcClient, error) {
 	return &client, nil
 }
 
-func (client *IpcClient) Call(msgType IpcMessageType, args ...interface{}) bool {
-	logger.Log(logger.DEBUG, "Sending signal:", msgType)
+func (client *IpcClient) Call(msgType IpcMessageType, args ...any) bool {
+	logger.Debug("Sending signal:", msgType)
 	// Encode function
 	jsonData, err := json.Marshal(IpcFuncCall{
 		MsgType:    msgType,
@@ -101,19 +101,19 @@ func (client *IpcClient) Call(msgType IpcMessageType, args ...interface{}) bool 
 		Args:       args,
 	})
 	if err != nil {
-		logger.Log(logger.WARN, "Failed to encode function call:", err)
+		logger.Warn("Failed to encode function call:", err)
 		return false
 	}
 	_, err = client.conn.Write(jsonData)
 	if err != nil {
-		logger.Log(logger.WARN, "Failed to send signal:", err)
+		logger.Warn("Failed to send signal:", err)
 		return false
 	}
 	// Read response from server
 	resp := make([]byte, DEFAULT_BUFFER_SIZE)
 	n, err := client.conn.Read(resp)
 	if err != nil {
-		logger.Log(logger.WARN, "Failed to read response:", err)
+		logger.Warn("Failed to read response:", err)
 		return false
 	}
 	resp = resp[:n]
@@ -121,27 +121,27 @@ func (client *IpcClient) Call(msgType IpcMessageType, args ...interface{}) bool 
 	var funcCall IpcFuncCall
 	err = json.Unmarshal(resp, &funcCall)
 	if err != nil {
-		logger.Log(logger.WARN, "Failed to decode response:", err)
+		logger.Warn("Failed to decode response:", err)
 		return false
 	}
 	// Check mac address
 	// NOTE: Actually we don't need to check for mac address in client because
 	// client already sent command to execute but anyway, it seems more secure
 	if funcCall.MacAddress != client.mac {
-		logger.Log(logger.WARN, "Signal rejected: Connected server is not running on same machine.")
+		logger.Warn("Signal rejected: Connected server is not running on same machine.")
 		return false
 	}
 	// First client sends close call to server, if server accepts, it resends
 	// close call to client and closes its connection. After server closes, client
 	// receives a close call and closes itself.
 	if funcCall.MsgType == IPC_MSG_TYPE_CLOSE_CONN {
-		logger.Log(logger.TRACE, "Disconnected from server.")
+		logger.Trace("Disconnected from server.")
 		client.conn.Close()
 		return true
 	} else if funcCall.MsgType != IPC_MSG_TYPE_OK {
 		// Server always has to send OK. if we are not receive any ok this means there is a
 		// problem in connection
-		logger.Log(logger.TRACE, "Client sent non OK response:", funcCall.MsgType)
+		logger.Trace("Client sent non OK response:", funcCall.MsgType)
 		return false
 	}
 	return true
@@ -149,7 +149,7 @@ func (client *IpcClient) Call(msgType IpcMessageType, args ...interface{}) bool 
 
 func (client *IpcClient) Close() {
 	client.Call(IPC_MSG_TYPE_CLOSE_CONN)
-	logger.Log(logger.TRACE, "Client closed.")
+	logger.Trace("Client closed.")
 }
 
 // Server is a listener, not sends messages but processes incoming messages from clients
@@ -178,26 +178,26 @@ func (server *IpcServer) mainLoop() {
 	// Encode ok message because we always use it
 	encodedOK, err := json.Marshal(IpcFuncCall{MsgType: IPC_MSG_TYPE_OK, MacAddress: server.mac})
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to encode OK:", err)
+		logger.Error("Failed to encode OK:", err)
 		return
 	}
 	// Encode CLOSE message because we always use it
 	encodedCLOSE, err := json.Marshal(IpcFuncCall{MsgType: IPC_MSG_TYPE_CLOSE_CONN, MacAddress: server.mac})
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to encode CLOSE:", err)
+		logger.Error("Failed to encode CLOSE:", err)
 		return
 	}
 	for {
 		conn, err := server.listener.Accept()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
-				logger.Log(logger.TRACE, "Server closed.")
+				logger.Trace("Server closed.")
 			} else {
-				logger.Log(logger.ERROR, "Server closed because of errors:", err)
+				logger.Error("Server closed because of errors:", err)
 			}
 			return
 		}
-		logger.Log(logger.TRACE, "New client connected:", conn.RemoteAddr())
+		logger.Trace("New client connected:", conn.RemoteAddr())
 		// handle connection concurrently
 		go func() {
 			defer conn.Close()
@@ -205,7 +205,7 @@ func (server *IpcServer) mainLoop() {
 				data := make([]byte, DEFAULT_BUFFER_SIZE)
 				n, err := conn.Read(data)
 				if err != nil {
-					logger.Log(logger.WARN, "Failed to read client data:", err)
+					logger.Warn("Failed to read client data:", err)
 					continue
 				}
 				data = data[:n]
@@ -213,27 +213,27 @@ func (server *IpcServer) mainLoop() {
 				var funcCall IpcFuncCall
 				err = json.Unmarshal(data, &funcCall)
 				if err != nil {
-					logger.Log(logger.WARN, "Failed to decode client data:", err)
+					logger.Warn("Failed to decode client data:", err)
 					continue
 				}
 				// check mac address
 				if funcCall.MacAddress != server.mac {
-					logger.Log(logger.WARN, "Signal Rejected: Connected client is not running on same machine.")
+					logger.Warn("Signal Rejected: Connected client is not running on same machine.")
 					break
 				}
 				switch funcCall.MsgType {
 				case IPC_MSG_TYPE_CLOSE_CONN:
-					logger.Log(logger.TRACE, "Client", conn.RemoteAddr(), "disconnected.")
+					logger.Trace("Client", conn.RemoteAddr(), "disconnected.")
 					_, err = conn.Write(encodedCLOSE)
 					if err != nil {
-						logger.Log(logger.WARN, "Failed to send response to client.")
+						logger.Warn("Failed to send response to client.")
 					}
 					return
 				default:
 					server.callsChan <- funcCall
 					_, err = conn.Write(encodedOK)
 					if err != nil {
-						logger.Log(logger.WARN, "Failed to send response to client.")
+						logger.Warn("Failed to send response to client.")
 					}
 				}
 			}
@@ -247,8 +247,8 @@ func (server *IpcServer) Update() {
 		// bool, for JSON booleans
 		// float64, for JSON numbers
 		// string, for JSON strings
-		// []interface{}, for JSON arrays
-		// map[string]interface{}, for JSON objects
+		// []any, for JSON arrays
+		// map[string]any, for JSON objects
 		// nil for JSON null
 		switch call.MsgType {
 		case IPC_MSG_TYPE_OPEN_FILE:
@@ -261,7 +261,7 @@ func (server *IpcServer) Update() {
 			column := int(call.Args[0].(float64))
 			Editor.nvim.MoveCursor(0, column)
 		default:
-			logger.Log(logger.WARN, "Server received invalid signal:", call)
+			logger.Warn("Server received invalid signal:", call)
 		}
 		Editor.window.Raise()
 	}
@@ -269,5 +269,5 @@ func (server *IpcServer) Update() {
 
 func (server *IpcServer) Close() {
 	server.listener.Close()
-	logger.Log(logger.DEBUG, "IPC server closed")
+	logger.Debug("IPC server closed")
 }

@@ -40,7 +40,7 @@ func main() {
 	var quit bool
 	Editor.parsedArgs, err, quit = ParseArgs(os.Args[1:])
 	if err != nil {
-		logger.Log(logger.FATAL, err)
+		logger.Fatal(err)
 	}
 	if quit {
 		return
@@ -59,7 +59,7 @@ func main() {
 	// Some arguments must be processed after initialization
 	Editor.parsedArgs.ProcessAfter()
 	// Start time information
-	logger.Log(logger.TRACE, "Initialization time:", time.Since(StartTime))
+	logger.Trace("Initialization time:", time.Since(StartTime))
 	// MainLoop is main loop of the neoray.
 	MainLoop()
 }

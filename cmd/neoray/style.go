@@ -59,23 +59,23 @@ func (options *UIOptions) setGuiFont(guifont string) {
 		Editor.contextMenu.SetFontKit(nil)
 	} else {
 		// Create and set font
-		logger.Log(logger.TRACE, "Loading font", name)
+		logger.Trace("Loading font", name)
 		kit, err := fontkit.CreateKit(name)
 		if err != nil {
 			Editor.nvim.EchoError("Font %s not found", name)
 		} else {
 			// Log some info
 			if kit.Regular() != nil {
-				logger.Log(logger.TRACE, "Regular:", kit.Regular().FilePath())
+				logger.Trace("Regular:", kit.Regular().FilePath())
 			}
 			if kit.Bold() != nil {
-				logger.Log(logger.TRACE, "Bold:", kit.Bold().FilePath())
+				logger.Trace("Bold:", kit.Bold().FilePath())
 			}
 			if kit.Italic() != nil {
-				logger.Log(logger.TRACE, "Italic:", kit.Italic().FilePath())
+				logger.Trace("Italic:", kit.Italic().FilePath())
 			}
 			if kit.BoldItalic() != nil {
-				logger.Log(logger.TRACE, "BoldItalic:", kit.BoldItalic().FilePath())
+				logger.Trace("BoldItalic:", kit.BoldItalic().FilePath())
 			}
 			// Set fonts
 			Editor.gridManager.SetGridFontKit(1, kit)

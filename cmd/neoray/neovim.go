@@ -38,7 +38,7 @@ var NeorayRuntimeScript string
 
 type NvimProcess struct {
 	handle     *nvim.Nvim
-	eventChan  chan []interface{}
+	eventChan  chan []any
 	optionChan chan []string
 	// This is required for when closing neoray. If neoray connected via stdin-out
 	// it is responsible for closing nvim, but if neoray connected via tcp, it will
@@ -48,7 +48,7 @@ type NvimProcess struct {
 
 func CreateNvimProcess() *NvimProcess {
 	proc := &NvimProcess{
-		eventChan:  make(chan []interface{}, 256), // Thats enough
+		eventChan:  make(chan []any, 256), // Thats enough
 		optionChan: make(chan []string, 16),
 	}
 
@@ -56,14 +56,14 @@ func CreateNvimProcess() *NvimProcess {
 		// Try to connect via tcp
 		var err error
 		proc.handle, err = nvim.Dial(Editor.parsedArgs.address,
-			nvim.DialLogf(func(format string, args ...interface{}) {
-				logger.LogF(logger.TRACE, format, args...)
+			nvim.DialLogf(func(format string, args ...any) {
+				logger.Tracef(format, args...)
 			}),
 		)
 		if err != nil {
-			logger.Log(logger.ERROR, "Failed to connect existing neovim instance:", err)
+			logger.Error("Failed to connect existing neovim instance:", err)
 		} else {
-			logger.Log(logger.TRACE, "Connected to existing neovim at address:", Editor.parsedArgs.address)
+			logger.Trace("Connected to existing neovim at address:", Editor.parsedArgs.address)
 			proc.connectedViaTcp = true
 		}
 	}
@@ -80,7 +80,7 @@ func CreateNvimProcess() *NvimProcess {
 			execPath := checkNvimExecPathInSameDir()
 			if execPath != "" {
 				Editor.parsedArgs.execPath = execPath
-				logger.Log(logger.TRACE, "Using neovim in the same directory of Neoray executable.")
+				logger.Trace("Using neovim in the same directory of Neoray executable.")
 			}
 		}
 		// Connect via stdin-stdout
@@ -91,9 +91,9 @@ func CreateNvimProcess() *NvimProcess {
 			nvim.ChildProcessCommand(Editor.parsedArgs.execPath),
 		)
 		if err != nil {
-			logger.Log(logger.FATAL, "Failed to start neovim instance:", err)
+			logger.Fatal("Failed to start neovim instance:", err)
 		}
-		logger.Log(logger.TRACE, "Neovim started with command:", Editor.parsedArgs.execPath, strings.Join(args, " "))
+		logger.Trace("Neovim started with command:", Editor.parsedArgs.execPath, strings.Join(args, " "))
 	}
 
 	// Serve blocks until the msgpack session closed. But sometimes it not returns.
@@ -103,32 +103,32 @@ func CreateNvimProcess() *NvimProcess {
 	go func() {
 		err := proc.handle.Serve()
 		if err != nil {
-			logger.Log(logger.WARN, "nvim.Serve() exited with error:", err)
+			logger.Warn("nvim.Serve() exited with error:", err)
 		} else {
-			logger.Log(logger.DEBUG, "nvim.Serve() exited without error")
+			logger.Debug("nvim.Serve() exited without error")
 		}
 		Editor.quitChan <- true
 	}()
 
 	info, err := proc.handle.APIInfo()
 	if err != nil {
-		logger.Log(logger.FATAL, "Failed to get api information:", err)
+		logger.Fatal("Failed to get api information:", err)
 	} else {
 		// Check neovim version
 		// info[1] is dictionary of infos and it has a key named 'version',
 		// and this key contains a map which has major, minor and patch informations
 
-		vInfo := info[1].(map[string]interface{})["version"].(map[string]interface{})
+		vInfo := info[1].(map[string]any)["version"].(map[string]any)
 		vMajor := to_int(vInfo["major"])
 		vMinor := to_int(vInfo["minor"])
 		vPatch := to_int(vInfo["patch"])
 
 		if vMinor < 5 {
-			logger.Log(logger.FATAL, "Neoray needs at least 0.5.0 version of neovim. Please update your neovim to a newer version.")
+			logger.Fatal("Neoray needs at least 0.5.0 version of neovim. Please update your neovim to a newer version.")
 		}
 
 		vStr := fmt.Sprintf("%d.%d.%d", vMajor, vMinor, vPatch)
-		logger.Log(logger.TRACE, "Neovim version", vStr)
+		logger.Trace("Neovim version", vStr)
 	}
 
 	// Set a variable that users can define their neoray specific customization.
@@ -152,7 +152,7 @@ func CreateNvimProcess() *NvimProcess {
 	// Execute runtime script
 	_, err = proc.handle.Exec(source, false)
 	if err != nil {
-		logger.Log(logger.FATAL, "Failed to execute runtime script:", err)
+		logger.Fatal("Failed to execute runtime script:", err)
 	}
 
 	// Register NeorayOptionSet
@@ -168,7 +168,7 @@ func CreateNvimProcess() *NvimProcess {
 	proc.RegisterHandler(
 		"NeorayVimEnter",
 		func() {
-			logger.Log(logger.DEBUG, "VimEnter")
+			logger.Debug("VimEnter")
 		},
 	)
 
@@ -176,7 +176,7 @@ func CreateNvimProcess() *NvimProcess {
 	proc.RegisterHandler(
 		"NeorayVimLeave",
 		func() {
-			logger.Log(logger.DEBUG, "VimLeave")
+			logger.Debug("VimLeave")
 			Editor.quitChan <- true
 		},
 	)
@@ -186,7 +186,7 @@ func CreateNvimProcess() *NvimProcess {
 		"NeorayViewImage",
 		func(imgPath string) (bool, error) {
 			if Editor.options.imageViewerEnabled {
-				logger.Log(logger.DEBUG, "ViewImage:", imgPath)
+				logger.Debug("ViewImage:", imgPath)
 				Editor.imageViewer.imageChan <- imgPath
 				return true, nil
 			} else {
@@ -201,7 +201,7 @@ func CreateNvimProcess() *NvimProcess {
 func checkNvimExecPathInSameDir() string {
 	neorayExecPath, err := os.Executable()
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to find Neoray executable path:", err)
+		logger.Error("Failed to find Neoray executable path:", err)
 		return ""
 	}
 	// check if there is an nvim.exe in the same folder with neoray
@@ -214,32 +214,32 @@ func checkNvimExecPathInSameDir() string {
 	return nvimExecPath
 }
 
-func (proc *NvimProcess) RegisterHandler(name string, handler interface{}) {
+func (proc *NvimProcess) RegisterHandler(name string, handler any) {
 	err := proc.handle.RegisterHandler(name, handler)
 	if err != nil {
-		logger.LogF(logger.FATAL, "Failed to register handler for '%s' because error: %v", name, err)
+		logger.Fatalf("Failed to register handler for '%s' because error: %v", name, err)
 	}
 }
 
 func (proc *NvimProcess) StartUI(rows, cols int) {
-	proc.RegisterHandler("redraw", func(events ...[]interface{}) {
+	proc.RegisterHandler("redraw", func(events ...[]any) {
 		for _, event := range events {
 			proc.eventChan <- event
 		}
 	})
 
-	options := map[string]interface{}{
+	options := map[string]any{
 		"rgb":          true,
 		"ext_linegrid": true,
 	}
 
 	if Editor.parsedArgs.multiGrid {
 		options["ext_multigrid"] = true
-		logger.Log(logger.DEBUG, "Multigrid enabled.")
+		logger.Debug("Multigrid enabled.")
 	}
 
 	if err := proc.handle.AttachUI(cols, rows, options); err != nil {
-		logger.Log(logger.FATAL, "AttachUI failed:", err)
+		logger.Fatal("AttachUI failed:", err)
 	}
 
 	// Dictionary describing the version
@@ -268,11 +268,11 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		// NOTE: Not only this one but most api calls gets blocking
 		err := proc.handle.SetClientInfo(NAME, version, typ, methods, attributes)
 		if err != nil {
-			logger.Log(logger.FATAL, "Failed to set client information:", err)
+			logger.Fatal("Failed to set client information:", err)
 		}
 	}()
 
-	logger.Log(logger.DEBUG, "Attached to neovim as an ui client")
+	logger.Debug("Attached to neovim as an ui client")
 }
 
 // Neoray only has to call this when quiting without closing neovim
@@ -295,7 +295,7 @@ func (proc *NvimProcess) Update() {
 		if Editor.state < EditorWindowShown {
 			Editor.window.Show()
 			SetEditorState(EditorWindowShown)
-			logger.Log(logger.TRACE, "Window is visible now in", time.Since(StartTime))
+			logger.Trace("Window is visible now in", time.Since(StartTime))
 		}
 	}
 }
@@ -314,20 +314,20 @@ func (proc *NvimProcess) processOption(opt []string) {
 		{
 			value, err := strconv.ParseFloat(opt[1], 32)
 			if err != nil {
-				logger.Log(logger.WARN, OPTION_CURSOR_ANIM, "value isn't valid.")
+				logger.Warn(OPTION_CURSOR_ANIM, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_CURSOR_ANIM, "is", opt[1])
+			logger.Debug("Option", OPTION_CURSOR_ANIM, "is", opt[1])
 			Editor.options.cursorAnimTime = float32(value)
 		}
 	case OPTION_TRANSPARENCY:
 		{
 			value, err := strconv.ParseFloat(opt[1], 32)
 			if err != nil {
-				logger.Log(logger.WARN, OPTION_TRANSPARENCY, "value isn't valid.")
+				logger.Warn(OPTION_TRANSPARENCY, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_TRANSPARENCY, "is", opt[1])
+			logger.Debug("Option", OPTION_TRANSPARENCY, "is", opt[1])
 			Editor.options.transparency = common.Clamp(float32(value), 0, 1)
 			MarkForceDraw()
 		}
@@ -335,10 +335,10 @@ func (proc *NvimProcess) processOption(opt []string) {
 		{
 			value, err := strconv.Atoi(opt[1])
 			if err != nil {
-				logger.Log(logger.WARN, OPTION_TARGET_TPS, "value isn't valid.")
+				logger.Warn(OPTION_TARGET_TPS, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_TARGET_TPS, "is", value)
+			logger.Debug("Option", OPTION_TARGET_TPS, "is", value)
 			Editor.options.targetTPS = value
 			ResetTicker()
 		}
@@ -346,33 +346,33 @@ func (proc *NvimProcess) processOption(opt []string) {
 		{
 			value, err := strconv.ParseBool(opt[1])
 			if err != nil {
-				logger.Log(logger.WARN, OPTION_CONTEXT_MENU, "value isn't valid.")
+				logger.Warn(OPTION_CONTEXT_MENU, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_CONTEXT_MENU, "is", value)
+			logger.Debug("Option", OPTION_CONTEXT_MENU, "is", value)
 			Editor.options.contextMenuEnabled = value
 		}
 	case OPTION_CONTEXT_BUTTON:
 		{
 			if len(opt) >= 3 {
 				cmd := strings.Join(opt[2:], " ")
-				logger.Log(logger.DEBUG, "Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", cmd)
+				logger.Debug("Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", cmd)
 				Editor.contextMenu.AddButton(ContextButton{
 					name: opt[1],
 					fn:   func() { proc.Command(cmd) },
 				})
 			} else {
-				logger.Log(logger.WARN, "Not enough argument for option", OPTION_CONTEXT_BUTTON)
+				logger.Warn("Not enough argument for option", OPTION_CONTEXT_BUTTON)
 			}
 		}
 	case OPTION_BOX_DRAWING:
 		{
 			value, err := strconv.ParseBool(opt[1])
 			if err != nil {
-				logger.Log(logger.WARN, OPTION_BOX_DRAWING, "value isn't valid.")
+				logger.Warn(OPTION_BOX_DRAWING, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_BOX_DRAWING, "is", value)
+			logger.Debug("Option", OPTION_BOX_DRAWING, "is", value)
 			Editor.options.boxDrawingEnabled = value
 			// Currently we didn't separate this two options but may be in the future
 			Editor.gridManager.SetBoxDrawing(Editor.options.boxDrawingEnabled, Editor.options.boxDrawingEnabled)
@@ -381,15 +381,15 @@ func (proc *NvimProcess) processOption(opt []string) {
 		{
 			value, err := strconv.ParseBool(opt[1])
 			if err != nil {
-				logger.Log(logger.WARN, OPTION_IMAGE_VIEWER, "value isn't valid.")
+				logger.Warn(OPTION_IMAGE_VIEWER, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_IMAGE_VIEWER, "is", value)
+			logger.Debug("Option", OPTION_IMAGE_VIEWER, "is", value)
 			Editor.options.imageViewerEnabled = value
 		}
 	case OPTION_WINDOW_STATE:
 		{
-			logger.Log(logger.DEBUG, "Option", OPTION_WINDOW_STATE, "is", opt[1])
+			logger.Debug("Option", OPTION_WINDOW_STATE, "is", opt[1])
 			switch opt[1] {
 			case "minimized":
 				Editor.window.Minimize()
@@ -422,38 +422,38 @@ func (proc *NvimProcess) processOption(opt []string) {
 				return width, height, true
 			}(opt[1])
 			if !ok {
-				logger.Log(logger.WARN, OPTION_WINDOW_SIZE, "value isn't valid.")
+				logger.Warn(OPTION_WINDOW_SIZE, "value isn't valid.")
 				break
 			}
-			logger.Log(logger.DEBUG, "Option", OPTION_WINDOW_SIZE, "is", cols, rows)
+			logger.Debug("Option", OPTION_WINDOW_SIZE, "is", cols, rows)
 			ResizeWindowInCellFormat(rows, cols)
 		}
 	case OPTION_KEY_FULLSCRN:
 		{
-			logger.Log(logger.DEBUG, "Option", OPTION_KEY_FULLSCRN, "is", opt[1])
+			logger.Debug("Option", OPTION_KEY_FULLSCRN, "is", opt[1])
 			Editor.options.keyToggleFullscreen = opt[1]
 		}
 	case OPTION_KEY_ZOOMIN:
 		{
-			logger.Log(logger.DEBUG, "Option", OPTION_KEY_ZOOMIN, "is", opt[1])
+			logger.Debug("Option", OPTION_KEY_ZOOMIN, "is", opt[1])
 			Editor.options.keyIncreaseFontSize = opt[1]
 		}
 	case OPTION_KEY_ZOOMOUT:
 		{
-			logger.Log(logger.DEBUG, "Option", OPTION_KEY_ZOOMOUT, "is", opt[1])
+			logger.Debug("Option", OPTION_KEY_ZOOMOUT, "is", opt[1])
 			Editor.options.keyDecreaseFontSize = opt[1]
 		}
 	default:
-		logger.Log(logger.WARN, "Invalid option", opt)
+		logger.Warn("Invalid option", opt)
 	}
 }
 
-func (proc *NvimProcess) Command(format string, args ...interface{}) bool {
+func (proc *NvimProcess) Command(format string, args ...any) bool {
 	cmd := fmt.Sprintf(format, args...)
-	logger.Log(logger.DEBUG, "Executing command: [", cmd, "]")
+	logger.Debug("Executing command: [", cmd, "]")
 	err := proc.handle.Command(cmd)
 	if err != nil {
-		logger.Log(logger.ERROR, "Command execution failed: [", cmd, "] err:", err)
+		logger.Error("Command execution failed: [", cmd, "] err:", err)
 		return false
 	}
 	return true
@@ -463,13 +463,13 @@ func (proc *NvimProcess) Command(format string, args ...interface{}) bool {
 func (proc *NvimProcess) Mode() string {
 	mode, err := proc.handle.Mode()
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to get current mode name:", err)
+		logger.Error("Failed to get current mode name:", err)
 		return ""
 	}
 	return mode.Mode
 }
 
-func (proc *NvimProcess) EchoError(format string, args ...interface{}) {
+func (proc *NvimProcess) EchoError(format string, args ...any) {
 	formatted := fmt.Sprintf(format, args...)
 	proc.handle.WritelnErr(formatted)
 	// Also log this as an error
@@ -480,7 +480,7 @@ func (proc *NvimProcess) GetRegister(register string) string {
 	var content string
 	err := proc.handle.Call("getreg", &content, register)
 	if err != nil {
-		logger.Log(logger.ERROR, "Api call getreg() failed:", err)
+		logger.Error("Api call getreg() failed:", err)
 	}
 	return content
 }
@@ -514,7 +514,7 @@ func (proc *NvimProcess) Paste(str string) {
 	go func() {
 		err := proc.handle.Call("nvim_paste", nil, str, true, -1)
 		if err != nil {
-			logger.Log(logger.ERROR, "Api call nvim_paste() failed:", err)
+			logger.Error("Api call nvim_paste() failed:", err)
 		}
 	}()
 }
@@ -531,41 +531,41 @@ func (proc *NvimProcess) SelectAll() {
 }
 
 func (proc *NvimProcess) EditFile(file string) {
-	logger.Log(logger.DEBUG, "Editing file", file)
+	logger.Debug("Editing file", file)
 	go proc.Command("edit %s", file)
 }
 
 func (proc *NvimProcess) MoveCursor(line, col int) {
-	logger.Log(logger.DEBUG, "Moving cursor", line, col)
+	logger.Debug("Moving cursor", line, col)
 	go proc.handle.Call("cursor", nil, line, col)
 }
 
 func (proc *NvimProcess) FeedKeys(keys string) {
 	keycode, err := proc.handle.ReplaceTermcodes(keys, true, true, true)
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to replace termcodes:", err)
+		logger.Error("Failed to replace termcodes:", err)
 		return
 	}
 	err = proc.handle.FeedKeys(keycode, "m", true)
 	if err != nil {
-		logger.Log(logger.ERROR, "Failed to feed keys:", err)
+		logger.Error("Failed to feed keys:", err)
 	}
 }
 
 func (proc *NvimProcess) Input(keycode string) {
 	written, err := proc.handle.Input(keycode)
 	if err != nil {
-		logger.Log(logger.WARN, "Failed to send input keys:", err)
+		logger.Warn("Failed to send input keys:", err)
 	}
 	if written != len(keycode) {
-		logger.Log(logger.WARN, "Failed to send some keys.")
+		logger.Warn("Failed to send some keys.")
 	}
 }
 
 func (proc *NvimProcess) InputMouse(button, action, modifier string, grid, row, column int) {
 	err := proc.handle.InputMouse(button, action, modifier, grid, row, column)
 	if err != nil {
-		logger.Log(logger.WARN, "Failed to send mouse input:", err)
+		logger.Warn("Failed to send mouse input:", err)
 	}
 }
 
@@ -576,7 +576,7 @@ func (proc *NvimProcess) TryResizeUI(rows, cols int) {
 	go func() {
 		err := proc.handle.TryResizeUI(cols, rows)
 		if err != nil {
-			logger.Log(logger.ERROR, "Failed to send resize request:", err)
+			logger.Error("Failed to send resize request:", err)
 			return
 		}
 	}()
@@ -589,7 +589,7 @@ func (proc *NvimProcess) TryResizeUIGrid(id, rows, cols int) {
 	go func() {
 		err := proc.handle.TryResizeUIGrid(id, cols, rows)
 		if err != nil {
-			logger.Log(logger.ERROR, "Failed to send resize request:", err)
+			logger.Error("Failed to send resize request:", err)
 			return
 		}
 	}()
@@ -602,9 +602,9 @@ func (proc *NvimProcess) Close() {
 	go func() {
 		err := proc.handle.Close()
 		if err != nil {
-			logger.Log(logger.WARN, "Failed to close neovim client:", err)
+			logger.Warn("Failed to close neovim client:", err)
 		} else {
-			logger.Log(logger.DEBUG, "Neovim client closed")
+			logger.Debug("Neovim client closed")
 		}
 	}()
 }

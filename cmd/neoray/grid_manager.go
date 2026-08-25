@@ -235,8 +235,7 @@ func (manager *GridManager) printCellInfoAt(pos common.Vector2[int]) {
 		Fg:   %v
 		Bg:   %v
 		Sp:   %v`
-		logger.LogF(logger.DEBUG,
-			format,
+		logger.Debugf(format,
 			gridID, row, col,
 			cell,
 			grid,
@@ -299,7 +298,7 @@ func (manager *GridManager) ResizeGrid(id int, rows, cols int) {
 		var err error
 		grid, err = NewGrid(Editor.window, id, manager.totalGridsCreated, rows, cols, manager.kit, manager.fontSize, common.Vec2(0, 0))
 		if err != nil {
-			logger.Log(logger.FATAL, "Grid creation failed:", err)
+			logger.Fatal("Grid creation failed:", err)
 		}
 		manager.grids[id] = grid
 	}
@@ -340,7 +339,7 @@ func (manager *GridManager) Destroy() {
 	for k := range manager.grids {
 		manager.DestroyGrid(k)
 	}
-	logger.Log(logger.DEBUG, "Grid manager destroyed")
+	logger.Debug("Grid manager destroyed")
 }
 
 func (manager *GridManager) ClearGrid(id int) {

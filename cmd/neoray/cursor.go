@@ -245,5 +245,5 @@ func (cursor *Cursor) Render() {
 
 func (cursor *Cursor) Destroy() {
 	cursor.buffer.Destroy()
-	logger.Log(logger.DEBUG, "Cursor destroyed")
+	logger.Debug("Cursor destroyed")
 }

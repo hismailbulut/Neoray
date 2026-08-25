@@ -165,7 +165,7 @@ func checkNeorayKeybindings(keycode string) bool {
 		case "<C-F2>":
 			panic("Control+F2 manual panic")
 		case "<C-F3>":
-			logger.Log(logger.FATAL, "Control+F3 manual fatal")
+			logger.Fatal("Control+F3 manual fatal")
 		case "<MiddleMouse>":
 			Editor.gridManager.printCellInfoAt(inputCache.mousePos)
 			return true

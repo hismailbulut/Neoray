@@ -88,7 +88,7 @@ func (context *Context) CreateVertexBuffer(size int) *VertexBuffer {
 	}
 	// Create buffer in memory
 	buffer.data = make([]Vertex, size)
-	logger.Log(logger.DEBUG, "Buffer created:", buffer)
+	logger.Debug("Buffer created:", buffer)
 	return buffer
 }
 
@@ -191,7 +191,7 @@ func (buffer *VertexBuffer) Destroy() {
 	gl.DeleteBuffers(1, &buffer.vboid)
 	buffer.updatedSize = 0
 	buffer.data = nil
-	logger.Log(logger.DEBUG, "Buffer destroyed:", buffer)
+	logger.Debug("Buffer destroyed:", buffer)
 }
 
 // Buffer functions

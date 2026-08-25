@@ -42,7 +42,7 @@ func (context *Context) CreateTexture(width, height int) Texture {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
 	checkGLError()
 	texture.Resize(width, height)
-	logger.Log(logger.DEBUG, "Texture created:", texture)
+	logger.Debug("Texture created:", texture)
 	return texture
 }
 
@@ -118,5 +118,5 @@ func (texture *Texture) Delete() {
 	texture.width = 0
 	texture.height = 0
 	texture.fbo = 0
-	logger.Log(logger.DEBUG, "Texture deleted:", texture)
+	logger.Debug("Texture deleted:", texture)
 }
