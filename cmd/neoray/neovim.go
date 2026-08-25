@@ -471,9 +471,12 @@ func (proc *NvimProcess) Mode() string {
 
 func (proc *NvimProcess) EchoError(format string, args ...any) {
 	formatted := fmt.Sprintf(format, args...)
-	proc.handle.WritelnErr(formatted)
-	// Also log this as an error
-	logger.LogF(logger.ERROR, format, args...)
+	formatted = strings.TrimSpace(formatted)
+	logger.Errorf(format, args...)
+	go func() {
+		// this function blocks when called before neovim is ready
+		proc.handle.WritelnErr(formatted)
+	}()
 }
 
 func (proc *NvimProcess) GetRegister(register string) string {
