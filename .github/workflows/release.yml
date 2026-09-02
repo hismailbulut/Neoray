@@ -30,7 +30,7 @@ jobs:
       run: make release
 
     - name: Upload binaries
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v7.0.1
       if: success()
       with:
         name: neoray-windows
@@ -61,7 +61,7 @@ jobs:
       run: make release
 
     - name: Upload binaries
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v7.0.1
       if: success()
       with:
         name: neoray-macos
@@ -97,7 +97,7 @@ jobs:
       run: make release
 
     - name: Upload binaries
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v7.0.1
       if: success()
       with:
         name: neoray-linux
