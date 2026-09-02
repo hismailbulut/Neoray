@@ -7,10 +7,12 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7.0.1
 
     - name: Set up Go
       uses: actions/setup-go@v7.0.0
+      with:
+        check-latest: true
 
     - name: Install tools
       run: |
@@ -38,10 +40,12 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7.0.1
 
     - name: Set up Go
       uses: actions/setup-go@v7.0.0
+      with:
+        check-latest: true
 
     - name: Install tools
       run: go install github.com/go-gl/glow@latest
@@ -67,10 +71,12 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7.0.1
 
     - name: Set up Go
       uses: actions/setup-go@v7.0.0
+      with:
+        check-latest: true
 
     - name: Set up required libs
       run: |
