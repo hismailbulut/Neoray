@@ -11,8 +11,6 @@ jobs:
 
     - name: Set up Go
       uses: actions/setup-go@v7.0.0
-      with:
-        check-latest: true
 
     - name: Install tools
       run: |
@@ -44,8 +42,6 @@ jobs:
 
     - name: Set up Go
       uses: actions/setup-go@v7.0.0
-      with:
-        check-latest: true
 
     - name: Install tools
       run: go install github.com/go-gl/glow@latest
@@ -75,8 +71,6 @@ jobs:
 
     - name: Set up Go
       uses: actions/setup-go@v7.0.0
-      with:
-        check-latest: true
 
     - name: Set up required libs
       run: |
