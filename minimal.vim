@@ -1,9 +1,10 @@
 if exists('g:neoray')
-    set guifont=:h13
+    set guifont=CascadiaCode:h12,SimSun,Segoe_UI_Symbol,Segoe_UI_Emoji
+    " set guifont=CascadiaCode:h12
     set guicursor+=a:blinkwait1000-blinkon500-blinkoff250-Cursor
-    NeoraySet CursorAnimTime  0.08
-    NeoraySet Transparency    0.975
-    NeoraySet TargetTPS       90
+    NeoraySet CursorAnimTime  0.1
+    NeoraySet Transparency    0.95
+    NeoraySet TargetTPS       144
     NeoraySet ContextMenu     TRUE
     " NeoraySet ContextMenuItem ------------ :
     " NeoraySet ContextMenuItem Say\ Hello   :echo\ "Hello\ World"

@@ -5,18 +5,17 @@ import (
 
 	"github.com/hismailbulut/Neoray/pkg/bench"
 	"github.com/hismailbulut/Neoray/pkg/common"
-	"github.com/hismailbulut/Neoray/pkg/fontkit"
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/neovim/go-client/nvim"
 )
 
 type GridManager struct {
+	editor      *Editor
 	grids       map[int]*Grid
 	sortedGrids []*Grid
 	// These are used for creating new grids
-	totalGridsCreated int              // total number of grids created (including deleted ones)
-	kit               *fontkit.FontKit // last globally set font kit
-	fontSize          float64          // last globally set font size
+	totalGridsCreated int     // total number of grids created (including deleted ones)
+	fontSize          float64 // last globally set font size
 	// style information
 	attributes map[int]HighlightAttribute
 	foreground common.Color // Default foreground color
@@ -24,8 +23,9 @@ type GridManager struct {
 	special    common.Color // Default special color
 }
 
-func NewGridManager() *GridManager {
+func NewGridManager(editor *Editor) *GridManager {
 	grid := &GridManager{
+		editor:     editor,
 		grids:      make(map[int]*Grid),
 		attributes: make(map[int]HighlightAttribute),
 	}
@@ -34,100 +34,76 @@ func NewGridManager() *GridManager {
 
 // Font related
 
-func (manager *GridManager) SetGridFontKit(id int, kit *fontkit.FontKit) {
-	if id == 1 {
-		for _, grid := range manager.grids {
-			grid.SetFontKit(kit)
-		}
-		manager.kit = kit
-		manager.CheckDefaultGridSize()
-	} else {
-		grid := manager.Grid(id)
-		if grid != nil {
-			prevSize := grid.Size()
-			grid.SetFontKit(kit)
-			manager.CheckGridSize(grid, prevSize)
-		}
-	}
-	MarkForceDraw()
-}
-
+// This is used only when the window scale has been changed in runtime (DPI)
 func (manager *GridManager) ResetFontSize() {
 	for _, grid := range manager.grids {
-		grid.SetFontSize(grid.renderer.FontSize(), Editor.window.DPI())
+		grid.SetFontSize(grid.renderer.FontSize(), manager.editor.window.DPI())
+		manager.CheckGridSize(grid.id)
 	}
-	manager.CheckDefaultGridSize()
 }
 
 func (manager *GridManager) SetGridFontSize(id int, fontSize float64) {
 	if id == 1 {
 		for _, grid := range manager.grids {
-			grid.SetFontSize(fontSize, Editor.window.DPI())
+			grid.SetFontSize(fontSize, manager.editor.window.DPI())
+			manager.CheckGridSize(grid.id)
 		}
 		manager.fontSize = fontSize
-		manager.CheckDefaultGridSize()
 	} else {
 		grid := manager.Grid(id)
 		if grid != nil {
-			prevSize := grid.Size()
-			grid.SetFontSize(fontSize, Editor.window.DPI())
-			manager.CheckGridSize(grid, prevSize)
+			grid.SetFontSize(fontSize, manager.editor.window.DPI())
+			manager.CheckGridSize(id)
 		}
 	}
-	MarkForceDraw()
+	manager.editor.MarkForceDraw()
 }
 
-func (manager *GridManager) AddGridFontSize(id int, v float64) {
+func (manager *GridManager) IncrementGridFontSize(id int, v float64) {
 	if id == 1 {
-		for _, grid := range manager.grids {
-			grid.AddFontSize(v, Editor.window.DPI())
-		}
 		manager.fontSize += v
-		manager.CheckDefaultGridSize()
+		manager.SetGridFontSize(id, manager.fontSize)
 	} else {
 		grid := manager.Grid(id)
 		if grid != nil {
-			prevSize := grid.Size()
-			grid.AddFontSize(v, Editor.window.DPI())
-			manager.CheckGridSize(grid, prevSize)
+			manager.SetGridFontSize(id, grid.renderer.FontSize()+v)
 		}
 	}
-	MarkForceDraw()
 }
 
 func (manager *GridManager) SetBoxDrawing(useBoxDrawing, useBlockDrawing bool) {
 	for _, grid := range manager.grids {
 		grid.SetBoxDrawing(useBoxDrawing, useBlockDrawing)
 	}
-	MarkForceDraw()
+	manager.editor.MarkForceDraw()
 }
 
 func (manager *GridManager) CheckDefaultGridSize() {
-	// We should resize the default grid after font or fontsize change because cell size may has changed
-	defaultGrid := manager.Grid(1)
-	if defaultGrid != nil {
-		cols := Editor.window.Size().Width() / defaultGrid.CellSize().Width()
-		rows := Editor.window.Size().Height() / defaultGrid.CellSize().Height()
-		if rows != defaultGrid.rows || cols != defaultGrid.cols {
-			Editor.nvim.TryResizeUI(rows, cols)
-		}
-	}
+	manager.CheckGridSize(1)
 }
 
-func (manager *GridManager) CheckGridSize(grid *Grid, prevSize common.Vector2[int]) {
-	// NOTE: NOT TESTED WELL
-	rows := prevSize.Height() / grid.CellSize().Height()
-	cols := prevSize.Width() / grid.CellSize().Width()
-	if rows != grid.rows || cols != grid.cols {
-		// After resizing a grid independently, neovim gives responsibility
-		// of this grid to the ui. So we must mark this grid and keep it's size.
-		// There is two thing we must handle
-		// First when another grid resized, we should look if our grid affected by this resize
-		// Second when the window size is changed, this is actually can be solved by solving first
-		// But neovim gives us every grid, we must look it as a separate problem
-		// TODO: per grid font size is not supported at this time and this function is not called anywhere
-		// but we designed Neoray to support per grid font and size and it will be implemented in the future
-		Editor.nvim.TryResizeUIGrid(grid.id, rows, cols)
+func (manager *GridManager) CheckGridSize(id int) {
+	grid := manager.Grid(id)
+	if grid == nil {
+		return
+	}
+	var area common.Vector2[int]
+	if id == 1 {
+		area = manager.editor.window.Size()
+	} else {
+		area.X = grid.rect.Dx()
+		area.Y = grid.rect.Dy()
+	}
+	cell := grid.CellSize()
+	rows := area.Height() / cell.Height()
+	cols := area.Width() / cell.Width()
+	if rows == grid.rows && cols == grid.cols {
+		return
+	}
+	if id == 1 {
+		manager.editor.nvim.TryResizeUI(rows, cols)
+	} else {
+		manager.editor.nvim.TryResizeUIGrid(grid.id, rows, cols)
 	}
 }
 
@@ -165,13 +141,50 @@ func (manager *GridManager) SortGrids() {
 	}
 }
 
+func (manager *GridManager) CellAttribute(id int) HighlightAttribute {
+	if id == 0 {
+		// Default attribute
+		background := manager.editor.gridManager.background
+		background.A = manager.editor.options.transparency
+		return HighlightAttribute{
+			foreground: manager.editor.gridManager.foreground,
+			background: background,
+			special:    manager.editor.gridManager.special,
+		}
+	} else {
+		attrib, ok := manager.editor.gridManager.attributes[id]
+		if !ok {
+			logger.Errorf("Attribute id %d not found!", id)
+			return attrib
+		}
+		// Zero alpha means color is not set and we use default color
+		if attrib.foreground.A <= 0 {
+			attrib.foreground = manager.editor.gridManager.foreground
+		}
+		if attrib.background.A <= 0 {
+			attrib.background = manager.editor.gridManager.background
+			// Default backgrounds are transparent
+			attrib.background.A = manager.editor.options.transparency
+		}
+		if attrib.special.A <= 0 {
+			attrib.special = manager.editor.gridManager.special
+		}
+		// Reverse foreground an background colors if reverse attribute set
+		if attrib.reverse {
+			attrib.foreground, attrib.background = attrib.background, attrib.foreground
+			attrib.reverse = false
+		}
+		return attrib
+	}
+}
+
 // Returns grid id and cell position at the given global position.
 // The returned values are grid id, cell row, cell column
 // Returned grid is always 1 if multigrid is off
 func (manager *GridManager) CellAt(pos common.Vector2[int]) (int, int, int) {
 	id, row, col := -1, -1, -1
 	// The input_mouse api call wants 0 for grid when multigrid is not enabled
-	if !Editor.parsedArgs.multiGrid {
+	if !manager.editor.parsedArgs.multiGrid {
 		// get cell size of the global grid
 		defaultGrid := manager.Grid(1)
 		if defaultGrid != nil {
@@ -210,11 +223,13 @@ func (manager *GridManager) printCellInfoAt(pos common.Vector2[int]) {
 	grid := manager.Grid(gridID)
 	if grid != nil {
 		cell := grid.CellAt(row, col)
-		attrib, ok := Editor.gridManager.attributes[cell.attribID]
+		attrib, ok := manager.editor.gridManager.attributes[cell.attribID]
 		if !ok {
 			attrib = HighlightAttribute{}
 		}
 		vertex := grid.renderer.CellVertexData(row, col)
+		font := manager.editor.fontManager.MustSuitableFont(false, false, -1)
+		pos, _ := grid.renderer.atlas.GetCharPos(font, cell.char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough)
 		format := `Cell Info (Grid: %d Row: %d Col: %d)
 	%v
 	%v
@@ -239,7 +254,7 @@ func (manager *GridManager) printCellInfoAt(pos common.Vector2[int]) {
 			gridID, row, col,
 			cell,
 			grid,
-			grid.renderer.atlas.GetCharPos(cell.char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, grid.CellSize()),
+			pos,
 			attrib.foreground,
 			attrib.background,
 			attrib.special,
@@ -277,6 +292,7 @@ func (manager *GridManager) SetGridPos(id int, win nvim.Window, sRow, sCol, rows
 	}
 }
 
+// This function returns nil if there is no grid with this id exists
 func (manager *GridManager) Grid(id int) *Grid {
 	grid, ok := manager.grids[id]
 	if ok {
@@ -296,13 +312,13 @@ func (manager *GridManager) ResizeGrid(id int, rows, cols int) {
 			manager.fontSize = DEFAULT_FONT_SIZE
 		}
 		var err error
-		grid, err = NewGrid(Editor.window, id, manager.totalGridsCreated, rows, cols, manager.kit, manager.fontSize, common.Vec2(0, 0))
+		grid, err = NewGrid(manager.editor, id, manager.totalGridsCreated, rows, cols, manager.fontSize, common.Vec2(0, 0))
 		if err != nil {
 			logger.Fatal("Grid creation failed:", err)
 		}
 		manager.grids[id] = grid
 	}
-	MarkForceDraw()
+	manager.editor.MarkForceDraw()
 }
 
 func (manager *GridManager) ScrollGrid(id, top, bot, rows, left, right int) {
@@ -316,13 +332,7 @@ func (manager *GridManager) HideGrid(id int) {
 	grid, ok := manager.grids[id]
 	if ok {
 		grid.hidden = true
-		// NOTE: Hide and destroy functions are only calling when multigrid is on.
-		// When this functions called from neovim, we know which grid is hided or
-		// destroyed but we dont know how many grids affected. Because grids can
-		// overlap and hiding a grid on top of a grid causes back grid needs to be
-		// rendered. This is also applies to setPos. We could also try to detect which
-		// grid must be drawed but fully drawing screen is fast and more stable.
-		MarkForceDraw()
+		manager.editor.MarkForceDraw()
 	}
 }
 
@@ -331,7 +341,7 @@ func (manager *GridManager) DestroyGrid(id int) {
 	if ok {
 		delete(manager.grids, id)
 		grid.Destroy()
-		MarkForceDraw()
+		manager.editor.MarkForceDraw()
 	}
 }
 
@@ -350,7 +360,7 @@ func (manager *GridManager) ClearGrid(id int) {
 				grid.SetCell(row, col, 0, 0)
 			}
 		}
-		MarkDraw()
+		manager.editor.MarkDraw()
 	}
 }
 

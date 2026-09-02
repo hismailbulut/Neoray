@@ -5,10 +5,10 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/common"
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/hismailbulut/Neoray/pkg/opengl"
-	"github.com/hismailbulut/Neoray/pkg/window"
 )
 
 type Cursor struct {
+	editor   *Editor
 	row, col int              // Position of the cursor in the grid
 	grid     int              // Id of the grid where the cursor is
 	mode     Mode             // Current mode and style information (normal, visual etc.)
@@ -22,9 +22,11 @@ type Cursor struct {
 	nextTime float32
 }
 
-func NewCursor(window *window.Window) *Cursor {
-	cursor := new(Cursor)
-	cursor.buffer = window.GL().CreateVertexBuffer(1)
+func NewCursor(editor *Editor) *Cursor {
+	cursor := &Cursor{
+		editor: editor,
+		buffer: editor.window.GL().CreateVertexBuffer(1),
+	}
 	return cursor
 }
 
@@ -36,27 +38,27 @@ func (cursor *Cursor) Update(delta float32) {
 	} else if !cursor.hidden {
 		// Additional draw call to cursor for animation
 		// TODO We don't need to draw whole screen, just cursor enough
-		MarkDraw()
+		cursor.editor.MarkDraw()
 	}
 }
 
 func (cursor *Cursor) Show() {
 	if cursor.hidden {
 		cursor.hidden = false
-		MarkRender()
+		cursor.editor.MarkRender()
 	}
 }
 
 func (cursor *Cursor) Hide() {
 	if !cursor.hidden {
 		cursor.hidden = true
-		MarkRender()
+		cursor.editor.MarkRender()
 	}
 }
 
 // Returns the grid where the cursor is
 func (cursor *Cursor) Grid() *Grid {
-	return Editor.gridManager.Grid(cursor.grid)
+	return cursor.editor.gridManager.Grid(cursor.grid)
 }
 
 func (cursor *Cursor) resetBlinking() {
@@ -93,14 +95,14 @@ func (cursor *Cursor) updateBlinking() {
 func (cursor *Cursor) blinkShow() {
 	if cursor.bHidden {
 		cursor.bHidden = false
-		MarkRender()
+		cursor.editor.MarkRender()
 	}
 }
 
 func (cursor *Cursor) blinkHide() {
 	if !cursor.bHidden {
 		cursor.bHidden = true
-		MarkRender()
+		cursor.editor.MarkRender()
 	}
 }
 
@@ -116,7 +118,7 @@ func (cursor *Cursor) SetPosition(id, row, col int) {
 			X: float32(currentGrid.PixelPos().X + (cursor.col * currentGrid.CellSize().Width())),
 			Y: float32(currentGrid.PixelPos().Y + (cursor.row * currentGrid.CellSize().Height())),
 		}
-		targetGrid := Editor.gridManager.Grid(id)
+		targetGrid := cursor.editor.gridManager.Grid(id)
 		if targetGrid == nil {
 			return
 		}
@@ -124,13 +126,17 @@ func (cursor *Cursor) SetPosition(id, row, col int) {
 			X: float32(targetGrid.PixelPos().X + (col * targetGrid.CellSize().Width())),
 			Y: float32(targetGrid.PixelPos().Y + (row * targetGrid.CellSize().Height())),
 		}
-		cursor.anim = common.NewAnimation(current, target, Editor.options.cursorAnimTime)
+		cursor.anim = common.NewAnimation(current, target, cursor.editor.options.cursorAnimTime)
 	}()
 	cursor.grid = id
 	cursor.row = row
 	cursor.col = col
 	cursor.resetBlinking()
-	MarkDraw()
+	cursor.editor.MarkDraw()
+}
+
+func (cursor *Cursor) GetGridId() int {
+	return cursor.grid
 }
 
 func (cursor *Cursor) IsInArea(grid, x, y, w, h int) bool {
@@ -168,18 +174,18 @@ func (cursor *Cursor) modeRectangle(info ModeInfo, position, cellSize common.Vec
 
 func (cursor *Cursor) AttributeColors(id int) (common.Color, common.Color) {
 	// When attr_id is 0 we are using cursor foreground for default background and background for default foreground
-	fg := Editor.gridManager.background
-	bg := Editor.gridManager.foreground
+	fg := cursor.editor.gridManager.background
+	bg := cursor.editor.gridManager.foreground
 	if id != 0 {
-		attrib, ok := Editor.gridManager.attributes[id]
-		if ok {
-			if attrib.foreground.A > 0 {
-				fg = attrib.foreground
-			}
-			if attrib.background.A > 0 {
-				bg = attrib.background
-			}
+		attrib := cursor.editor.gridManager.CellAttribute(id)
+		// if ok {
+		if attrib.foreground.A > 0 {
+			fg = attrib.foreground
 		}
+		if attrib.background.A > 0 {
+			bg = attrib.background
+		}
+		// }
 	}
 	return fg, bg
 }
@@ -203,13 +209,17 @@ func (cursor *Cursor) Draw(delta float32) {
 		// has a printable character and cursor shape is block
 		if cursor.anim.IsFinished() && cell.char != 0 && blockShaped {
 			// We need to draw cell character to the cursor foreground
-			cellAttrib := cell.Attribute()
+			cellAttrib := cursor.editor.gridManager.CellAttribute(cell.attribID)
 			// Draw undercurl to cursor if cell has
 			if cellAttrib.undercurl {
 				cursor.buffer.SetIndexSp(0, cursorFg)
 			}
 			// Draw this cell to the cursor
-			charPos := grid.renderer.atlas.GetCharPos(cell.char, cellAttrib.bold, cellAttrib.italic, cellAttrib.underline, cellAttrib.strikethrough, grid.CellSize())
+			font := cursor.editor.fontManager.MustSuitableFont(cellAttrib.bold, cellAttrib.italic, cell.char)
+			charPos, atlasResized := grid.renderer.atlas.GetCharPos(font, cell.char, cellAttrib.bold, cellAttrib.italic, cellAttrib.underline, cellAttrib.strikethrough)
+			if atlasResized {
+				cursor.editor.MarkForceDraw()
+			}
 			if charPos.W > grid.CellSize().Width() {
 				charPos.W /= 2
 			}
@@ -238,12 +248,12 @@ func (cursor *Cursor) Render() {
 		cursor.buffer.Bind()
 		cursor.buffer.Update()
 		// TODO Do we need to update projection?
-		// cursor.buffer.SetProjection(Editor.window.Viewport().ToF32())
+		cursor.buffer.SetProjection(cursor.editor.window.Viewport().ToF32())
 		cursor.buffer.Render()
 	}
 }
 
 func (cursor *Cursor) Destroy() {
-	cursor.buffer.Destroy()
+	cursor.buffer.Delete()
 	logger.Debug("Cursor destroyed")
 }

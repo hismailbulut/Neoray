@@ -14,6 +14,7 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/fontfinder"
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/sqweek/dialog"
 )
 
@@ -175,9 +176,9 @@ func ListFonts(fileName string) {
 	fmt.Fprintf(file, "Total of %d fonts found in your system\n", len(fontList))
 	file.WriteString("You can use both family name, filename and font name in order to find the font you want\n")
 	// Create a table and write to file
-	table := tablewriter.NewWriter(file)
-	table.SetAutoWrapText(false)
-	table.SetHeader([]string{"Family", "Filename", "Name"})
+	table := tablewriter.NewTable(file, tablewriter.WithAlignment([]tw.Align{tw.AlignCenter}))
+	table.Config()
+	table.Header([]string{"Family", "Filename", "Name"})
 	for _, font := range fontList {
 		table.Append([]string{font.Family, font.Filename, font.Name})
 	}
@@ -245,23 +246,23 @@ func (options ParsedArgs) ProcessBefore() bool {
 }
 
 // Call this after connected neovim as ui.
-func (options ParsedArgs) ProcessAfter() {
+func (options ParsedArgs) ProcessAfter(editor *Editor) {
 	if options.singleInst {
-		server, err := CreateServer()
+		server, err := CreateServer(editor)
 		if err != nil {
 			logger.Error("Failed to create ipc server:", err)
 		} else {
-			Editor.server = server
+			editor.server = server
 			logger.Trace("Ipc server created")
 		}
 	}
 	if options.file != "" {
-		Editor.nvim.EditFile(options.file)
+		editor.nvim.EditFile(options.file)
 	}
 	if options.line != -1 {
-		Editor.nvim.MoveCursor(options.line, 0)
+		editor.nvim.MoveCursor(options.line, 0)
 	}
 	if options.column != -1 {
-		Editor.nvim.MoveCursor(0, options.column)
+		editor.nvim.MoveCursor(0, options.column)
 	}
 }

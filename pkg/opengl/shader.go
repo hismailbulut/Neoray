@@ -54,9 +54,9 @@ func NewShaderFromSource(shader_type ShaderType, source string) *Shader {
 	source_cstr, free := gl.Strs(source + "\x00")
 	defer free()
 	gl.ShaderSource(shader.ID, 1, source_cstr, nil)
-	checkGLError()
+	glCheckError()
 	gl.CompileShader(shader.ID)
-	checkGLError()
+	glCheckError()
 	var result int32
 	gl.GetShaderiv(shader.ID, gl.COMPILE_STATUS, &result)
 	if result == gl.FALSE {
@@ -89,18 +89,18 @@ func NewShaderProgram(vert *Shader, geom *Shader, frag *Shader) *ShaderProgram {
 	}
 	if vert != nil {
 		gl.AttachShader(program.ID, vert.ID)
-		checkGLError()
+		glCheckError()
 	}
 	if geom != nil {
 		gl.AttachShader(program.ID, geom.ID)
-		checkGLError()
+		glCheckError()
 	}
 	if frag != nil {
 		gl.AttachShader(program.ID, frag.ID)
-		checkGLError()
+		glCheckError()
 	}
 	gl.LinkProgram(program.ID)
-	checkGLError()
+	glCheckError()
 	var status int32
 	gl.GetProgramiv(program.ID, gl.LINK_STATUS, &status)
 	if status == gl.FALSE {
@@ -130,13 +130,14 @@ func (program ShaderProgram) UniformLocation(name string) int32 {
 func (program ShaderProgram) Use() {
 	if program.ID != currentShaderProgramID {
 		gl.UseProgram(program.ID)
-		checkGLError()
+		glCheckError()
 		currentShaderProgramID = program.ID
 	}
 }
 
 func (program ShaderProgram) Destroy() {
 	gl.DeleteProgram(program.ID)
+	glCheckError()
 	program.ID = 0
 	program.uniforms = nil
 }

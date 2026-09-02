@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
+	"os"
 	"time"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -75,7 +77,30 @@ func (state EditorState) String() string {
 	panic("unknown editor state")
 }
 
-var Editor struct {
+type Ticker struct {
+	ticker     *time.Ticker
+	ticks      int
+	draws      int
+	forceDraws int
+	renders    int
+}
+
+func (tickCounter *Ticker) ResetTicker(targetTPS int) {
+	if tickCounter.ticker == nil {
+		tickCounter.ticker = time.NewTicker(time.Second / time.Duration(targetTPS))
+	} else {
+		tickCounter.ticker.Reset(time.Second / time.Duration(targetTPS))
+	}
+}
+
+func (tickCounter *Ticker) ResetCounts() {
+	tickCounter.ticks = 0
+	tickCounter.draws = 0
+	tickCounter.forceDraws = 0
+	tickCounter.renders = 0
+}
+
+type Editor struct {
 	state EditorState
 	// Parsed startup arguments
 	parsedArgs ParsedArgs
@@ -85,6 +110,10 @@ var Editor struct {
 	options Options
 	// Main window of this program.
 	window *window.Window
+	// Input manager handles all keyboard and mouse inputs
+	inputManager *InputManager
+	// FontKitStack holds our fonts
+	fontManager *FontManager
 	// Grid manager holds information about neovim grids and how they will be rendered
 	// We also use its underlying rendering structure when rendering cursor and context menu
 	gridManager *GridManager
@@ -99,7 +128,7 @@ var Editor struct {
 	// Neovim child process
 	nvim *NvimProcess
 	// MainLoop ticker
-	ticker *time.Ticker
+	tickCounter Ticker
 	// Stops mainloop
 	quitChan chan bool
 	// Draw calls
@@ -108,64 +137,84 @@ var Editor struct {
 	cRender    bool
 }
 
-func InitEditor() {
-	var err error
+func NewEditor() *Editor {
+	editor := &Editor{
+		quitChan: make(chan bool, 1),
+	}
+	return editor
+}
 
-	Editor.options = DefaultOptions()
-
-	err = glfw.Init()
+func (editor *Editor) Init() error {
+	editor.options = DefaultOptions()
+	err := glfw.Init()
 	if err != nil {
-		logger.Fatal("Failed to initialize GLFW3:", err)
+		return fmt.Errorf("Failed to initialize GLFW3: %s", err)
 	}
 	logger.Trace("GLFW3 Version:", glfw.GetVersionString())
-
-	Editor.window, err = window.New(NAME, 800, 600, bench.IsDebugBuild())
+	editor.window, err = window.New(NAME, 800, 600, bench.IsDebugBuild())
 	if err != nil {
-		logger.Fatal(err)
+		return fmt.Errorf("Failed to create window: %s", err)
 	}
 	// Event handler function runs when we call window.PollEvents
-	Editor.window.SetEventHandler(EventHandler)
+	editor.window.SetEventHandler(editor.EventHandler)
 	// Set window minimum size
-	Editor.window.SetMinSize(common.Vec2(300, 200))
+	editor.window.SetMinSize(common.Vec2(300, 200))
 	// Set window icons
-	LoadDefaultIcons()
+	editor.LoadDefaultIcons()
 	// Update opengl viewport
-	Editor.window.GL().SetViewport(Editor.window.Viewport())
+	editor.window.GL().SetViewport(editor.window.Viewport())
 	// Print some opengl info
-	info := Editor.window.GL().Info()
+	info := editor.window.GL().Info()
 	logger.Trace("Opengl Version:", info.Version)
 	logger.Trace("Vendor:", info.Vendor)
 	logger.Trace("Renderer:", info.Renderer)
 	logger.Trace("GLSL:", info.ShadingLanguageVersion)
 	logger.Trace("Max Texture Size:", info.MaxTextureSize)
+	// Initialize input manager
+	editor.inputManager = NewInputManager(editor)
 	// Set default font
-	fontkit.SetDefaultFontData(assets.Regular, assets.Bold, assets.Italic, assets.BoldItalic)
+	editor.fontManager = NewFontManager(editor)
 	// Initialize gridManager
-	Editor.gridManager = NewGridManager()
+	editor.gridManager = NewGridManager(editor)
 	// Initialize cursor
-	Editor.cursor = NewCursor(Editor.window)
+	editor.cursor = NewCursor(editor)
 	// Initialize contextMenu
-	Editor.contextMenu = NewContextMenu()
+	editor.contextMenu = NewContextMenu(editor)
 	// Initialize imageViewer
-	Editor.imageViewer = NewImageViewer(Editor.window)
+	editor.imageViewer = NewImageViewer(editor)
 	// TODO Move this to gridManager
-	Editor.uiOptions = CreateUIOptions()
+	editor.uiOptions = CreateUIOptions(editor)
 	// Start neovim
-	Editor.nvim = CreateNvimProcess()
+	editor.nvim = CreateNvimProcess(editor)
 	// Calculate temporary start size and start the ui connection
 	// The size will be updated according to user preferences
-	cellSize := DefaultCellSize()
-	cols := Editor.window.Size().Width() / cellSize.Width()
-	rows := Editor.window.Size().Height() / cellSize.Height()
+	cellSize := editor.DefaultCellSize()
+	cols := editor.window.Size().Width() / cellSize.Width()
+	rows := editor.window.Size().Height() / cellSize.Height()
 	logger.Debug("Calculated startup size of the neovim is", rows, cols)
-	Editor.nvim.StartUI(rows, cols)
-
-	Editor.quitChan = make(chan bool, 1)
-
-	SetEditorState(EditorInitialized)
+	editor.nvim.StartUI(rows, cols)
+	// Initialization done
+	editor.SetState(EditorInitialized)
+	return nil
 }
 
-func LoadDefaultIcons() {
+func (editor *Editor) ProcessArgsBeforeInit() bool {
+	parsedArgs, err, quit := ParseArgs(os.Args[1:])
+	if err != nil {
+		logger.Fatal(err)
+	}
+	if quit {
+		return true
+	}
+	editor.parsedArgs = parsedArgs
+	return editor.parsedArgs.ProcessBefore()
+}
+
+func (editor *Editor) ProcessArgsAfterInit() {
+	editor.parsedArgs.ProcessAfter(editor)
+}
+
+func (editor *Editor) LoadDefaultIcons() {
 	icons := [3]image.Image{}
 	icon48, err := png.Decode(bytes.NewReader(assets.NeovimIconData48x48))
 	if err != nil {
@@ -187,144 +236,178 @@ func LoadDefaultIcons() {
 	} else {
 		icons[2] = icon16
 	}
-	Editor.window.SetIcon(icons)
+	editor.window.SetIcon(icons)
 }
 
 // A helper function, if default grid is not set by neovim yet we use this for cell size
-func DefaultCellSize() common.Vector2[int] {
-	face, _ := fontkit.Default().DefaultFont().CreateFace(fontkit.FaceParams{
+func (editor *Editor) DefaultCellSize() common.Vector2[int] {
+	face, _ := editor.fontManager.DefaultFont(false, false).CreateFace(fontkit.FaceParams{
 		Size:            DEFAULT_FONT_SIZE,
-		DPI:             Editor.window.DPI(),
+		DPI:             editor.window.DPI(),
 		UseBoxDrawing:   false,
 		UseBlockDrawing: false,
 	})
 	return face.ImageSize()
 }
 
-func ResizeWindowInCellFormat(rows, cols int) {
+func (editor *Editor) ResizeWindowInCellFormat(rows, cols int) {
 	var size common.Vector2[int]
-	defaultGrid := Editor.gridManager.Grid(1)
+	defaultGrid := editor.gridManager.Grid(1)
 	if defaultGrid != nil {
 		size.X = cols * defaultGrid.CellSize().Width()
 		size.Y = rows * defaultGrid.CellSize().Height()
 	} else {
-		cellSize := DefaultCellSize()
+		cellSize := editor.DefaultCellSize()
 		size.X = cols * cellSize.Width()
 		size.Y = rows * cellSize.Height()
 	}
-	Editor.window.Resize(size)
+	editor.window.Resize(size)
 }
 
 // This is for making sure the state changing valid
-func SetEditorState(state EditorState) {
-	// assert(state-1 == Editor.state, "Editor state can only incremented by 1")
-	Editor.state = state
+func (editor *Editor) SetState(state EditorState) {
+	if editor.state >= state {
+		logger.Fatalf("Editor state can only be incremented")
+	}
+	editor.state = state
 	logger.Debug("Editor state changed to", state)
 }
 
-func ResetTicker() {
-	if Editor.ticker == nil {
-		Editor.ticker = time.NewTicker(time.Second / time.Duration(Editor.options.targetTPS))
-	} else {
-		Editor.ticker.Reset(time.Second / time.Duration(Editor.options.targetTPS))
+// Shows the window if it is not visible yet
+// Does nothing if window is already shown
+func (editor *Editor) ShowWindow() {
+	if editor.state+1 == EditorWindowShown {
+		editor.window.Show()
+		editor.SetState(EditorWindowShown)
+		logger.Trace("Window is visible now in", time.Since(StartTime))
+		// Currently neovim sends a default guifont option even the user has its own guifont
+		// because of this we do not load fonts immediately and wait for changes until window
+		// has to be shown
+		editor.fontManager.LoadFonts()
 	}
 }
 
-func MarkDraw() {
-	Editor.cDraw = true
+func (editor *Editor) MarkDraw() {
+	editor.cDraw = true
 }
 
-func MarkForceDraw() {
-	Editor.cForceDraw = true
+func (editor *Editor) MarkForceDraw() {
+	editor.cForceDraw = true
 }
 
-func MarkRender() {
-	Editor.cRender = true
+func (editor *Editor) MarkRender() {
+	editor.cRender = true
 }
 
-func MainLoop() {
-	SetEditorState(EditorLoopStarted)
-	ResetTicker()
+func (editor *Editor) SetTargetTPS(targetTPS int) {
+	editor.options.targetTPS = targetTPS
+	editor.tickCounter.ResetTicker(targetTPS)
+}
+
+func (editor *Editor) MainLoop() {
+	editor.SetState(EditorLoopStarted)
+	editor.SetTargetTPS(editor.options.targetTPS)
 	// For measuring total time of the program.
 	programBegin := time.Now()
 	// For measuring ticks per second, debugging purposes
 	upsTimer := 0.0
-	updates := 0
 	// For measuring elpased time
 	lastTick := time.Now()
 	// Mainloop
 	run := true
 	for run {
 		select {
-		case tick := <-Editor.ticker.C:
+		case tick := <-editor.tickCounter.ticker.C:
 			// Calculate delta time
 			elapsed := tick.Sub(lastTick)
 			lastTick = tick
 			delta := elapsed.Seconds()
 			// Increment counters
 			upsTimer += delta
-			updates++
 			// Calculate updates per second
 			if upsTimer >= 1 {
-				// println("TPS:", updates)
-				updates = 0
+				/*logger.Debug(
+				"TPS:", editor.tickCounter.ticks,
+				"DPS:", editor.tickCounter.draws,
+				"FDPS:", editor.tickCounter.forceDraws,
+				"RPS:", editor.tickCounter.renders)*/
+				editor.tickCounter.ResetCounts()
 				upsTimer -= 1
 			}
 			// Handle with inputs first
-			Editor.window.PollEvents()
+			editor.window.PollEvents()
 			// then update
-			UpdateHandler(float32(delta))
-		case <-Editor.quitChan:
+			editor.UpdateHandler(float32(delta))
+		case <-editor.quitChan:
 			run = false
 		}
 	}
-	SetEditorState(EditorLoopStopped)
+	editor.SetState(EditorLoopStopped)
 	logger.Trace("Program finished. Total execution time:", time.Since(programBegin))
 }
 
-func UpdateHandler(delta float32) {
+func (editor *Editor) UpdateHandler(delta float32) {
+	editor.tickCounter.ticks++
 	// Update required stuff
-	Editor.nvim.Update()
-	Editor.gridManager.Update()
-	Editor.cursor.Update(delta)
-	Editor.imageViewer.Update()
-	if Editor.server != nil {
-		Editor.server.Update()
+	editor.nvim.Update()
+	editor.gridManager.Update()
+	editor.cursor.Update(delta)
+	editor.imageViewer.Update()
+	if editor.server != nil {
+		editor.server.Update()
 	}
-	// Draw calls
-	if Editor.state >= EditorWindowShown {
-		if Editor.cDraw || Editor.cForceDraw {
+	// Draw and render
+	if editor.state >= EditorWindowShown {
+		// We have to collect draw calls and zero them before drawing things because
+		// the draw functions may also set a draw call for next tick
+		draw := false
+		forceDraw := false
+		render := false
+		if editor.cDraw {
+			draw = true
+			editor.tickCounter.draws++
+			editor.cDraw = false
+		}
+		if editor.cForceDraw {
+			forceDraw = true
+			editor.tickCounter.forceDraws++
+			editor.cForceDraw = false
+		}
+		if editor.cRender {
+			render = true
+			editor.tickCounter.renders++
+			editor.cRender = false
+		}
+		// Draw calls
+		if draw || forceDraw {
 			EndBenchmark := bench.Begin()
-			Editor.gridManager.Draw(Editor.cForceDraw)
-			Editor.cursor.Draw(delta)
-			Editor.contextMenu.Draw()
-			Editor.imageViewer.Draw()
+			editor.gridManager.Draw(forceDraw)
+			editor.cursor.Draw(delta)
+			editor.contextMenu.Draw()
+			editor.imageViewer.Draw()
 			EndBenchmark("UpdateHandler.Draw")
+			render = true
 		}
 		// Render calls
-		if Editor.cDraw || Editor.cForceDraw || Editor.cRender {
+		if render {
 			EndBenchmark := bench.Begin()
 			// Clear background
-			bg := Editor.gridManager.background
-			bg.A = Editor.options.transparency
-			Editor.window.GL().ClearScreen(bg)
+			bg := editor.gridManager.background
+			bg.A = editor.options.transparency
+			editor.window.GL().ClearScreen(bg)
 			// Render in order
-			Editor.gridManager.Render()
-			Editor.cursor.Render()
-			Editor.contextMenu.Render()
-			Editor.imageViewer.Render()
+			editor.gridManager.Render()
+			editor.cursor.Render()
+			editor.contextMenu.Render()
+			editor.imageViewer.Render()
 			// Flush to make changes visible
-			Editor.window.GL().Flush()
+			editor.window.GL().Flush()
 			EndBenchmark("UpdateHandler.Render")
 		}
-		// Clear calls
-		Editor.cDraw = false
-		Editor.cForceDraw = false
-		Editor.cRender = false
 	}
 }
 
-func EventHandler(event window.WindowEvent) {
+func (editor *Editor) EventHandler(event window.WindowEvent) {
 	switch event.Type {
 	case window.WindowEventRefresh:
 		{
@@ -332,16 +415,16 @@ func EventHandler(event window.WindowEvent) {
 			// And no events receives except this one. We need to update Neoray
 			// additionally when refresh event received.
 			// Only send if it not received already
-			size := Editor.window.Size()
-			EventHandler(window.WindowEvent{
+			size := editor.window.Size()
+			editor.EventHandler(window.WindowEvent{
 				Type:   window.WindowEventResize,
 				Params: []any{size.Width(), size.Height()},
 			})
 			// Only update if tick received
 			select {
-			case <-Editor.ticker.C:
+			case <-editor.tickCounter.ticker.C:
 				// TODO: calculate delta
-				UpdateHandler(0)
+				editor.UpdateHandler(0)
 			default:
 			}
 		}
@@ -355,22 +438,25 @@ func EventHandler(event window.WindowEvent) {
 				break
 			}
 			// Update viewport
-			Editor.window.GL().SetViewport(Editor.window.Viewport())
+			editor.window.GL().SetViewport(editor.window.Viewport())
 			// Mark render because viewport changed
-			MarkRender()
+			editor.MarkRender()
 			// Update grid size
-			defaultGrid := Editor.gridManager.Grid(1)
-			if defaultGrid == nil {
-				break
-			}
-			cellSize := defaultGrid.CellSize()
-			rows := height / cellSize.Height()
-			cols := width / cellSize.Width()
-			if rows == defaultGrid.rows && cols == defaultGrid.cols {
-				break
-			}
-			// Try to resize the neovim
-			Editor.nvim.TryResizeUI(rows, cols)
+			editor.gridManager.CheckDefaultGridSize()
+			/*
+				defaultGrid := editor.gridManager.Grid(1)
+				if defaultGrid == nil {
+					break
+				}
+				cellSize := defaultGrid.CellSize()
+				rows := height / cellSize.Height()
+				cols := width / cellSize.Width()
+				if rows == defaultGrid.rows && cols == defaultGrid.cols {
+					break
+				}
+				// Try to resize the neovim
+				editor.nvim.TryResizeUI(rows, cols)
+			*/
 		}
 	case window.WindowEventKeyInput:
 		{
@@ -378,69 +464,70 @@ func EventHandler(event window.WindowEvent) {
 			scancode := event.Params[1].(int)
 			action := event.Params[2].(glfw.Action)
 			mods := event.Params[3].(glfw.ModifierKey)
-			KeyInputHandler(key, scancode, action, mods)
+			editor.inputManager.KeyInputHandler(key, scancode, action, mods)
 		}
 	case window.WindowEventCharInput:
 		{
 			char := event.Params[0].(rune)
-			CharInputHandler(char)
+			editor.inputManager.CharInputHandler(char)
 		}
 	case window.WindowEventMouseInput:
 		{
 			button := event.Params[0].(glfw.MouseButton)
 			action := event.Params[1].(glfw.Action)
 			mods := event.Params[2].(glfw.ModifierKey)
-			MouseInputHandler(button, action, mods)
+			editor.inputManager.MouseInputHandler(button, action, mods)
 		}
 	case window.WindowEventMouseMove:
 		{
 			xpos := event.Params[0].(float64)
 			ypos := event.Params[1].(float64)
-			MouseMoveHandler(xpos, ypos)
+			editor.inputManager.MouseMoveHandler(xpos, ypos)
 		}
 	case window.WindowEventScroll:
 		{
 			xoff := event.Params[0].(float64)
 			yoff := event.Params[1].(float64)
-			ScrollHandler(xoff, yoff)
+			editor.inputManager.ScrollHandler(xoff, yoff)
 		}
 	case window.WindowEventDrop:
 		{
 			files := event.Params[0].([]string)
-			DropHandler(files)
+			editor.inputManager.DropHandler(files)
 		}
 	case window.WindowEventScaleChanged:
 		{
-			Editor.gridManager.ResetFontSize()
+			editor.gridManager.ResetFontSize()
 		}
 	case window.WindowEventClose:
 		{
-			if Editor.nvim.connectedViaTcp {
+			if editor.nvim.connectedViaTcp {
 				// Neoray is not responsible for closing neovim.
-				Editor.nvim.Disconnect()
+				editor.nvim.Disconnect()
 				// Stop loop
-				Editor.quitChan <- true
+				editor.quitChan <- true
 			} else {
 				// Send quit command to neovim and wait until neovim quits.
-				Editor.window.KeepAlive()
-				go Editor.nvim.Command("qa")
+				editor.window.KeepAlive()
+				go editor.nvim.Command("qa")
 			}
 		}
 	}
 }
 
-func ShutdownEditor() {
-	Editor.ticker.Stop()
-	if Editor.server != nil {
-		Editor.server.Close()
+func (editor *Editor) Terminate() {
+	editor.tickCounter.ticker.Stop()
+	if editor.server != nil {
+		editor.server.Close()
 	}
-	Editor.nvim.Close()
-	Editor.imageViewer.Destroy()
-	Editor.contextMenu.Destroy()
-	Editor.cursor.Destroy()
-	Editor.gridManager.Destroy()
-	Editor.window.Destroy()
+	editor.nvim.Close()
+	editor.imageViewer.Destroy()
+	editor.contextMenu.Destroy()
+	editor.cursor.Destroy()
+	editor.fontManager.Destroy()
+	editor.gridManager.Destroy()
+	editor.window.Destroy()
 	glfw.Terminate()
-	SetEditorState(EditorDestroyed) // This is actually unnecessary
+	editor.SetState(EditorDestroyed) // This is actually unnecessary
 	logger.Debug("Editor terminated")
 }

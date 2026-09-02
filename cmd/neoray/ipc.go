@@ -154,18 +154,20 @@ func (client *IpcClient) Close() {
 
 // Server is a listener, not sends messages but processes incoming messages from clients
 type IpcServer struct {
+	editor    *Editor
 	listener  net.Listener
 	mac       uint64
 	callsChan chan IpcFuncCall
 }
 
 // Create a server and process incoming signals.
-func CreateServer() (*IpcServer, error) {
+func CreateServer(editor *Editor) (*IpcServer, error) {
 	listener, err := net.Listen("tcp", DEFAULT_ADDRESS)
 	if err != nil {
 		return nil, err
 	}
 	server := IpcServer{
+		editor:    editor,
 		listener:  listener,
 		mac:       getMacAddress(),
 		callsChan: make(chan IpcFuncCall, 16),
@@ -253,17 +255,17 @@ func (server *IpcServer) Update() {
 		switch call.MsgType {
 		case IPC_MSG_TYPE_OPEN_FILE:
 			path := call.Args[0].(string)
-			Editor.nvim.EditFile(path)
+			server.editor.nvim.EditFile(path)
 		case IPC_MSG_TYPE_GOTO_LINE:
 			line := int(call.Args[0].(float64))
-			Editor.nvim.MoveCursor(line, 0)
+			server.editor.nvim.MoveCursor(line, 0)
 		case IPC_MSG_TYPE_GOTO_COLUMN:
 			column := int(call.Args[0].(float64))
-			Editor.nvim.MoveCursor(0, column)
+			server.editor.nvim.MoveCursor(0, column)
 		default:
 			logger.Warn("Server received invalid signal:", call)
 		}
-		Editor.window.Raise()
+		server.editor.window.Raise()
 	}
 }
 

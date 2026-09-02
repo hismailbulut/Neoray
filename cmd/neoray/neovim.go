@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hismailbulut/Neoray/pkg/bench"
 	"github.com/hismailbulut/Neoray/pkg/common"
@@ -37,6 +36,7 @@ const (
 var NeorayRuntimeScript string
 
 type NvimProcess struct {
+	editor     *Editor
 	handle     *nvim.Nvim
 	eventChan  chan []any
 	optionChan chan []string
@@ -46,16 +46,17 @@ type NvimProcess struct {
 	connectedViaTcp bool
 }
 
-func CreateNvimProcess() *NvimProcess {
+func CreateNvimProcess(editor *Editor) *NvimProcess {
 	proc := &NvimProcess{
+		editor:     editor,
 		eventChan:  make(chan []any, 256), // Thats enough
 		optionChan: make(chan []string, 16),
 	}
 
-	if Editor.parsedArgs.address != "" {
+	if proc.editor.parsedArgs.address != "" {
 		// Try to connect via tcp
 		var err error
-		proc.handle, err = nvim.Dial(Editor.parsedArgs.address,
+		proc.handle, err = nvim.Dial(proc.editor.parsedArgs.address,
 			nvim.DialLogf(func(format string, args ...any) {
 				logger.Tracef(format, args...)
 			}),
@@ -63,7 +64,7 @@ func CreateNvimProcess() *NvimProcess {
 		if err != nil {
 			logger.Error("Failed to connect existing neovim instance:", err)
 		} else {
-			logger.Trace("Connected to existing neovim at address:", Editor.parsedArgs.address)
+			logger.Trace("Connected to existing neovim at address:", proc.editor.parsedArgs.address)
 			proc.connectedViaTcp = true
 		}
 	}
@@ -76,24 +77,24 @@ func CreateNvimProcess() *NvimProcess {
 		// help windows that we want to run it as a subprocess, not the executable
 		// found in the path. And we make sure we only do this if user not already
 		// provided a path for the neovim executable.
-		if runtime.GOOS == "windows" && Editor.parsedArgs.execPath == "nvim" /* default is nvim */ {
+		if runtime.GOOS == "windows" && proc.editor.parsedArgs.execPath == "nvim" /* default is nvim */ {
 			execPath := checkNvimExecPathInSameDir()
 			if execPath != "" {
-				Editor.parsedArgs.execPath = execPath
+				proc.editor.parsedArgs.execPath = execPath
 				logger.Trace("Using neovim in the same directory of Neoray executable.")
 			}
 		}
 		// Connect via stdin-stdout
-		args := append([]string{"--embed"}, Editor.parsedArgs.others...)
+		args := append([]string{"--embed"}, proc.editor.parsedArgs.others...)
 		var err error
 		proc.handle, err = nvim.NewChildProcess(
 			nvim.ChildProcessArgs(args...),
-			nvim.ChildProcessCommand(Editor.parsedArgs.execPath),
+			nvim.ChildProcessCommand(proc.editor.parsedArgs.execPath),
 		)
 		if err != nil {
 			logger.Fatal("Failed to start neovim instance:", err)
 		}
-		logger.Trace("Neovim started with command:", Editor.parsedArgs.execPath, strings.Join(args, " "))
+		logger.Trace("Neovim started with command:", proc.editor.parsedArgs.execPath, strings.Join(args, " "))
 	}
 
 	// Serve blocks until the msgpack session closed. But sometimes it not returns.
@@ -107,7 +108,7 @@ func CreateNvimProcess() *NvimProcess {
 		} else {
 			logger.Debug("nvim.Serve() exited without error")
 		}
-		Editor.quitChan <- true
+		proc.editor.quitChan <- true
 	}()
 
 	info, err := proc.handle.APIInfo()
@@ -177,7 +178,7 @@ func CreateNvimProcess() *NvimProcess {
 		"NeorayVimLeave",
 		func() {
 			logger.Debug("VimLeave")
-			Editor.quitChan <- true
+			proc.editor.quitChan <- true
 		},
 	)
 
@@ -185,9 +186,9 @@ func CreateNvimProcess() *NvimProcess {
 	proc.RegisterHandler(
 		"NeorayViewImage",
 		func(imgPath string) (bool, error) {
-			if Editor.options.imageViewerEnabled {
+			if proc.editor.options.imageViewerEnabled {
 				logger.Debug("ViewImage:", imgPath)
-				Editor.imageViewer.imageChan <- imgPath
+				proc.editor.imageViewer.imageChan <- imgPath
 				return true, nil
 			} else {
 				return false, nil
@@ -233,7 +234,7 @@ func (proc *NvimProcess) StartUI(rows, cols int) {
 		"ext_linegrid": true,
 	}
 
-	if Editor.parsedArgs.multiGrid {
+	if proc.editor.parsedArgs.multiGrid {
 		options["ext_multigrid"] = true
 		logger.Debug("Multigrid enabled.")
 	}
@@ -288,15 +289,11 @@ func (proc *NvimProcess) Disconnect() {
 func (proc *NvimProcess) Update() {
 	// We wait for first flush because some of the settings depends on default grid
 	// and we only make sure default grid has drawn after the first flush
-	if Editor.state >= EditorFirstFlush {
+	if proc.editor.state >= EditorFirstFlush {
 		proc.CheckOptions()
 		// If this is the first option check we can show the window after it
 		// because all initializations and user settings are done
-		if Editor.state < EditorWindowShown {
-			Editor.window.Show()
-			SetEditorState(EditorWindowShown)
-			logger.Trace("Window is visible now in", time.Since(StartTime))
-		}
+		proc.editor.ShowWindow()
 	}
 }
 
@@ -318,7 +315,7 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_CURSOR_ANIM, "is", opt[1])
-			Editor.options.cursorAnimTime = float32(value)
+			proc.editor.options.cursorAnimTime = float32(value)
 		}
 	case OPTION_TRANSPARENCY:
 		{
@@ -328,8 +325,8 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_TRANSPARENCY, "is", opt[1])
-			Editor.options.transparency = common.Clamp(float32(value), 0, 1)
-			MarkForceDraw()
+			proc.editor.options.transparency = common.Clamp(float32(value), 0, 1)
+			proc.editor.MarkForceDraw()
 		}
 	case OPTION_TARGET_TPS:
 		{
@@ -339,8 +336,7 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_TARGET_TPS, "is", value)
-			Editor.options.targetTPS = value
-			ResetTicker()
+			proc.editor.SetTargetTPS(value)
 		}
 	case OPTION_CONTEXT_MENU:
 		{
@@ -350,16 +346,16 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_CONTEXT_MENU, "is", value)
-			Editor.options.contextMenuEnabled = value
+			proc.editor.options.contextMenuEnabled = value
 		}
 	case OPTION_CONTEXT_BUTTON:
 		{
 			if len(opt) >= 3 {
 				cmd := strings.Join(opt[2:], " ")
 				logger.Debug("Option", OPTION_CONTEXT_BUTTON, "name is", opt[1], "and command is", cmd)
-				Editor.contextMenu.AddButton(ContextButton{
+				proc.editor.contextMenu.AddButton(ContextButton{
 					name: opt[1],
-					fn:   func() { proc.Command(cmd) },
+					fn:   func(editor *Editor) { proc.Command(cmd) },
 				})
 			} else {
 				logger.Warn("Not enough argument for option", OPTION_CONTEXT_BUTTON)
@@ -373,9 +369,11 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_BOX_DRAWING, "is", value)
-			Editor.options.boxDrawingEnabled = value
+			proc.editor.options.boxDrawingEnabled = value
 			// Currently we didn't separate this two options but may be in the future
-			Editor.gridManager.SetBoxDrawing(Editor.options.boxDrawingEnabled, Editor.options.boxDrawingEnabled)
+			boxDrawingEnabled := proc.editor.options.boxDrawingEnabled
+			blockDrawingEnabled := proc.editor.options.boxDrawingEnabled
+			proc.editor.gridManager.SetBoxDrawing(boxDrawingEnabled, blockDrawingEnabled)
 		}
 	case OPTION_IMAGE_VIEWER:
 		{
@@ -385,22 +383,22 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_IMAGE_VIEWER, "is", value)
-			Editor.options.imageViewerEnabled = value
+			proc.editor.options.imageViewerEnabled = value
 		}
 	case OPTION_WINDOW_STATE:
 		{
 			logger.Debug("Option", OPTION_WINDOW_STATE, "is", opt[1])
 			switch opt[1] {
 			case "minimized":
-				Editor.window.Minimize()
+				proc.editor.window.Minimize()
 			case "maximized":
-				Editor.window.Maximize()
+				proc.editor.window.Maximize()
 			case "fullscreen":
-				if !Editor.window.IsFullscreen() {
-					Editor.window.ToggleFullscreen()
+				if !proc.editor.window.IsFullscreen() {
+					proc.editor.window.ToggleFullscreen()
 				}
 			case "centered":
-				Editor.window.Center()
+				proc.editor.window.Center()
 			}
 		}
 	case OPTION_WINDOW_SIZE:
@@ -426,22 +424,22 @@ func (proc *NvimProcess) processOption(opt []string) {
 				break
 			}
 			logger.Debug("Option", OPTION_WINDOW_SIZE, "is", cols, rows)
-			ResizeWindowInCellFormat(rows, cols)
+			proc.editor.ResizeWindowInCellFormat(rows, cols)
 		}
 	case OPTION_KEY_FULLSCRN:
 		{
 			logger.Debug("Option", OPTION_KEY_FULLSCRN, "is", opt[1])
-			Editor.options.keyToggleFullscreen = opt[1]
+			proc.editor.options.keyToggleFullscreen = opt[1]
 		}
 	case OPTION_KEY_ZOOMIN:
 		{
 			logger.Debug("Option", OPTION_KEY_ZOOMIN, "is", opt[1])
-			Editor.options.keyIncreaseFontSize = opt[1]
+			proc.editor.options.keyIncreaseFontSize = opt[1]
 		}
 	case OPTION_KEY_ZOOMOUT:
 		{
 			logger.Debug("Option", OPTION_KEY_ZOOMOUT, "is", opt[1])
-			Editor.options.keyDecreaseFontSize = opt[1]
+			proc.editor.options.keyDecreaseFontSize = opt[1]
 		}
 	default:
 		logger.Warn("Invalid option", opt)
@@ -472,7 +470,7 @@ func (proc *NvimProcess) Mode() string {
 func (proc *NvimProcess) EchoError(format string, args ...any) {
 	formatted := fmt.Sprintf(format, args...)
 	formatted = strings.TrimSpace(formatted)
-	logger.Errorf(format, args...)
+	logger.Warnf(format, args...)
 	go func() {
 		// this function blocks when called before neovim is ready
 		proc.handle.WritelnErr(formatted)
@@ -590,9 +588,10 @@ func (proc *NvimProcess) TryResizeUIGrid(id, rows, cols int) {
 		return
 	}
 	go func() {
+		// logger.Debug("TryResizeUIGrid:", id, rows, cols)
 		err := proc.handle.TryResizeUIGrid(id, cols, rows)
 		if err != nil {
-			logger.Error("Failed to send resize request:", err)
+			logger.Error("Failed to send grid resize request:", err)
 			return
 		}
 	}()

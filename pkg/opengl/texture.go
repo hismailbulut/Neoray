@@ -29,18 +29,18 @@ func (context *Context) CreateTexture(width, height int) Texture {
 	}
 	// NOTE: There can be multiple textures but only one can bind at a time
 	gl.GenTextures(1, &texture.id)
-	checkGLError()
+	glCheckError()
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
-	checkGLError()
+	glCheckError()
 	boundTextureId = texture.id
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	checkGLError()
+	glCheckError()
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	checkGLError()
+	glCheckError()
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	checkGLError()
+	glCheckError()
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	checkGLError()
+	glCheckError()
 	texture.Resize(width, height)
 	logger.Debug("Texture created:", texture)
 	return texture
@@ -56,7 +56,7 @@ func (texture *Texture) Resize(width, height int) {
 		panic("texture must be bound before resize")
 	}
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(width), int32(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-	checkGLError()
+	glCheckError()
 	texture.width = width
 	texture.height = height
 }
@@ -64,24 +64,24 @@ func (texture *Texture) Resize(width, height int) {
 func (texture *Texture) Clear() {
 	// Bind framebuffer
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, texture.fbo)
-	checkGLError()
+	glCheckError()
 	// Init framebuffer with texture
 	gl.FramebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.id, 0)
-	checkGLError()
+	glCheckError()
 	// Check if the framebuffer is complete and ready for draw
 	fbo_status := gl.CheckFramebufferStatus(gl.DRAW_FRAMEBUFFER)
 	if fbo_status == gl.FRAMEBUFFER_COMPLETE {
 		// Clear the texture
 		gl.ClearColor(0, 0, 0, 0)
-		checkGLError()
+		glCheckError()
 		gl.Clear(gl.COLOR_BUFFER_BIT)
-		checkGLError()
+		glCheckError()
 	} else {
 		panic(fmt.Errorf("Framebuffer is not complete: %d", fbo_status))
 	}
 	// Unbind framebuffer
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, 0)
-	checkGLError()
+	glCheckError()
 }
 
 func (texture *Texture) Bind() {
@@ -89,7 +89,7 @@ func (texture *Texture) Bind() {
 		return
 	}
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
-	checkGLError()
+	glCheckError()
 	boundTextureId = texture.id
 }
 
@@ -99,7 +99,7 @@ func (texture *Texture) Draw(image *image.RGBA, dest common.Rectangle[int]) {
 		panic("texture must be bound before resize")
 	}
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0, int32(dest.X), int32(dest.Y), int32(dest.W), int32(dest.H), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&image.Pix[0]))
-	checkGLError()
+	glCheckError()
 }
 
 // Converts coordinates to opengl understandable coordinates, 0 to 1
@@ -113,10 +113,11 @@ func (texture *Texture) Normalize(pos common.Rectangle[int]) common.Rectangle[fl
 }
 
 func (texture *Texture) Delete() {
+	logger.Debug("Deleting texture:", texture)
 	gl.DeleteTextures(1, &texture.id)
+	glCheckError()
 	texture.id = 0
 	texture.width = 0
 	texture.height = 0
 	texture.fbo = 0
-	logger.Debug("Texture deleted:", texture)
 }

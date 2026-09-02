@@ -83,7 +83,7 @@ func cleanup() {
 	}
 }
 
-func createCrashReport(msg string, isPanic bool) {
+func createCrashReport(msg string) {
 	guard.Lock()
 	defer guard.Unlock()
 	crash_file, err := os.Create("Neoray_crash.log")
@@ -132,7 +132,7 @@ func log(logLevel LogLevel, message ...any) {
 
 	if logLevel == FATAL {
 		// Create crash report file
-		createCrashReport(logString, false)
+		createCrashReport(logString)
 		// Show error dialog
 		dialog.Message(logString).Error()
 		// Cleanup and shutdown.

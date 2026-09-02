@@ -12,14 +12,12 @@ import (
 func (manager *GridManager) HandleEvents() {
 	// We must only take last cursor event at same redraw event batch, see issue #6
 	var lastGridCursorGoto []any
-	for len(Editor.nvim.eventChan) > 0 {
-		event := <-Editor.nvim.eventChan
+	for len(manager.editor.nvim.eventChan) > 0 {
+		event := <-manager.editor.nvim.eventChan
 		switch event[0] {
 		// Global events
 		case "set_title":
 			manager.set_title(event[1:])
-			// title := event[1].([]any)[0].(string)
-			// Editor.window.SetTitle(title)
 		case "set_icon":
 			// TODO
 		case "mode_info_set":
@@ -31,18 +29,18 @@ func (manager *GridManager) HandleEvents() {
 		case "mouse_on":
 		case "mouse_off":
 		case "busy_start":
-			Editor.cursor.Hide()
+			manager.editor.cursor.Hide()
 		case "busy_stop":
-			Editor.cursor.Show()
+			manager.editor.cursor.Show()
 		case "suspend":
 		case "update_menu":
 		case "bell":
 		case "visual_bell":
 		case "flush":
-			if Editor.state < EditorFirstFlush {
-				SetEditorState(EditorFirstFlush)
+			if manager.editor.state < EditorFirstFlush {
+				manager.editor.SetState(EditorFirstFlush)
 			}
-			MarkDraw()
+			manager.editor.MarkDraw()
 		// Grid Events (line-based)
 		case "grid_resize":
 			manager.grid_resize(event[1:])
@@ -110,7 +108,7 @@ func to_uint32(v any) uint32 {
 }
 
 func (manager *GridManager) option_set(args []any) {
-	options := &Editor.uiOptions
+	options := &manager.editor.uiOptions
 	for _, arg := range args {
 		arg := arg.([]any)
 		opt := arg[0].(string)
@@ -146,14 +144,14 @@ func (manager *GridManager) set_title(args []any) {
 	if title == "" {
 		title = fmt.Sprintf("%s %v.%v.%v", NAME, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)
 	}
-	Editor.window.SetTitle(title)
+	manager.editor.window.SetTitle(title)
 }
 
 func (manager *GridManager) mode_info_set(args []any) {
 	for _, arg := range args {
 		arg := arg.([]any)
-		Editor.cursor.mode.cursor_style_enabled = arg[0].(bool)
-		Editor.cursor.mode.Clear()
+		manager.editor.cursor.mode.cursor_style_enabled = arg[0].(bool)
+		manager.editor.cursor.mode.Clear()
 		for _, infos := range arg[1].([]any) {
 			infoMap := infos.(map[string]any)
 			info := ModeInfo{}
@@ -179,7 +177,7 @@ func (manager *GridManager) mode_info_set(args []any) {
 					info.name = v.(string)
 				}
 			}
-			Editor.cursor.mode.Add(info)
+			manager.editor.cursor.mode.Add(info)
 		}
 	}
 }
@@ -187,8 +185,8 @@ func (manager *GridManager) mode_info_set(args []any) {
 func (manager *GridManager) mode_change(args []any) {
 	for _, arg := range args {
 		arg := arg.([]any)
-		Editor.cursor.mode.current_mode_name = arg[0].(string)
-		Editor.cursor.mode.current_mode = to_int(arg[1])
+		manager.editor.cursor.mode.current_mode_name = arg[0].(string)
+		manager.editor.cursor.mode.current_mode = to_int(arg[1])
 	}
 }
 
@@ -214,7 +212,7 @@ func (manager *GridManager) default_colors_set(args []any) {
 		// NOTE: Unlike the corresponding |ui-grid-old| events, the screen is not
 		// always cleared after sending this event. The UI must repaint the
 		// screen with changed background color itself.
-		MarkForceDraw()
+		manager.editor.MarkForceDraw()
 	}
 }
 
@@ -264,7 +262,7 @@ func (manager *GridManager) hl_attr_define(args []any) {
 			}
 		}
 		manager.attributes[hl_id] = hl_attr
-		MarkForceDraw()
+		manager.editor.MarkForceDraw()
 	}
 }
 
@@ -327,7 +325,7 @@ func (manager *GridManager) grid_cursor_goto(args []any) {
 		grid_id := to_int(arg[0])
 		row := to_int(arg[1])
 		col := to_int(arg[2])
-		Editor.cursor.SetPosition(grid_id, row, col)
+		manager.editor.cursor.SetPosition(grid_id, row, col)
 	}
 }
 
@@ -427,10 +425,8 @@ func (manager *GridManager) msg_set_pos(args []any) {
 		row := to_int(arg[1])
 		// scrolled := arg[2].(bool)
 		// sep_char := arg[3].(string)
-
 		grid := manager.Grid(grid_id)
 		default_grid := manager.Grid(1)
-
 		if grid != nil && default_grid != nil {
 			manager.SetGridPos(grid_id, grid.window, default_grid.sRow+row, default_grid.sCol, grid.rows, grid.cols, GridTypeMessage)
 		}

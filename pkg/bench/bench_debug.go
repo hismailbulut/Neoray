@@ -14,6 +14,7 @@ import (
 
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
 const BUILD_TYPE = logger.DebugBuild
@@ -111,10 +112,8 @@ func PrintResults(out io.Writer) {
 	})
 
 	var buf bytes.Buffer
-	table := tablewriter.NewWriter(&buf)
-	table.SetAutoWrapText(false)
-	table.SetAlignment(tablewriter.ALIGN_CENTER)
-	table.SetHeader([]string{
+	table := tablewriter.NewTable(&buf, tablewriter.WithAlignment([]tw.Align{tw.AlignCenter}))
+	table.Header([]string{
 		"NAME", "CALLS", "PERCENT",
 		"TOTAL", "AVERAGE", "MAX",
 	})

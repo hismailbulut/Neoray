@@ -8,9 +8,11 @@ import (
 	"unicode"
 
 	"github.com/adrg/sysfont"
+	"github.com/hismailbulut/Neoray/pkg/logger"
 )
 
 type FontPathInfo struct {
+	Name       string
 	Regular    string
 	BoldItalic string
 	Italic     string
@@ -54,9 +56,10 @@ func init() {
 		systemFontListGuard.Lock()
 		defer systemFontListGuard.Unlock()
 		finder := sysfont.NewFinder(&sysfont.FinderOpts{
-			Extensions: []string{".ttf", ".otf"},
+			Extensions: []string{".ttc", ".otc", ".ttf", ".otf"},
 		})
 		systemFontList = finder.List()
+		logger.Debug("Total of", len(systemFontList), "fonts found")
 	}()
 }
 
@@ -73,7 +76,6 @@ func Find(name string) FontPathInfo {
 }
 
 func find(name string) FontPathInfo {
-
 	fonts := []fontSearchInfo{}
 
 	for _, f := range systemFontList {
@@ -113,15 +115,17 @@ func find(name string) FontPathInfo {
 		} else if f.hasRegular {
 			info.Regular = f.handle.Filename
 			// If a font has 'Regular' string, it is the regular.
-			// No look for others. If no font has 'Regular' or 'Normal'
+			// We don't need to look for others. But if no font has 'Regular' or 'Normal'
 			// then the font has smallest filename length and has no
-			// italic or bold will be the regular.
+			// italic or bold should be the regular one but this is not guaranteed.
 			regularFounded = true
 		} else if !regularFounded {
 			info.Regular = f.handle.Filename
 		}
+		// logger.Debug("Font Family:", f.handle.Family, "Name:", f.handle.Name)
 	}
 
+	info.Name = name
 	return info
 }
 
@@ -153,8 +157,9 @@ func sortFileNameLen(fonts *[]fontSearchInfo) {
 
 // Splits string to words according to delimiters and casing.
 // Example:
-//  This:           "HelloWorld_from-Turkey"
-//  Turns to this:  [Hello, World, from, Turkey]
+//
+//	This:           "HelloWorld_from-Turkey"
+//	Turns to this:  [Hello, World, from, Turkey]
 func splitWords(str string) []string {
 	// CamelCase pascalCase and "-_ "
 	arr := []string{}

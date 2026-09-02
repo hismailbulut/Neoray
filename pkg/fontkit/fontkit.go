@@ -6,11 +6,6 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/fontfinder"
 )
 
-var (
-	// Private
-	defaultFontKit *FontKit
-)
-
 // FontKit is a struct that holds different styles of same font family
 // TODO: Maybe we should make this safe for concurrent usage, currently not
 type FontKit struct {
@@ -20,108 +15,148 @@ type FontKit struct {
 	boldItalic *Font
 }
 
-func CreateKit(fontname string) (*FontKit, error) {
-	info := fontfinder.Find(fontname)
+func LoadFontKit(name string) (*FontKit, error) {
+	info := fontfinder.Find(name)
 	if info.Regular == "" && info.Bold == "" && info.Italic == "" && info.BoldItalic == "" {
 		// This means we could not find any font file with this name
-		return nil, fmt.Errorf("Couldn't find font %s", fontname)
+		return nil, fmt.Errorf("Couldn't find font %s", name)
 	}
-	fontkit := new(FontKit)
+	kit := &FontKit{}
 	// Load fonts
 	var err error
 	if info.Regular != "" {
-		fontkit.regular, err = CreateFontFromFile(info.Regular)
+		kit.regular, err = LoadFontFromFile(info.Regular)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if info.Bold != "" {
-		fontkit.bold, err = CreateFontFromFile(info.Bold)
+		kit.bold, err = LoadFontFromFile(info.Bold)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if info.Italic != "" {
-		fontkit.italic, err = CreateFontFromFile(info.Italic)
+		kit.italic, err = LoadFontFromFile(info.Italic)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if info.BoldItalic != "" {
-		fontkit.boldItalic, err = CreateFontFromFile(info.BoldItalic)
+		kit.boldItalic, err = LoadFontFromFile(info.BoldItalic)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return fontkit, nil
+	return kit, nil
 }
 
-// This function must be called before any use of fontkit
-func SetDefaultFontData(regular, bold, italic, boldItalic []byte) {
-	if defaultFontKit == nil {
-		defaultFontKit = new(FontKit)
-		defaultFontKit.regular, _ = CreateFontFromMem(regular)
-		defaultFontKit.bold, _ = CreateFontFromMem(bold)
-		defaultFontKit.italic, _ = CreateFontFromMem(italic)
-		defaultFontKit.boldItalic, _ = CreateFontFromMem(boldItalic)
-	} else {
-		panic("Default font kit already created")
+func LoadFontKitFromMemory(regular, bold, italic, boldItalic []byte) (*FontKit, error) {
+	kit := &FontKit{}
+	var err error
+	kit.regular, err = LoadFontFromMem(regular)
+	if err != nil {
+		return nil, err
 	}
-}
-
-// Returns default font kit, creates it if first time
-func Default() *FontKit {
-	if defaultFontKit == nil {
-		panic("Default font kit not created")
+	kit.bold, err = LoadFontFromMem(bold)
+	if err != nil {
+		return nil, err
 	}
-	return defaultFontKit
+	kit.italic, err = LoadFontFromMem(italic)
+	if err != nil {
+		return nil, err
+	}
+	kit.boldItalic, err = LoadFontFromMem(boldItalic)
+	if err != nil {
+		return nil, err
+	}
+	return kit, nil
 }
 
-func (fontkit *FontKit) Regular() *Font {
-	return fontkit.regular
+func (kit *FontKit) Regular() *Font {
+	return kit.regular
 }
 
-func (fontkit *FontKit) Bold() *Font {
-	return fontkit.bold
+func (kit *FontKit) Bold() *Font {
+	return kit.bold
 }
 
-func (fontkit *FontKit) Italic() *Font {
-	return fontkit.italic
+func (kit *FontKit) Italic() *Font {
+	return kit.italic
 }
 
-func (fontkit *FontKit) BoldItalic() *Font {
-	return fontkit.boldItalic
+func (kit *FontKit) BoldItalic() *Font {
+	return kit.boldItalic
 }
 
 // Returns first non nil font starting from regular
-func (fontkit *FontKit) DefaultFont() *Font {
-	if fontkit.regular != nil {
-		return fontkit.regular
+func (kit *FontKit) FirstDrawableFont() *Font {
+	if kit.Regular() != nil {
+		return kit.Regular()
 	}
-	if fontkit.bold != nil {
-		return fontkit.bold
+	if kit.Bold() != nil {
+		return kit.Bold()
 	}
-	if fontkit.italic != nil {
-		return fontkit.italic
+	if kit.Italic() != nil {
+		return kit.Italic()
 	}
-	if fontkit.boldItalic != nil {
-		return fontkit.boldItalic
+	if kit.BoldItalic() != nil {
+		return kit.BoldItalic()
 	}
-	panic("all fonts are nil")
+	return nil
 }
 
-func (fontkit *FontKit) SuitableFont(bold, italic bool) *Font {
-	if bold && italic && fontkit.boldItalic != nil {
-		return fontkit.boldItalic
+func (kit *FontKit) SuitableFont(bold, italic bool) *Font {
+	if bold && italic && kit.BoldItalic() != nil {
+		return kit.BoldItalic()
 	}
-	if italic && fontkit.italic != nil {
-		return fontkit.italic
+	if italic && kit.Italic() != nil {
+		return kit.Italic()
 	}
-	if bold && fontkit.bold != nil {
-		return fontkit.bold
+	if bold && kit.Bold() != nil {
+		return kit.Bold()
 	}
-	if fontkit.regular != nil {
-		return fontkit.regular
+	if kit.Regular() != nil {
+		return kit.Regular()
 	}
-	return fontkit.DefaultFont()
+	return nil
+}
+
+func (kit *FontKit) SuitableFontWithGlyph(bold, italic bool, char rune) *Font {
+	if bold && italic && kit.BoldItalic() != nil {
+		if kit.BoldItalic().ContainsGlyph(char) {
+			return kit.BoldItalic()
+		}
+	}
+	if italic && kit.Italic() != nil {
+		if kit.Italic().ContainsGlyph(char) {
+			return kit.Italic()
+		}
+	}
+	if bold && kit.Bold() != nil {
+		if kit.Bold().ContainsGlyph(char) {
+			return kit.Bold()
+		}
+	}
+	if kit.Regular() != nil {
+		if kit.Regular().ContainsGlyph(char) {
+			return kit.Regular()
+		}
+	}
+	return nil
+}
+
+func (kit *FontKit) Unload() {
+	if kit.regular != nil {
+		kit.regular.Unload()
+	}
+	if kit.italic != nil {
+		kit.italic.Unload()
+	}
+	if kit.bold != nil {
+		kit.bold.Unload()
+	}
+	if kit.boldItalic != nil {
+		kit.boldItalic.Unload()
+	}
 }

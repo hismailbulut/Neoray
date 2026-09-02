@@ -4,22 +4,21 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/hismailbulut/Neoray/pkg/bench"
 	"github.com/hismailbulut/Neoray/pkg/common"
-	"github.com/hismailbulut/Neoray/pkg/fontkit"
 	"github.com/hismailbulut/Neoray/pkg/logger"
 	"github.com/sqweek/dialog"
 )
 
 type ContextButton struct {
 	name string
-	fn   func()
+	fn   func(editor *Editor)
 }
 
 // You can add more buttons here.
 var ContextMenuButtons = []ContextButton{
 	{
 		name: "Cut",
-		fn: func() {
-			text := Editor.nvim.Cut()
+		fn: func(editor *Editor) {
+			text := editor.nvim.Cut()
 			if text != "" {
 				glfw.SetClipboardString(text)
 			}
@@ -27,8 +26,8 @@ var ContextMenuButtons = []ContextButton{
 	},
 	{
 		name: "Copy",
-		fn: func() {
-			text := Editor.nvim.Copy()
+		fn: func(editor *Editor) {
+			text := editor.nvim.Copy()
 			if text != "" {
 				glfw.SetClipboardString(text)
 			}
@@ -36,29 +35,30 @@ var ContextMenuButtons = []ContextButton{
 	},
 	{
 		name: "Paste",
-		fn: func() {
-			Editor.nvim.Paste(glfw.GetClipboardString())
+		fn: func(editor *Editor) {
+			editor.nvim.Paste(glfw.GetClipboardString())
 		},
 	},
 	{
 		name: "Select All",
-		fn: func() {
-			Editor.nvim.SelectAll()
+		fn: func(editor *Editor) {
+			editor.nvim.SelectAll()
 		},
 	},
 	{
 		name: "Open File",
-		fn: func() {
+		fn: func(editor *Editor) {
 			filename, err := dialog.File().Load()
 			if err == nil && filename != "" {
-				Editor.nvim.EditFile(filename)
+				editor.nvim.EditFile(filename)
 			}
-			Editor.window.Raise()
+			editor.window.Raise()
 		},
 	},
 }
 
 type ContextMenu struct {
+	editor     *Editor
 	pos        common.Vector2[int]
 	hidden     bool
 	rows, cols int
@@ -67,15 +67,17 @@ type ContextMenu struct {
 	renderer   *GridRenderer
 }
 
-func NewContextMenu() *ContextMenu {
-	menu := new(ContextMenu)
-	menu.hidden = true
+func NewContextMenu(editor *Editor) *ContextMenu {
+	menu := &ContextMenu{
+		editor: editor,
+		hidden: true,
+		hlRow:  -1,
+	}
 	menu.createCells()
-	menu.hlRow = -1
 	var err error
-	menu.renderer, err = NewGridRenderer(Editor.window, menu.rows, menu.cols, nil, DEFAULT_FONT_SIZE, menu.pos)
+	menu.renderer, err = NewGridRenderer(menu.editor, menu.rows, menu.cols, DEFAULT_FONT_SIZE, menu.pos)
 	if err != nil {
-		logger.Error("Failed to create context menu renderer")
+		logger.Error("Failed to create context menu renderer:", err)
 	}
 	return menu
 }
@@ -114,20 +116,15 @@ func (menu *ContextMenu) createCells() {
 	}
 }
 
-func (menu *ContextMenu) SetFontKit(kit *fontkit.FontKit) {
-	menu.renderer.SetFontKit(kit)
-	MarkForceDraw()
-}
-
 func (menu *ContextMenu) SetFontSize(size float64) {
-	menu.renderer.SetFontSize(size, Editor.window.DPI())
-	MarkForceDraw()
+	menu.renderer.SetFontSize(size, menu.editor.window.DPI())
+	menu.editor.MarkForceDraw()
 }
 
 func (menu *ContextMenu) AddFontSize(v float64) {
 	size := menu.renderer.FontSize() + v
 	menu.SetFontSize(size)
-	MarkForceDraw()
+	menu.editor.MarkForceDraw()
 }
 
 func (menu *ContextMenu) IsVisible() bool {
@@ -145,15 +142,15 @@ func (menu *ContextMenu) Draw() {
 			if menu.hlRow == row && col > 0 && col < menu.cols-1 {
 				// This is the highlighted cell
 				menu.renderer.DrawCell(row, col, char, HighlightAttribute{
-					foreground: Editor.gridManager.foreground,
-					background: Editor.gridManager.background,
+					foreground: menu.editor.gridManager.foreground,
+					background: menu.editor.gridManager.background,
 					bold:       true,
 				})
 			} else {
 				// Normally we swap menu colors
 				menu.renderer.DrawCell(row, col, char, HighlightAttribute{
-					foreground: Editor.gridManager.background,
-					background: Editor.gridManager.foreground,
+					foreground: menu.editor.gridManager.background,
+					background: menu.editor.gridManager.foreground,
 					bold:       true,
 				})
 			}
@@ -178,13 +175,13 @@ func (menu *ContextMenu) ShowAt(pos common.Vector2[int]) {
 	menu.hidden = false
 	menu.pos = pos
 	menu.renderer.SetPos(pos)
-	MarkDraw()
+	menu.editor.MarkDraw()
 }
 
 func (menu *ContextMenu) Hide() {
 	if !menu.hidden {
 		menu.hidden = true
-		MarkRender()
+		menu.editor.MarkRender()
 	}
 }
 
@@ -232,13 +229,13 @@ func (menu *ContextMenu) MouseMove(pos common.Vector2[int]) {
 					// Highlight this row.
 					if menu.hlRow != index {
 						menu.hlRow = index
-						MarkDraw()
+						menu.editor.MarkDraw()
 					}
 				}
 			} else {
 				if menu.hlRow != -1 {
 					menu.hlRow = -1
-					MarkDraw()
+					menu.editor.MarkDraw()
 				}
 			}
 		} else {
@@ -248,7 +245,7 @@ func (menu *ContextMenu) MouseMove(pos common.Vector2[int]) {
 			// Clear highlight
 			if menu.hlRow != -1 {
 				menu.hlRow = -1
-				MarkDraw()
+				menu.editor.MarkDraw()
 			}
 		}
 	}
@@ -264,7 +261,7 @@ func (menu *ContextMenu) MouseClick(rightbutton bool, pos common.Vector2[int]) b
 		ok, index := menu.IsIntersecting(pos)
 		if ok {
 			if index != -1 {
-				ContextMenuButtons[index].fn()
+				ContextMenuButtons[index].fn(menu.editor)
 				menu.Hide()
 			}
 		} else {

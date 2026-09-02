@@ -8,7 +8,7 @@ ifeq ($(OUTDIR),)
 	OUTDIR=bin
 endif
 
-VERSION    :=0.2.6
+VERSION    :=0.2.7
 SRCDIR     :=./cmd/neoray
 SRCTESTDIR :=./cmd/neoray/...
 PKGTESTDIR :=./pkg/...

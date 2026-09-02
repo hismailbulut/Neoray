@@ -66,24 +66,24 @@ func (context *Context) CreateVertexBuffer(size int) *VertexBuffer {
 	buffer.shader = context.shader
 	// Initialize vao
 	gl.GenVertexArrays(1, &buffer.vaoid)
-	checkGLError()
+	glCheckError()
 	gl.BindVertexArray(buffer.vaoid)
-	checkGLError()
+	glCheckError()
 	boundVertexArrayId = buffer.vaoid
 	// Initialize vbo
 	gl.GenBuffers(1, &buffer.vboid)
-	checkGLError()
+	glCheckError()
 	gl.BindBuffer(gl.ARRAY_BUFFER, buffer.vboid)
-	checkGLError()
+	glCheckError()
 	// Enable attributes
 	valueof_Vertex := reflect.ValueOf(Vertex{})
 	offset := uintptr(0)
 	for i := 0; i < valueof_Vertex.NumField(); i++ {
 		attr_size := valueof_Vertex.Field(i).Type().Size()
 		gl.EnableVertexAttribArray(uint32(i))
-		checkGLError()
+		glCheckError()
 		gl.VertexAttribPointerWithOffset(uint32(i), int32(attr_size)/4, gl.FLOAT, false, sizeof_Vertex, offset)
-		checkGLError()
+		glCheckError()
 		offset += attr_size
 	}
 	// Create buffer in memory
@@ -98,6 +98,7 @@ func (buffer *VertexBuffer) Resize(size int) {
 		panic("vertex buffer size must bigger then zero")
 	}
 	if size == len(buffer.data) {
+		// Do we need to clear here ???
 		return
 	}
 	EndBenchmark := bench.Begin()
@@ -123,9 +124,9 @@ func (buffer *VertexBuffer) Bind() {
 		return
 	}
 	gl.BindVertexArray(buffer.vaoid)
-	checkGLError()
+	glCheckError()
 	gl.BindBuffer(gl.ARRAY_BUFFER, buffer.vboid)
-	checkGLError()
+	glCheckError()
 	boundVertexArrayId = buffer.vaoid
 }
 
@@ -140,11 +141,11 @@ func (buffer *VertexBuffer) Update() {
 	}
 	if buffer.updatedSize != len(buffer.data) {
 		gl.BufferData(gl.ARRAY_BUFFER, len(buffer.data)*int(sizeof_Vertex), unsafe.Pointer(&buffer.data[0]), gl.DYNAMIC_DRAW)
-		checkGLError()
+		glCheckError()
 		buffer.updatedSize = len(buffer.data)
 	} else {
 		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(buffer.data)*int(sizeof_Vertex), unsafe.Pointer(&buffer.data[0]))
-		checkGLError()
+		glCheckError()
 	}
 }
 
@@ -158,7 +159,7 @@ func (buffer *VertexBuffer) Render() {
 		panic("buffer size is zero")
 	}
 	gl.DrawArrays(gl.POINTS, 0, int32(buffer.updatedSize))
-	checkGLError()
+	glCheckError()
 }
 
 func orthoProjection(top, left, right, bottom, near, far float32) [16]float32 {
@@ -185,13 +186,17 @@ func (buffer *VertexBuffer) SetUndercurlRect(rect common.Rectangle[float32]) {
 	gl.Uniform4f(loc, rect.X, rect.Y, rect.W, rect.H)
 }
 
-func (buffer *VertexBuffer) Destroy() {
+func (buffer *VertexBuffer) Delete() {
+	logger.Debug("Deleting buffer:", buffer)
 	buffer.shader = nil
 	gl.DeleteVertexArrays(1, &buffer.vaoid)
+	glCheckError()
+	buffer.vaoid = 0
 	gl.DeleteBuffers(1, &buffer.vboid)
+	glCheckError()
+	buffer.vboid = 0
 	buffer.updatedSize = 0
 	buffer.data = nil
-	logger.Debug("Buffer destroyed:", buffer)
 }
 
 // Buffer functions

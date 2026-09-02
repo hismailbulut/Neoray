@@ -2,33 +2,32 @@ package main
 
 import (
 	"github.com/hismailbulut/Neoray/pkg/common"
-	"github.com/hismailbulut/Neoray/pkg/fontkit"
 	"github.com/hismailbulut/Neoray/pkg/opengl"
-	"github.com/hismailbulut/Neoray/pkg/window"
 )
 
 type GridRenderer struct {
-	atlas    *opengl.Atlas        // Font atlas of this renderer
-	buffer   *opengl.VertexBuffer // Vertex buffer of this renderer
-	position common.Vector2[int]
-	rows     int
-	cols     int
+	editor *Editor
+	// TODO: do not use a separate atlas if the font size is same with the default grid
+	// share same atlas with it
+	atlas              *opengl.Atlas        // Font atlas of this renderer
+	buffer             *opengl.VertexBuffer // Vertex buffer of this renderer
+	position           common.Vector2[int]
+	rows               int
+	cols               int
+	cellSizeCalculated bool
 }
 
-func NewGridRenderer(window *window.Window, rows, cols int, kit *fontkit.FontKit, fontSize float64, position common.Vector2[int]) (*GridRenderer, error) {
-	renderer := new(GridRenderer)
-	renderer.atlas = window.GL().NewAtlas(kit, fontSize, window.DPI(), Editor.options.boxDrawingEnabled, Editor.options.boxDrawingEnabled)
-	renderer.buffer = window.GL().CreateVertexBuffer(rows * cols)
-	renderer.rows = rows
-	renderer.cols = cols
-	renderer.position = position
+func NewGridRenderer(editor *Editor, rows, cols int, fontSize float64, position common.Vector2[int]) (*GridRenderer, error) {
+	renderer := &GridRenderer{
+		editor:   editor,
+		atlas:    editor.window.GL().NewAtlas(fontSize, editor.window.DPI(), editor.options.boxDrawingEnabled, editor.options.boxDrawingEnabled),
+		buffer:   editor.window.GL().CreateVertexBuffer(rows * cols),
+		position: position,
+		rows:     rows,
+		cols:     cols,
+	}
 	renderer.UpdatePositions()
 	return renderer, nil
-}
-
-func (renderer *GridRenderer) SetFontKit(kit *fontkit.FontKit) {
-	renderer.atlas.SetFontKit(kit)
-	renderer.UpdatePositions()
 }
 
 func (renderer *GridRenderer) FontSize() float64 {
@@ -37,6 +36,7 @@ func (renderer *GridRenderer) FontSize() float64 {
 
 func (renderer *GridRenderer) SetFontSize(fontSize, dpi float64) {
 	renderer.atlas.SetFontSize(fontSize, dpi)
+	renderer.cellSizeCalculated = false
 	renderer.UpdatePositions()
 }
 
@@ -57,7 +57,13 @@ func (renderer *GridRenderer) Resize(rows, cols int) {
 }
 
 func (renderer *GridRenderer) CellSize() common.Vector2[int] {
-	return renderer.atlas.ImageSize()
+	if !renderer.cellSizeCalculated {
+		font := renderer.editor.fontManager.MustSuitableFont(false, false, ' ')
+		renderer.atlas.CalculateCellSizeForFont(font)
+		renderer.cellSizeCalculated = true
+		renderer.UpdatePositions()
+	}
+	return renderer.atlas.CellSize()
 }
 
 // NOTE: Neovim's coordinates and opengl coordinates we are using are
@@ -93,7 +99,7 @@ func (renderer *GridRenderer) cellIndex(row, col int) int {
 }
 
 func (renderer *GridRenderer) UpdatePositions() {
-	cellSize := renderer.atlas.ImageSize()
+	cellSize := renderer.CellSize()
 	for row := 0; row < renderer.rows; row++ {
 		for col := 0; col < renderer.cols; col++ {
 			renderer.buffer.SetIndexPos(renderer.cellIndex(row, col), renderer.cellPos(row, col, cellSize))
@@ -115,6 +121,8 @@ func (renderer *GridRenderer) CopyRow(dst, src, left, right int) {
 }
 
 func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib HighlightAttribute) {
+	// TODO: call once for every batch
+	renderer.CellSize()
 	// Calculate indices
 	index := renderer.cellIndex(row, col)
 	nextIndex := -1
@@ -137,10 +145,14 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 		return
 	}
 
-	cellSize := renderer.atlas.ImageSize()
+	cellSize := renderer.CellSize()
+	font := renderer.editor.fontManager.MustSuitableFont(attrib.bold, attrib.italic, char)
 
 	if attrib.undercurl {
-		undercurlRect, firstDraw := renderer.atlas.Undercurl(cellSize)
+		undercurlRect, firstDraw, atlasResized := renderer.atlas.Undercurl(font)
+		if atlasResized {
+			renderer.editor.MarkForceDraw()
+		}
 		if firstDraw {
 			// This is the first time we draw undercurl, because of this we must update
 			// it's position to the shader
@@ -157,7 +169,10 @@ func (renderer *GridRenderer) DrawCell(row, col int, char rune, attrib Highlight
 		renderer.buffer.SetIndexSp(index, common.ZeroColor)
 	}
 	// Get character position in atlas texture
-	atlasPos := renderer.atlas.GetCharPos(char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough, cellSize)
+	atlasPos, atlasResized := renderer.atlas.GetCharPos(font, char, attrib.bold, attrib.italic, attrib.underline, attrib.strikethrough)
+	if atlasResized {
+		renderer.editor.MarkForceDraw()
+	}
 	// Check if there is a require for second texture in next cell
 	if atlasPos.W > cellSize.Width() {
 		// The atlas width will be 2 times wider if the char is a multiwidth char
@@ -190,11 +205,11 @@ func (renderer *GridRenderer) Render() {
 	renderer.atlas.BindTexture()
 	renderer.buffer.Bind()
 	renderer.buffer.Update()
-	renderer.buffer.SetProjection(Editor.window.Viewport().ToF32())
+	renderer.buffer.SetProjection(renderer.editor.window.Viewport().ToF32())
 	renderer.buffer.Render()
 }
 
 func (renderer *GridRenderer) Destroy() {
-	renderer.atlas.Destroy()
-	renderer.buffer.Destroy()
+	renderer.atlas.Delete()
+	renderer.buffer.Delete()
 }

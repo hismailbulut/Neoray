@@ -7,8 +7,10 @@ import (
 	"math"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
+	"github.com/hismailbulut/Neoray/pkg/logger"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
 )
@@ -34,46 +36,41 @@ type Face struct {
 	imgCache map[common.Vector2[int]]*image.RGBA
 }
 
-// This funtion may return a face previously created and used because it caches
-// every face in the font and it also caches every image size. Caching and reusing
-// makes this library incredibly fast and memory friendly. But creating so many
-// faces and drawing multiple size of images every time increases memory usage.
-// And this memory never be freed until the font has freed. (This is not leak)
-func (f *Font) CreateFace(params FaceParams) (*Face, error) {
-	face, ok := f.faceCache[params]
-	if ok {
-		return face, nil
-	} else {
-		face = new(Face)
-		face.useBoxDrawing = params.UseBoxDrawing
-		face.useBlockDrawing = params.UseBlockDrawing
-		var err error
-		face.handle, err = opentype.NewFace(f.handle, &opentype.FaceOptions{
-			Size:    params.Size,
-			DPI:     params.DPI,
-			Hinting: font.HintingFull,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		advance, ok := face.handle.GlyphAdvance('m')
-		if !ok {
-			return nil, errors.New("Failed to get font advance!")
-		}
-		face.advance = advance.Floor()
-
-		metrics := face.handle.Metrics()
-		face.ascent = metrics.Ascent.Ceil()
-		face.descent = metrics.Descent.Floor()
-		face.height = metrics.Height.Floor()
-
-		face.thickness = common.Max(float32(math.Ceil(4*(float64(face.height)/12))/4), 1)
-		face.imgCache = make(map[common.Vector2[int]]*image.RGBA)
-
-		f.faceCache[params] = face
-		return face, nil
+// Do not use this function directly
+// Use Font.CreateFace instead
+func NewFace(f *sfnt.Font, params FaceParams) (*Face, error) {
+	face := &Face{
+		useBoxDrawing:   params.UseBoxDrawing,
+		useBlockDrawing: params.UseBlockDrawing,
 	}
+
+	var err error
+	face.handle, err = opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    params.Size,
+		DPI:     params.DPI,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// All fonts must have a space character and space character's width is set to same advance
+	// value with all glyphs for a monospaced font
+	advance, ok := face.handle.GlyphAdvance(' ')
+	if !ok {
+		return nil, errors.New("failed to get font advance")
+	}
+	face.advance = advance.Floor()
+
+	metrics := face.handle.Metrics()
+	face.ascent = metrics.Ascent.Ceil()
+	face.descent = metrics.Descent.Floor()
+	face.height = metrics.Height.Floor()
+
+	face.thickness = common.Max(float32(math.Ceil(4*(float64(face.height)/12))/4), 1)
+	face.imgCache = make(map[common.Vector2[int]]*image.RGBA)
+
+	return face, nil
 }
 
 func (face *Face) ImageSize() common.Vector2[int] {
@@ -129,6 +126,9 @@ func (face *Face) RenderGlyph(char rune, imgSize common.Vector2[int]) *image.RGB
 		width := imgSize.Width()
 		if mask.Bounds().Dx() > width {
 			width *= 2
+		}
+		if mask.Bounds().Dx() > width {
+			logger.Error("Too wide character:", string(char), char)
 		}
 		if mask.Bounds().Dy() > height {
 			// Center image if the image height is taller than our cell height.

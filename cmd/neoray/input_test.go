@@ -8,11 +8,14 @@ import (
 	"github.com/hismailbulut/Neoray/pkg/common"
 )
 
+var testInputManager *InputManager
+
 func TestMain(m *testing.M) {
 	// We need to initialize glfw for GetKeyName function
 	if glfw.Init() != nil {
 		return
 	}
+	testInputManager = NewInputManager(nil) // make sure test functions do not need an editor
 	c := m.Run()
 	glfw.Terminate()
 	os.Exit(c)
@@ -63,7 +66,7 @@ func Test_parseCharInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseCharInput(tt.args.char, tt.args.mods); got != tt.want {
+			if got := testInputManager.parseCharInput(tt.args.char, tt.args.mods); got != tt.want {
 				t.Errorf("parseCharInput() = %v, want %v", got, tt.want)
 			}
 		})
@@ -148,7 +151,7 @@ func Test_parseKeyInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseKeyInput(tt.args.key, tt.args.scancode, tt.args.mods); got != tt.want {
+			if got := testInputManager.parseKeyInput(tt.args.key, tt.args.scancode, tt.args.mods); got != tt.want {
 				t.Errorf("parseKeyInput() = %v, want %v", got, tt.want)
 			}
 		})

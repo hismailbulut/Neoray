@@ -12,26 +12,25 @@ import (
 
 	"github.com/hismailbulut/Neoray/pkg/common"
 	"github.com/hismailbulut/Neoray/pkg/opengl"
-	"github.com/hismailbulut/Neoray/pkg/window"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/webp"
 )
 
 type ImageViewer struct {
+	editor    *Editor
 	hidden    bool
 	imageChan chan string
-	window    *window.Window
 	texture   opengl.Texture
 	buffer    *opengl.VertexBuffer
 }
 
-func NewImageViewer(window *window.Window) *ImageViewer {
+func NewImageViewer(editor *Editor) *ImageViewer {
 	return &ImageViewer{
+		editor:    editor,
 		hidden:    true,
 		imageChan: make(chan string, 4),
-		window:    window,
-		texture:   window.GL().CreateTexture(64, 64), // Temporary size
-		buffer:    window.GL().CreateVertexBuffer(1),
+		texture:   editor.window.GL().CreateTexture(64, 64), // Temporary size
+		buffer:    editor.window.GL().CreateVertexBuffer(1),
 	}
 }
 
@@ -116,7 +115,7 @@ func (viewer *ImageViewer) Show() {
 		return
 	}
 	viewer.hidden = false
-	MarkDraw()
+	viewer.editor.MarkDraw()
 }
 
 func (viewer *ImageViewer) Hide() {
@@ -124,7 +123,7 @@ func (viewer *ImageViewer) Hide() {
 		return
 	}
 	viewer.hidden = true
-	MarkRender()
+	viewer.editor.MarkRender()
 }
 
 func (viewer *ImageViewer) IsVisible() bool {
@@ -135,7 +134,7 @@ func (viewer *ImageViewer) Update() {
 	if len(viewer.imageChan) > 0 {
 		err := viewer.SetImage(<-viewer.imageChan)
 		if err != nil {
-			Editor.nvim.EchoError("%v", err)
+			viewer.editor.nvim.EchoError("%v", err)
 		} else {
 			viewer.Show()
 		}
@@ -148,8 +147,8 @@ func (viewer *ImageViewer) Draw() {
 	}
 	// We fit texture width and height to screen area
 	// And keep aspect ratio while doing this
-	w := float32(viewer.window.Size().Width())
-	h := float32(viewer.window.Size().Height())
+	w := float32(viewer.editor.window.Size().Width())
+	h := float32(viewer.editor.window.Size().Height())
 	imgW := float32(viewer.texture.Size().Width())
 	imgH := float32(viewer.texture.Size().Height())
 	wRatio := w / imgW
@@ -194,5 +193,5 @@ func (viewer *ImageViewer) Destroy() {
 	// Delete opengl texture
 	viewer.texture.Delete()
 	// Destroy opengl vertex buffer
-	viewer.buffer.Destroy()
+	viewer.buffer.Delete()
 }

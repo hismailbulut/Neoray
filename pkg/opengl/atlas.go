@@ -3,6 +3,8 @@ package opengl
 import (
 	"fmt"
 	"image"
+	"image/color"
+	"math"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
 	"github.com/hismailbulut/Neoray/pkg/fontkit"
@@ -10,18 +12,20 @@ import (
 )
 
 const (
-	UNSUPPORTED_GLYPH_ID = 0xffffffffffffffff // "Unsupported"
-	UNDERCURL_GLYPH_ID   = 0xfffffffffffffffe // "Undercurl"
+	UNSUPPORTED_GLYPH_ID uint64 = 0xffffffffffffffff // "Unsupported"
+	UNDERCURL_GLYPH_ID   uint64 = 0xfffffffffffffffe // "Undercurl"
+
+	UNICODE_REPLACEMENT_CHARACTER rune = 0xfffd
 )
 
 type Atlas struct {
-	kit             *fontkit.FontKit
 	fontSize, dpi   float64
 	useBoxDrawing   bool
 	useBlockDrawing bool
 	texture         Texture
 	cache           map[uint64]common.Rectangle[int]
 	pen             common.Vector2[int]
+	cellSize        common.Vector2[int]
 }
 
 func (atlas *Atlas) String() string {
@@ -32,9 +36,8 @@ func (atlas *Atlas) String() string {
 	)
 }
 
-func (context *Context) NewAtlas(kit *fontkit.FontKit, size, dpi float64, useBoxDrawing, useBlockDrawing bool) *Atlas {
+func (context *Context) NewAtlas(size, dpi float64, useBoxDrawing, useBlockDrawing bool) *Atlas {
 	atlas := new(Atlas)
-	atlas.kit = kit
 	atlas.fontSize = size
 	atlas.dpi = dpi
 	atlas.useBoxDrawing = useBoxDrawing
@@ -46,32 +49,7 @@ func (context *Context) NewAtlas(kit *fontkit.FontKit, size, dpi float64, useBox
 	// But we also grow it if needed
 	atlas.texture = context.CreateTexture(width, height)
 	atlas.cache = make(map[uint64]common.Rectangle[int])
-	atlas.issueHack()
 	return atlas
-}
-
-func (atlas *Atlas) issueHack() {
-	// HACK
-	// I dont know why but if the renderer first draws a character
-	// between 0x2588 and 0x258F (unicode block characters) strange things
-	// happens. This is not happening before Neoray version 0.2
-	// To prevent this we just drawing 'a' first
-	// But this is not a real fix. TODO: We should address this
-	// We are doing this every time atlas recreated
-	// Try change 'a' to one of characters in range [0x2588, 0x258F] and see the result
-	atlas.GetCharPos('a', false, false, false, false, atlas.ImageSize())
-}
-
-func (atlas *Atlas) FontKit() *fontkit.FontKit {
-	if atlas.kit != nil {
-		return atlas.kit
-	}
-	return fontkit.Default()
-}
-
-func (atlas *Atlas) SetFontKit(kit *fontkit.FontKit) {
-	atlas.kit = kit
-	atlas.Reset()
 }
 
 func (atlas *Atlas) FontSize() float64 {
@@ -90,15 +68,8 @@ func (atlas *Atlas) SetBoxDrawing(useBoxDrawing, useBlockDrawing bool) {
 	atlas.Reset()
 }
 
-func (atlas *Atlas) Reset() {
-	atlas.texture.Clear()
-	atlas.cache = make(map[uint64]common.Rectangle[int])
-	atlas.pen = common.Vector2[int]{}
-	atlas.issueHack()
-}
-
-func (atlas *Atlas) ImageSize() common.Vector2[int] {
-	face, err := atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
+func (atlas *Atlas) CalculateCellSizeForFont(font *fontkit.Font) {
+	face, err := font.CreateFace(fontkit.FaceParams{
 		Size:            atlas.fontSize,
 		DPI:             atlas.dpi,
 		UseBoxDrawing:   atlas.useBoxDrawing,
@@ -107,7 +78,17 @@ func (atlas *Atlas) ImageSize() common.Vector2[int] {
 	if err != nil {
 		panic(err)
 	}
-	return face.ImageSize()
+	atlas.cellSize = face.ImageSize()
+}
+
+func (atlas *Atlas) CellSize() common.Vector2[int] {
+	return atlas.cellSize
+}
+
+func (atlas *Atlas) Reset() {
+	atlas.texture.Clear()
+	atlas.cache = make(map[uint64]common.Rectangle[int])
+	atlas.pen = common.Vector2[int]{}
 }
 
 func getCharID(char rune, italic, bold, underline, strikethrough bool) uint64 {
@@ -129,21 +110,23 @@ func getCharID(char rune, italic, bold, underline, strikethrough bool) uint64 {
 
 // Draws img to texture and returns position
 func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
-	textureSize := atlas.texture.Size()
+	texSize := atlas.TextureSize()
 	// Check X
-	if atlas.pen.X+img.Rect.Dx() > textureSize.Width() {
+	if atlas.pen.X+img.Rect.Dx() > texSize.Width() {
 		atlas.pen.X = 0
 		atlas.pen.Y += img.Rect.Dy()
 	}
 	// Check Y
-	if atlas.pen.Y+img.Rect.Dy() > textureSize.Height() {
+	if atlas.pen.Y+img.Rect.Dy() > texSize.Height() {
 		// We must grow the texture
-		atlas.texture.Resize(textureSize.Width()*2, textureSize.Height()*2)
-		logger.Debug("Atlas", atlas.texture.id, "texture resized to %v", atlas.texture.Size())
+		// TODO: instead of clearing the texture we can create a bigger texture and copy this texture on to it
+		// but for now this is easier and doesn't consume too much resource
+		atlas.texture.Bind()
+		atlas.texture.Resize(texSize.Width()*2, texSize.Height()*2)
+		logger.Debug("Atlas", atlas.texture.id, "texture resized to", atlas.TextureSize())
 		// Resizing texture also clears it, so we should also clear the cache
 		atlas.cache = make(map[uint64]common.Rectangle[int])
 		atlas.pen = common.Vector2[int]{}
-		atlas.issueHack()
 	}
 	// draw image to current pen
 	dest := common.Rect(atlas.pen.X, atlas.pen.Y, img.Rect.Dx(), img.Rect.Dy())
@@ -155,81 +138,26 @@ func (atlas *Atlas) drawImage(img *image.RGBA) common.Rectangle[int] {
 	return dest
 }
 
-func (atlas *Atlas) drawChar(face *fontkit.Face, id uint64, char rune, underline, strikethrough bool, imgSize common.Vector2[int]) common.Rectangle[int] {
-	img := face.RenderChar(char, underline, strikethrough, imgSize)
+func (atlas *Atlas) drawChar(face *fontkit.Face, id uint64, char rune, underline, strikethrough bool) common.Rectangle[int] {
+	img := face.RenderChar(char, underline, strikethrough, atlas.cellSize)
+	if img == nil {
+		logger.Error("face.RenderChar() failed for glyph:", char, underline, strikethrough)
+		return common.ZeroRectangleINT
+	}
 	pos := atlas.drawImage(img)
 	atlas.cache[id] = pos
 	return pos
 }
 
-func (atlas *Atlas) suitableFont(char rune, bold, italic bool) (*fontkit.Font, bool) {
-	if atlas.FontKit().SuitableFont(bold, italic).ContainsGlyph(char) {
-		return atlas.FontKit().SuitableFont(bold, italic), true
-	}
-	if atlas.FontKit().DefaultFont().ContainsGlyph(char) {
-		return atlas.FontKit().DefaultFont(), true
-	}
-	if fontkit.Default().SuitableFont(bold, italic).ContainsGlyph(char) {
-		return fontkit.Default().SuitableFont(bold, italic), true
-	}
-	if fontkit.Default().DefaultFont().ContainsGlyph(char) {
-		return fontkit.Default().DefaultFont(), true
-	}
-	// Neither of the fonts supports this glyph
-	return atlas.FontKit().SuitableFont(bold, italic), false
-}
-
 // For the first time draws and caches undercurl image, returns image pos and true representing first time
 // After that uses cached image and returns false
-func (atlas *Atlas) Undercurl(imgSize common.Vector2[int]) (common.Rectangle[int], bool) {
+// The third bool value is whether the atlas has resized, draw everything again if it resized
+func (atlas *Atlas) Undercurl(font *fontkit.Font) (common.Rectangle[int], bool, bool) {
 	pos, ok := atlas.cache[UNDERCURL_GLYPH_ID]
 	if ok {
-		return pos, false
+		return pos, false, false
 	}
 	// Draw and cache
-	face, err := atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
-		Size:            atlas.fontSize,
-		DPI:             atlas.dpi,
-		UseBoxDrawing:   atlas.useBoxDrawing,
-		UseBlockDrawing: atlas.useBlockDrawing,
-	})
-	if err != nil {
-		panic(fmt.Errorf("face creation failed: %s", err))
-	}
-	img := face.RenderUndercurl(imgSize)
-	pos = atlas.drawImage(img)
-	atlas.cache[UNDERCURL_GLYPH_ID] = pos
-	return pos, true
-}
-
-func (atlas *Atlas) unsupported(char rune, imgSize common.Vector2[int]) common.Rectangle[int] {
-	logger.Debug("Unsupported glyph:", char, string(char))
-	pos, ok := atlas.cache[UNSUPPORTED_GLYPH_ID]
-	if ok {
-		return pos
-	}
-	// Draw and cache
-	face, err := atlas.FontKit().DefaultFont().CreateFace(fontkit.FaceParams{
-		Size:            atlas.fontSize,
-		DPI:             atlas.dpi,
-		UseBoxDrawing:   atlas.useBoxDrawing,
-		UseBlockDrawing: atlas.useBlockDrawing,
-	})
-	if err != nil {
-		panic(fmt.Errorf("face creation failed: %s", err))
-	}
-	// Draw and cache
-	pos = atlas.drawChar(face, UNSUPPORTED_GLYPH_ID, char, false, false, imgSize)
-	return pos
-}
-
-func (atlas *Atlas) GetCharPos(char rune, bold, italic, underline, strikethrough bool, imgSize common.Vector2[int]) common.Rectangle[int] {
-	id := getCharID(char, italic, bold, underline, strikethrough)
-	pos, ok := atlas.cache[id]
-	if ok {
-		return pos
-	}
-	font, contains := atlas.suitableFont(char, bold, italic)
 	face, err := font.CreateFace(fontkit.FaceParams{
 		Size:            atlas.fontSize,
 		DPI:             atlas.dpi,
@@ -239,14 +167,73 @@ func (atlas *Atlas) GetCharPos(char rune, bold, italic, underline, strikethrough
 	if err != nil {
 		panic(fmt.Errorf("face creation failed: %s", err))
 	}
-	if contains {
-		// Draw and cache
-		pos = atlas.drawChar(face, id, char, underline, strikethrough, imgSize)
+	img := face.RenderUndercurl(atlas.cellSize)
+	texSize := atlas.TextureSize()
+	pos = atlas.drawImage(img)
+	atlas.cache[UNDERCURL_GLYPH_ID] = pos
+	return pos, true, !texSize.Equals(atlas.TextureSize())
+}
+
+// Use this if the font doesn't contain replacement character
+func (atlas *Atlas) unsupported() common.Rectangle[int] {
+	pos, ok := atlas.cache[UNSUPPORTED_GLYPH_ID]
+	if ok {
 		return pos
-	} else {
-		// unsupported
-		return atlas.unsupported(char, imgSize)
 	}
+	// Draw a simple rectangle representing an unsupported glyph
+	img := image.NewRGBA(image.Rect(0, 0, atlas.cellSize.Width(), atlas.cellSize.Height()))
+	gap := int(math.Ceil(float64(atlas.cellSize.Width()) / 10.0))
+	x0, y0 := gap, gap
+	x1 := max((atlas.cellSize.Width()-1)-gap, 0)
+	y1 := atlas.cellSize.Height() - gap
+	for x := x0; x <= x1; x++ {
+		for y := y0; y <= y1; y++ {
+			// TODO: font characters line width
+			if x == x0 || x == x1 || y == y0 || y == y1 {
+				img.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
+			}
+		}
+	}
+	pos = atlas.drawImage(img)
+	atlas.cache[UNSUPPORTED_GLYPH_ID] = pos
+	return pos
+}
+
+// Returns position of the character in atlas and whether the atlas has been resized
+// If atlas has resized then everything should be rendered again because atlas texture clears
+func (atlas *Atlas) GetCharPos(font *fontkit.Font, char rune, bold, italic, underline, strikethrough bool) (common.Rectangle[int], bool) {
+	id := getCharID(char, italic, bold, underline, strikethrough)
+	pos, ok := atlas.cache[id]
+	if ok {
+		return pos, false
+	}
+	faceParams := fontkit.FaceParams{
+		Size:            atlas.fontSize,
+		DPI:             atlas.dpi,
+		UseBoxDrawing:   atlas.useBoxDrawing,
+		UseBlockDrawing: atlas.useBlockDrawing,
+	}
+	face, err := font.CreateFaceForGlyph(faceParams, char)
+	if err != nil {
+		// Use any font
+		face, err = font.CreateFace(faceParams)
+		if err != nil {
+			panic(fmt.Errorf("face creation failed: %s", err))
+		}
+	}
+	prevTextureSize := atlas.TextureSize()
+	if font.ContainsGlyph(char) {
+		pos = atlas.drawChar(face, id, char, underline, strikethrough)
+	} else if font.ContainsGlyph(UNICODE_REPLACEMENT_CHARACTER) {
+		pos = atlas.drawChar(face, UNSUPPORTED_GLYPH_ID, UNICODE_REPLACEMENT_CHARACTER, false, false)
+	} else {
+		pos = atlas.unsupported()
+	}
+	return pos, !prevTextureSize.Equals(atlas.TextureSize())
+}
+
+func (atlas *Atlas) TextureSize() common.Vector2[int] {
+	return atlas.texture.Size()
 }
 
 // Normalization required when updating texture position to the gpu
@@ -258,6 +245,6 @@ func (atlas *Atlas) BindTexture() {
 	atlas.texture.Bind()
 }
 
-func (atlas *Atlas) Destroy() {
+func (atlas *Atlas) Delete() {
 	atlas.texture.Delete()
 }

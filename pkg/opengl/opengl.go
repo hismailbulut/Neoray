@@ -47,7 +47,7 @@ func New(getProcAddress func(name string) unsafe.Pointer) (*Context, error) {
 	// Create framebuffer object
 	// We dont need to bind framebuffer because we need it only when clearing texture
 	gl.GenFramebuffers(1, &context.framebuffer)
-	checkGLError()
+	glCheckError()
 
 	return context, nil
 }
@@ -65,20 +65,20 @@ func (context *Context) Info() ContextInfo {
 
 func (context *Context) SetViewport(rect common.Rectangle[int]) {
 	gl.Viewport(int32(rect.X), int32(rect.Y), int32(rect.W), int32(rect.H))
-	checkGLError()
+	glCheckError()
 }
 
 func (context *Context) ClearScreen(c common.Color) {
 	gl.ClearColor(c.R, c.G, c.B, c.A)
-	checkGLError()
+	glCheckError()
 	gl.Clear(gl.COLOR_BUFFER_BIT)
-	checkGLError()
+	glCheckError()
 }
 
 func (context *Context) Flush() {
 	// Since we are not using doublebuffering, we don't need to swap buffers, but we need to flush.
 	gl.Flush()
-	checkGLError()
+	glCheckError()
 }
 
 func (context *Context) Destroy() {
@@ -88,7 +88,7 @@ func (context *Context) Destroy() {
 	context.shader.Destroy()
 }
 
-func checkGLError() {
+func glCheckError() {
 	error_code := gl.GetError()
 	if error_code == gl.NO_ERROR {
 		return

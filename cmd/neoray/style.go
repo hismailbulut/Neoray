@@ -5,14 +5,13 @@ import (
 	"strings"
 
 	"github.com/hismailbulut/Neoray/pkg/common"
-	"github.com/hismailbulut/Neoray/pkg/fontkit"
-	"github.com/hismailbulut/Neoray/pkg/logger"
 )
 
 const DEFAULT_FONT_SIZE = 12
 
 // neovim ui options
 type UIOptions struct {
+	editor        *Editor
 	arabicshape   bool
 	ambiwidth     string
 	emoji         bool
@@ -26,8 +25,9 @@ type UIOptions struct {
 	mousehide     bool // will be implemented soon, currently always true
 }
 
-func CreateUIOptions() UIOptions {
+func CreateUIOptions(editor *Editor) UIOptions {
 	return UIOptions{
+		editor:    editor,
 		mousehide: true,
 	}
 }
@@ -38,53 +38,34 @@ func (options *UIOptions) setGuiFont(guifont string) {
 		return
 	}
 	options.guifont = guifont
-	var size float64 = DEFAULT_FONT_SIZE
-	// treat underlines like whitespaces
-	guifont = strings.ReplaceAll(guifont, "_", " ")
-	// parse font options
-	fontOptions := strings.Split(guifont, ":")
-	name := fontOptions[0]
-	for _, opt := range fontOptions[1:] {
-		if len(opt) > 1 && opt[0] == 'h' {
-			// Font size
-			tsize, err := strconv.ParseFloat(opt[1:], 32)
-			if err == nil {
-				size = tsize
+	var fontSize float64 = DEFAULT_FONT_SIZE
+	// comma seperates font names
+	fonts := strings.Split(guifont, ",")
+	fontNames := make([]string, 0)
+	for i := len(fonts) - 1; i >= 0; i-- {
+		font := fonts[i]
+		// treat underlines like whitespaces ?(maybe we shouln't)
+		font = strings.ReplaceAll(font, "_", " ")
+		font = strings.TrimSpace(font)
+		// parse font options
+		fontOptions := strings.Split(font, ":")
+		fontName := fontOptions[0]
+		for _, opt := range fontOptions[1:] {
+			// TODO: there are different font options than 'h'
+			if len(opt) > 1 && opt[0] == 'h' {
+				// Font size
+				_fontSize, err := strconv.ParseFloat(opt[1:], 32)
+				if err == nil {
+					fontSize = _fontSize
+				}
 			}
 		}
-	}
-	if name == "" {
-		// Set nil to disable font
-		Editor.gridManager.SetGridFontKit(1, nil)
-		Editor.contextMenu.SetFontKit(nil)
-	} else {
-		// Create and set font
-		logger.Trace("Loading font", name)
-		kit, err := fontkit.CreateKit(name)
-		if err != nil {
-			Editor.nvim.EchoError("Font %s not found", name)
-		} else {
-			// Log some info
-			if kit.Regular() != nil {
-				logger.Trace("Regular:", kit.Regular().FilePath())
-			}
-			if kit.Bold() != nil {
-				logger.Trace("Bold:", kit.Bold().FilePath())
-			}
-			if kit.Italic() != nil {
-				logger.Trace("Italic:", kit.Italic().FilePath())
-			}
-			if kit.BoldItalic() != nil {
-				logger.Trace("BoldItalic:", kit.BoldItalic().FilePath())
-			}
-			// Set fonts
-			Editor.gridManager.SetGridFontKit(1, kit)
-			Editor.contextMenu.SetFontKit(kit)
+		if strings.TrimSpace(fontName) != "" {
+			fontNames = append(fontNames, fontName)
 		}
 	}
-	// Always set font size to default if user not set
-	Editor.gridManager.SetGridFontSize(1, size)
-	Editor.contextMenu.SetFontSize(size)
+	options.editor.fontManager.SetFontSize(fontSize)
+	options.editor.fontManager.SetFontNames(fontNames)
 }
 
 type HighlightAttribute struct {

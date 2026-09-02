@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
+	"image"
 
 	"github.com/hismailbulut/Neoray/pkg/bench"
 	"github.com/hismailbulut/Neoray/pkg/common"
-	"github.com/hismailbulut/Neoray/pkg/fontkit"
 	"github.com/hismailbulut/Neoray/pkg/logger"
-	"github.com/hismailbulut/Neoray/pkg/window"
 	"github.com/neovim/go-client/nvim"
 )
 
@@ -48,49 +47,14 @@ func (cell Cell) String() string {
 	)
 }
 
-func (cell *Cell) Attribute() HighlightAttribute {
-	if cell.attribID == 0 {
-		// Default attribute
-		background := Editor.gridManager.background
-		background.A = Editor.options.transparency
-		return HighlightAttribute{
-			foreground: Editor.gridManager.foreground,
-			background: background,
-			special:    Editor.gridManager.special,
-		}
-	} else {
-		attrib, ok := Editor.gridManager.attributes[cell.attribID]
-		if !ok {
-			logger.Errorf("Attribute id %d not found!", cell.attribID)
-			return attrib
-		}
-		// Zero alpha means color is not set and we use default color
-		if attrib.foreground.A <= 0 {
-			attrib.foreground = Editor.gridManager.foreground
-		}
-		if attrib.background.A <= 0 {
-			attrib.background = Editor.gridManager.background
-			// Default backgrounds are transparent
-			attrib.background.A = Editor.options.transparency
-		}
-		if attrib.special.A <= 0 {
-			attrib.special = Editor.gridManager.special
-		}
-		// Reverse foreground an background colors if reverse attribute set
-		if attrib.reverse {
-			attrib.foreground, attrib.background = attrib.background, attrib.foreground
-			attrib.reverse = false
-		}
-		return attrib
-	}
-}
-
 type Grid struct {
-	id         int         // id is the same id used in the grids hashmap
-	number     int         // number specifies the create order of the grid, which starts from zero and counts
-	sRow, sCol int         // top left corner of the grid
-	rows, cols int         // rows and columns of the grid
-	window     nvim.Window // grid's window id
+	editor     *Editor
+	id         int             // id is the same id used in the grids hashmap
+	number     int             // number specifies the create order of the grid, which starts from zero and counts
+	sRow, sCol int             // top left corner of the grid
+	rows, cols int             // rows and columns of the grid
+	rect       image.Rectangle // usable area of the grid
+	window     nvim.Window     // grid's window id
 	hidden     bool
 	typ        GridType
 	renderer   *GridRenderer
@@ -111,20 +75,22 @@ func (grid *Grid) String() string {
 	)
 }
 
-func NewGrid(window *window.Window, id, number int, rows, cols int, kit *fontkit.FontKit, fontSize float64, position common.Vector2[int]) (*Grid, error) {
-	grid := new(Grid)
-	grid.id = id
-	grid.number = number
-	grid.rows = rows
-	grid.cols = cols
-	// Create cells
-	grid.cells = make([][]Cell, rows)
+func NewGrid(editor *Editor, id, number int, rows, cols int, fontSize float64, position common.Vector2[int]) (*Grid, error) {
+	grid := &Grid{
+		editor: editor,
+		id:     id,
+		number: number,
+		rows:   rows,
+		cols:   cols,
+		cells:  make([][]Cell, rows),
+	}
+	// Make every row
 	for i := range grid.cells {
 		grid.cells[i] = make([]Cell, cols)
 	}
 	// Create renderer
 	var err error
-	grid.renderer, err = NewGridRenderer(window, rows, cols, kit, fontSize, position)
+	grid.renderer, err = NewGridRenderer(editor, rows, cols, fontSize, position)
 	if err != nil {
 		return nil, err
 	}
@@ -134,16 +100,7 @@ func NewGrid(window *window.Window, id, number int, rows, cols int, kit *fontkit
 
 // Font related
 
-func (grid *Grid) SetFontKit(kit *fontkit.FontKit) {
-	grid.renderer.SetFontKit(kit)
-}
-
 func (grid *Grid) SetFontSize(fontSize, dpi float64) {
-	grid.renderer.SetFontSize(fontSize, dpi)
-}
-
-func (grid *Grid) AddFontSize(v, dpi float64) {
-	fontSize := grid.renderer.FontSize() + v
 	grid.renderer.SetFontSize(fontSize, dpi)
 }
 
@@ -206,7 +163,7 @@ func (grid *Grid) Scroll(top, bot, rows, left, right int) {
 			copyRow(y-rows, y, left, right)
 		}
 	}
-	MarkRender()
+	grid.editor.MarkRender()
 }
 
 // Don't use this function directly. Use gridManager's resize function.
@@ -240,7 +197,7 @@ func (grid *Grid) Resize(rows, cols int) {
 	grid.rows = rows
 	grid.cols = cols
 	// Resizing renderer also clears it's buffer, because of this we must redraw every cell
-	MarkForceDraw()
+	grid.editor.MarkForceDraw()
 }
 
 func (grid *Grid) SetPos(win nvim.Window, sRow, sCol int, rows, cols int, typ GridType, position common.Vector2[int]) {
@@ -249,14 +206,22 @@ func (grid *Grid) SetPos(win nvim.Window, sRow, sCol int, rows, cols int, typ Gr
 	grid.hidden = false
 	grid.sRow = sRow
 	grid.sCol = sCol
-	// NOTE: I don't know if this is required
 	if grid.rows != rows || grid.cols != cols {
-		// grid.Resize(rows, cols)
-		logger.Debug("Setpos has different size:", rows, cols, "current grid size:", grid.rows, grid.cols)
+		grid.Resize(rows, cols)
 	}
+	cellSize := grid.CellSize()
+	grid.rect = image.Rect(
+		grid.sCol*cellSize.Width(),
+		grid.sRow*cellSize.Height(),
+		grid.cols*cellSize.Width(),
+		grid.rows*cellSize.Height(),
+	)
 	grid.renderer.SetPos(position)
-	logger.Debug("Grid moved:", grid)
-	MarkForceDraw()
+	grid.editor.MarkForceDraw()
+}
+
+func (grid *Grid) Rect() image.Rectangle {
+	return grid.rect
 }
 
 func (grid *Grid) Draw(force bool) {
@@ -268,7 +233,8 @@ func (grid *Grid) Draw(force bool) {
 		for col := 0; col < grid.cols; col++ {
 			cell := grid.CellAt(row, col)
 			if cell.needsDraw || force {
-				grid.renderer.DrawCell(row, col, cell.char, cell.Attribute())
+				cellAttribute := grid.editor.gridManager.CellAttribute(cell.attribID)
+				grid.renderer.DrawCell(row, col, cell.char, cellAttribute)
 				grid.cells[row][col].needsDraw = false
 			}
 		}
@@ -288,6 +254,6 @@ func (grid *Grid) Render() {
 }
 
 func (grid *Grid) Destroy() {
-	logger.Debug("Grid destroyed:", grid)
+	logger.Debug("Destroying grid:", grid)
 	grid.renderer.Destroy()
 }
