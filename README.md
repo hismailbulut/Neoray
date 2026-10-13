@@ -130,8 +130,6 @@ set guifont=Consolas:h11
 set guifont=Ubuntu\ Mono:h12
 set guifont=:h13 " Use default font with 13 pt size
 ```
-NOTE:
-- For now Neoray doesn't support TTC fonts.
 
 ### Example init.vim with all options
 ```vim
